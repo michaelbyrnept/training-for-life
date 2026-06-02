@@ -1,57 +1,65 @@
-import { useState, useEffect } from "react";
-
+import { useState } from "react";
+import { useSwipeable } from "react-swipeable";
 export default function Testimonials() {
 
   const testimonials = [
 
-    {
-      quote:
-        "Michael is a fantastic PT. Always positive and upbeat I always leave our sessions in better form than when I arrived. He is technically excellent and knowledgable about all of the machines and free weights but as importantly he is also very knowledgable around human physiology and he can distinguish between what is best for clients based on age and fitness profile. He makes everything clear and easy to understand. I would strongly recommend Michael to anyone looking for a personal trainer.",
-      name: "Paul, Capability Coaching Client",
-    },
+  {
+    quote:
+      "Michael is a fantastic PT. Always positive and upbeat I always leave our sessions in better form than when I arrived. He is technically excellent and knowledgable about all of the machines and free weights but as importantly he is also very knowledgable around human physiology and he can distinguish between what is best for clients based on age and fitness profile. He makes everything clear and easy to understand. I would strongly recommend Michael to anyone looking for a personal trainer.",
+    name: "Paul, Capability Coaching Client",
+  },
 
-    {
-      quote:
-        "Michael believes in me more than I believe in myself at times, and that motivation has made a huge difference.",
-      name: "Ann-Marie, Capability Coaching Client",
-    },
+  {
+    quote:
+      "Michael believes in me more than I believe in myself at times, and that motivation has made a huge difference.",
+    name: "Ann-Marie, Capability Coaching Client",
+  },
 
-    {
-      quote:
-        "Efficiency and fun. Michael is an excellent personal trainer. I feel good during my sessions hence I feel great and strong for my every day activities.",
-      name: "Capability Coaching Client",
-    },
+  {
+    quote:
+      "Efficiency and fun. Michael is an excellent personal trainer. I feel good during my sessions hence I feel great and strong for my every day activities.",
+    name: "Capability Coaching Client",
+  },
 
-    {
-      quote:
-        "I highly recommend my personal trainer! Very professional, motivating, and attentive during every workout. Since I started training, I’ve felt stronger, more confident, and healthier. The workouts are well planned and adapted to my goals. Great experience overall!",
-      name: "Karen, Capability Coaching Client",
-    },
+  {
+    quote:
+      "I highly recommend my personal trainer! Very professional, motivating, and attentive during every workout. Since I started training, I’ve felt stronger, more confident, and healthier. The workouts are well planned and adapted to my goals. Great experience overall!",
+    name: "Karen, Capability Coaching Client",
+  },
 
-    {
-      quote:
-        "I couldn't speak more highly of Michael. Firstly he's a great guy and secondly he's a brilliant personal trainer. He really helped me get me up and running in the gym and he couldn't have been more helpful. Highly recommend him",
-      name: "Barry, Capability Coaching Client",
-    },
+  {
+    quote:
+      "I couldn't speak more highly of Michael. Firstly he's a great guy and secondly he's a brilliant personal trainer. He really helped me get me up and running in the gym and he couldn't have been more helpful. Highly recommend him",
+    name: "Barry, Capability Coaching Client",
+  },
 
-  ];
+];
 
-  const [testimonialIndex, setTestimonialIndex] = useState(0);
+const [testimonialIndex, setTestimonialIndex] = useState(0);
 
-  useEffect(() => {
+const nextTestimonial = () => {
 
-    const interval = setInterval(() => {
+  setTestimonialIndex((prev) =>
+    (prev + 1) % testimonials.length
+  );
 
-      setTestimonialIndex((prev) =>
-        (prev + 1) % testimonials.length
-      );
+};
 
-    }, 20000);
+const prevTestimonial = () => {
 
-    return () => clearInterval(interval);
+  setTestimonialIndex((prev) =>
+    prev === 0
+      ? testimonials.length - 1
+      : prev - 1
+  );
 
-  }, [testimonials.length]);
-
+};
+const handlers = useSwipeable({
+  onSwipedLeft: nextTestimonial,
+  onSwipedRight: prevTestimonial,
+  trackMouse: true,
+});
   return (
 
     <section
@@ -62,7 +70,7 @@ export default function Testimonials() {
       <div className="mx-auto max-w-7xl">
 
         {/* HEADER */}
-        <div className="max-w-3xl">
+        <div className="max-w-2xl">
 
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.25em] text-emerald-700">
             Client Stories
@@ -84,7 +92,15 @@ export default function Testimonials() {
           <div className="rounded-[3rem] border border-zinc-200 bg-white p-10 shadow-xl md:p-16">
 
             <div className="max-w-4xl">
+<div className="mb-6 flex gap-1 text-amber-400">
 
+  {[...Array(5)].map((_, index) => (
+    <span key={index} className="text-3xl">
+      ★
+    </span>
+  ))}
+
+</div>
               <p className="mb-6 text-sm uppercase tracking-[0.25em] text-zinc-500">
                 A stronger body. A more confident life.
               </p>
@@ -133,47 +149,81 @@ export default function Testimonials() {
 
         </div>
 
-        {/* ROTATING TESTIMONIALS */}
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
+        {/* TESTIMONIAL CAROUSEL */}
+<div className="mt-12">
 
-          {[0, 1, 2].map((offset) => {
+ <div
+  {...handlers}
+  className="relative rounded-[2.5rem] border border-zinc-200 bg-white p-8 shadow-xl md:p-12"
+>
+    {/* LEFT ARROW */}
+    <button
+      onClick={prevTestimonial}
+      className="absolute left-4 toptop-20-1/2 hidden -translate-y-1/2 rounded-full border border-zinc-200 bg-white p-3 text-zinc-600 transition hover:bg-zinc-100 md:block"
+    >
+      ←
+    </button>
 
-            const review =
-              testimonials[
-                (testimonialIndex + offset) %
-                testimonials.length
-              ];
+    {/* RIGHT ARROW */}
+    <button
+      onClick={nextTestimonial}
+      className="absolute right-4 toptop-20-1/2 hidden -translate-y-1/2 rounded-full border border-zinc-200 bg-white p-3 text-zinc-600 transition hover:bg-zinc-100 md:block"
+    >
+      →
+    </button>
 
-            return (
+    <div className="mx-auto max-w-3xl text-center">
 
-              <div
-                key={offset}
-                className="flex min-h-[320px] flex-col rounded-[2.5rem] border border-zinc-200 bg-white p-8 shadow-xl transition duration-300 hover:-translate-y-1"
-              >
+      <p className="mb-4 text-6xl font-bold leading-none text-emerald-700">
+        “
+      </p>
+<div className="mb-6 flex justify-center gap-1 text-yellow-400">
 
-                <p className="mb-4 text-6xl font-bold leading-none text-emerald-700">
-                  “
-                </p>
+  {[...Array(5)].map((_, index) => (
+    <span key={index} className="text-2xl">
+      ★
+    </span>
+  ))}
 
-                <p className="text-lg leading-8 text-zinc-700 italic">
-                  {review.quote}
-                </p>
+</div>
+      <p className="text-xl leading-relaxed text-zinc-700 italic md:text-2xl">
+        {testimonials[testimonialIndex].quote}
+      </p>
 
-                <div className="mt-auto pt-10">
+      <div className="mt-10">
 
-                  <p className="font-semibold tracking-tight">
-                    — {review.name}
-                  </p>
+        <p className="font-semibold tracking-tight">
+          — {testimonials[testimonialIndex].name}
+        </p>
 
-                </div>
+      </div>
 
-              </div>
+    </div>
 
-            );
+    {/* DOTS */}
+    <div className="mt-10 flex justify-center gap-3">
 
-          })}
+      {testimonials.map((_, index) => (
 
-        </div>
+        <button
+          key={index}
+          onClick={() => setTestimonialIndex(index)}
+          className={`h-3 w-3 rounded-full transition ${
+            testimonialIndex === index
+              ? "bg-emerald-700"
+              : "bg-zinc-300"
+          }`}
+        />
+
+      ))}
+
+    </div>
+
+  </div>
+
+</div>
+
+     
 
       </div>
 

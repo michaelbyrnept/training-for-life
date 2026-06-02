@@ -1,3 +1,4 @@
+import Logo from "../assets/Logo.svg";
 export default function Navbar() {
   return (
 
@@ -9,13 +10,15 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
 
           {/* LOGO */}
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-200 bg-white shadow-sm">
+<div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
 
-            <p className="text-lg font-semibold tracking-tight text-zinc-900">
-              MB
-            </p>
+  <img
+    src={Logo}
+    alt="Training For Life Logo"
+    className="h-10 w-10 object-contain"
+  />
 
-          </div>
+</div>
 
           {/* BRAND */}
           <div>
