@@ -79,7 +79,7 @@ export default function Hero() {
           <div className="mt-10 flex flex-wrap items-center gap-6 text-sm text-zinc-500">
 
             <p>
-              Patient, empowering coaching designed for long-term strength and confidence.
+              Patient. Clear. Empowering.
             </p>
 
             <div className="h-1 w-1 rounded-full bg-zinc-400"></div>

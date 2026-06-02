@@ -29,7 +29,7 @@ export default function About() {
           </p>
 
           <h2 className="text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
-            Patient. Simple. Empowering.
+            Patient. Clear. Empowering.
           </h2>
 
           <div className="mt-10 space-y-8 text-lg leading-8 text-zinc-700">
