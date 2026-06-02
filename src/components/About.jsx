@@ -40,7 +40,7 @@ export default function About() {
 
             <p>
               My goal is to help successful adults rebuild confidence
-              in what their body can still do — and what it can still become.
+              in what their body can still do, and what it can still become.
             </p>
 
             <p>
@@ -61,7 +61,7 @@ export default function About() {
 
             <p>
               This is not about extreme fitness.
-              It’s about building a body — and a future —
+              It’s about building a body and a future —
               that you feel confident living in.
             </p>
 
