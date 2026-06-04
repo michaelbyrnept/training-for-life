@@ -63,7 +63,7 @@ export default function Navbar() {
             href="#contact"
             className="transition hover:text-emerald-700"
           >
-            About
+            Contact
           </a>
 
         </div>
