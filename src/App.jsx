@@ -1,27 +1,17 @@
-import Navbar from './components/Navbar'
-import Hero from './components/Hero'
-import Philosophy from './components/Philosophy'
-import Problem from './components/Problem'
-import Outcomes from './components/Outcomes'
-import Process from './components/Process'
-import Testimonials from './components/Testimonials'
-import About from './components/About'
-import FinalCTA from './components/FinalCTA'
-import Footer from './components/Footer'
+import { Routes, Route } from 'react-router-dom'
+
+import Home from './pages/Home'
+import CapabilityScore from './pages/CapabilityScore'
+
 export default function App() {
   return (
-    <div className="min-h-screen bg-stone-50 text-zinc-900">
-    <Navbar />
-<Hero />
-<Problem />
-<Philosophy />
-<Outcomes />
-<Process />
-<Testimonials />
-<About />
-<FinalCTA />
-  <Footer />
-     
-    </div>
-  );
+    <Routes>
+      <Route path="/" element={<Home />} />
+
+      <Route
+        path="/capability-score"
+        element={<CapabilityScore />}
+      />
+    </Routes>
+  )
 }
