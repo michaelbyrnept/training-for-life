@@ -383,7 +383,12 @@ if (step >= questions.length && !showResults) {
         />
 
         <button
-          onClick={() => setShowResults(true)}
+          onClick={() => {
+  console.log(firstName);
+  console.log(email);
+
+  setShowResults(true);
+}}
           className="w-full rounded-xl bg-emerald-700 p-4 font-semibold text-white"
         >
           Unlock My Results
