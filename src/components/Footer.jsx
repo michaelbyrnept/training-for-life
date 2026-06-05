@@ -78,7 +78,7 @@ export default function Footer() {
           <div className="mt-6 flex flex-col gap-4 text-zinc-600">
 
             <a
-              href="https://instagram.com/michaelbyrnept"
+              href="https://instagram.com/trainingforlife.ie"
               target="_blank"
               rel="noopener noreferrer"
               className="transition hover:text-emerald-700"
@@ -87,7 +87,7 @@ export default function Footer() {
             </a>
 
             <a
-              href="mailto:ptmichaelbyrne@gmail.com"
+              href="mailto:michael@trainingforlife.ie"
               className="transition hover:text-emerald-700"
             >
               Email
