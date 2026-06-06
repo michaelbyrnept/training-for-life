@@ -1,3 +1,9 @@
+import ResultsHero from "../components/capability/ResultsHero";
+import ResultsProfile from "../components/capability/ResultsProfile";
+import ResultsStrength from "../components/capability/ResultsStrength";
+import ResultsOpportunity from "../components/capability/ResultsOpportunity";
+import ResultsNextStep from "../components/capability/ResultsNextStep";
+import ResultsCTA from "../components/capability/ResultsCTA";
 import { useState } from "react";
 
 export default function CapabilityScore() {
@@ -418,125 +424,47 @@ if (step >= questions.length && !showResults) {
  if (step >= questions.length && showResults) {
   return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center px-6">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl font-bold mb-4">
-            Your Capability Assessment Results
-          </h1>
+     <div className="max-w-7xl mx-auto">
+       <div className="grid gap-6 lg:grid-cols-2">
 
-          <p className="text-xl text-zinc-600">
-            Your Capability Score
-          </p>
+  <ResultsHero
+    totalScore={totalScore}
+    category={category}
+  />
 
-         <p className="mt-4 text-7xl font-bold">
-  {totalScore} <span className="text-3xl text-zinc-400">/ 65</span>
-</p>
+  <ResultsProfile
+    strengthScore={strengthScore}
+    mobilityScore={mobilityScore}
+    energyScore={energyScore}
+    confidenceScore={confidenceScore}
+    consistencyScore={consistencyScore}
+    futureCapabilityScore={futureCapabilityScore}
+  />
 
-          <p className="mt-8 text-sm uppercase tracking-[0.2em] text-zinc-500">
-            Category
-          </p>
-
-          <h2 className="mt-2 text-4xl font-bold">
-            {category}
-          </h2>
-          <div className="mt-12 text-left max-w-md mx-auto">
-<p className="mt-6 text-zinc-600 leading-relaxed max-w-lg mx-auto">
-  {summary}
-</p>
-  <h3 className="mb-6 text-2xl font-bold">
-    Your Capability Profile
-  </h3>
-
-  <div className="space-y-4">
-
-    <div className="flex justify-between">
-      <span>Strength</span>
-      <span>{strengthScore}/10</span>
-    </div>
-
-    <div className="flex justify-between">
-      <span>Mobility</span>
-      <span>{mobilityScore}/10</span>
-    </div>
-
-    <div className="flex justify-between">
-      <span>Energy</span>
-      <span>{energyScore}/10</span>
-    </div>
-
-    <div className="flex justify-between">
-      <span>Confidence</span>
-      <span>{confidenceScore}/10</span>
-    </div>
-
-    <div className="flex justify-between">
-      <span>Consistency</span>
-      <span>{consistencyScore}/10</span>
-    </div>
-
-    <div className="flex justify-between">
-      <span>Future Capability</span>
-      <span>{futureCapabilityScore}/15</span>
-    </div>
-
-  </div>
 </div>
-<div className="mt-16 text-left max-w-md mx-auto">
-  <h3 className="text-2xl font-bold mb-4">
-    Your Strongest Area
-  </h3>
 
-  <p className="text-xl font-semibold mb-4">
-    {highestCategory.name}
-  </p>
+<div className="mt-8 grid gap-6 md:grid-cols-3">
 
-  <p className="text-zinc-600 leading-relaxed">
-    This appears to be one of your strongest areas right now and provides a solid foundation for your long-term health, capability and independence.
-  </p>
+  <ResultsStrength
+    highestCategory={highestCategory}
+  />
+
+  <ResultsOpportunity
+    lowestCategory={lowestCategory}
+    recommendation={recommendation}
+  />
+
+  <ResultsNextStep
+    nextStep={nextStep}
+  />
+
 </div>
-<div className="mt-16 text-left max-w-md mx-auto">
-  <h3 className="text-2xl font-bold mb-4">
-    Your Biggest Opportunity
-  </h3>
-
-  <p className="text-xl font-semibold mb-4">
-    {lowestCategory.name}
-  </p>
-
- <p className="text-zinc-600 leading-relaxed">
-  {recommendation}
-</p>
-</div>
-<div className="mt-16 text-left max-w-md mx-auto">
-  <h3 className="text-2xl font-bold mb-4">
-    Recommended Next Step
-  </h3>
-
-  <p className="text-zinc-600 leading-relaxed">
-    {nextStep}
-  </p>
-</div>
-<div className="mt-16 text-center">
-  <h3 className="text-3xl font-bold mb-4">
-    Ready To Improve Your Capability Score?
-  </h3>
-
-  <p className="text-zinc-600 mb-8">
-    Book a Capability Consultation and receive a
-    personalised roadmap for improving your strength,
-    confidence and long-term capability.
-  </p>
-
-  <a
-    href="/consultation"
-    className="inline-block rounded-2xl bg-emerald-700 px-8 py-4 font-semibold text-white transition hover:bg-emerald-800"
-  >
-    Book A Capability Consultation
-  </a>
+<ResultsCTA />
 </div>
         </div>
-      </div>
     );
   }
+  
 
   const currentQuestion = questions[step];
 
