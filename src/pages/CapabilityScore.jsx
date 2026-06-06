@@ -383,11 +383,28 @@ if (step >= questions.length && !showResults) {
         />
 
         <button
-          onClick={() => {
-  console.log(firstName);
-  console.log(email);
+      onClick={async () => {
+  try {
+    await fetch(
+      "https://app.kit.com/forms/9528217/subscriptions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          "fields[first_name]": firstName,
+          email_address: email,
+        }),
+      }
+    );
 
-  setShowResults(true);
+    setShowResults(true);
+  } catch (error) {
+    console.error(error);
+    alert("Something went wrong.");
+  }
 }}
           className="w-full rounded-xl bg-emerald-700 p-4 font-semibold text-white"
         >

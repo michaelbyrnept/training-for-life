@@ -52,29 +52,38 @@ export default function Hero() {
           </p>
 
           {/* BUTTONS */}
-          <div className="mt-12 flex flex-col gap-4 sm:flex-row">
+<div className="mt-12 flex flex-col gap-4 sm:flex-row">
 
-            <a
-  href="https://tally.so/r/Bz2QAe"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
->
-  <span>
-    Book your Capability Consultation
-  </span>
-</a>
-           <button
-  data-tally-open="PdkpK5"
-  data-tally-width="500"
-  data-tally-overlay="1"
-  className="inline-flex items-center justify-center rounded-2xl bg-emerald-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90 text-center"
->
-  Download The Capability Guide
-</button>
+  <a
+    href="/capability-score"
+    className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
+  >
+    <span>
+      Take The Capability Assessment
+    </span>
+  </a>
 
-          </div>
+  <button
+    data-tally-open="PdkpK5"
+    data-tally-width="500"
+    data-tally-overlay="1"
+    className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
+  >
+    Download The Capability Guide
+  </button>
 
+  <a
+    href="https://tally.so/r/Bz2QAe"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
+  >
+    <span>
+      Book your Capability Consultation
+    </span>
+  </a>
+
+</div>
           {/* TRUST TEXT */}
           <div className="mt-10 flex flex-wrap items-center gap-6 text-sm text-zinc-500">
 
