@@ -12,11 +12,15 @@ export default function ResultsCTA() {
       </p>
 
       <a
-        href="/consultation"
-        className="inline-block rounded-2xl bg-emerald-700 px-8 py-4 font-semibold text-white transition hover:bg-emerald-800"
-      >
-        Book A Capability Consultation
-      </a>
+  href="https://tally.so/r/Bz2QAe"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
+>
+  <span>
+    Book your Capability Consultation
+  </span>
+</a>
     </div>
   );
 }
