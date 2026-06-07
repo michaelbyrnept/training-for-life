@@ -1,10 +1,14 @@
+import { useState } from "react";
+
 import ResultsHero from "../components/capability/ResultsHero";
 import ResultsProfile from "../components/capability/ResultsProfile";
 import ResultsStrength from "../components/capability/ResultsStrength";
 import ResultsOpportunity from "../components/capability/ResultsOpportunity";
 import ResultsNextStep from "../components/capability/ResultsNextStep";
 import ResultsCTA from "../components/capability/ResultsCTA";
-import { useState } from "react";
+
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 export default function CapabilityScore() {
  const questions = [
@@ -392,6 +396,8 @@ if (step >= questions.length && !showResults) {
       onClick={async () => {
   try {
     await fetch(
+      
+      
       "https://app.kit.com/forms/9528217/subscriptions",
       {
         method: "POST",
@@ -403,9 +409,28 @@ if (step >= questions.length && !showResults) {
           "fields[first_name]": firstName,
           email_address: email,
         }),
+        
       }
     );
+await addDoc(
+  collection(db, "assessmentResults"),
+  {
+    firstName,
+    email,
 
+    capabilityScore: totalScore,
+    category,
+
+    strengthScore,
+    mobilityScore,
+    energyScore,
+    confidenceScore,
+    consistencyScore,
+    futureCapabilityScore,
+
+    assessmentDate: new Date().toISOString(),
+  }
+);
     setShowResults(true);
   } catch (error) {
     console.error(error);
