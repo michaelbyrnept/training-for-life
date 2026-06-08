@@ -3,12 +3,20 @@ import { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+} from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { Link, useNavigate } from "react-router-dom";
+
 export default function Dashboard() {
   const navigate = useNavigate();
-
+const [metricName, setMetricName] = useState("Bodyweight");
+const [metricValue, setMetricValue] = useState("");
   const [firstName, setFirstName] = useState("");
   const [capabilityScore, setCapabilityScore] = useState("");
   const [category, setCategory] = useState("");
@@ -22,6 +30,22 @@ const [consistencyScore, setConsistencyScore] = useState("");
 const handleLogout = async () => {
   await signOut(auth);
   navigate("/");
+};
+const handleSaveMetric = async () => {
+  if (!metricValue) return;
+
+  await addDoc(
+    collection(db, "metrics"),
+    {
+      email,
+      metricName,
+      value: Number(metricValue),
+      date: new Date().toISOString(),
+    }
+  );
+
+  setMetricValue("");
+  alert("Metric saved");
 };
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {

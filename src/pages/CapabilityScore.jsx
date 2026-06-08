@@ -9,9 +9,10 @@ import ResultsCTA from "../components/capability/ResultsCTA";
 import { Link } from "react-router-dom";
 
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 
 export default function CapabilityScore() {
+  const user = auth.currentUser;
  const questions = [
   // STRENGTH
 
@@ -395,6 +396,22 @@ if (step >= questions.length && !showResults) {
 
         <button
       onClick={async () => {
+        if (!firstName.trim()) {
+  alert("Please enter your first name");
+  return;
+}
+
+if (!email.trim()) {
+  alert("Please enter your email address");
+  return;
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+if (!emailRegex.test(email)) {
+  alert("Please enter a valid email address");
+  return;
+}
   try {
     await fetch(
       
