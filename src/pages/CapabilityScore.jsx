@@ -6,6 +6,7 @@ import ResultsStrength from "../components/capability/ResultsStrength";
 import ResultsOpportunity from "../components/capability/ResultsOpportunity";
 import ResultsNextStep from "../components/capability/ResultsNextStep";
 import ResultsCTA from "../components/capability/ResultsCTA";
+import { Link } from "react-router-dom";
 
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -485,6 +486,35 @@ await addDoc(
 
 </div>
 <ResultsCTA />
+
+<div className="mt-12 text-center">
+
+  <h3 className="text-2xl font-bold mb-3">
+    Save Your Results
+  </h3>
+
+  <p className="text-zinc-600 mb-6">
+    Create a free account to track your capability score over time.
+  </p>
+
+  <div className="flex flex-col sm:flex-row justify-center gap-4">
+
+   <Link
+  to={`/register?email=${encodeURIComponent(email)}`}
+  className="rounded-xl bg-emerald-700 px-6 py-3 font-medium text-white"
+>
+  Create Free Account
+</Link>
+    <Link
+      to="/login"
+      className="rounded-xl border px-6 py-3 font-medium"
+    >
+      Login
+    </Link>
+
+  </div>
+
+</div>
 </div>
         </div>
     );

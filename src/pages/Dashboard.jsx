@@ -1,15 +1,17 @@
-import { Link } from "react-router-dom";
+
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { signOut } from "firebase/auth";
-
+import { Link, useNavigate } from "react-router-dom";
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   const [firstName, setFirstName] = useState("");
   const [capabilityScore, setCapabilityScore] = useState("");
-const [category, setCategory] = useState("");
+  const [category, setCategory] = useState("");
   const [email, setEmail] = useState("");
   const [assessmentDate, setAssessmentDate] = useState("");
   const [strengthScore, setStrengthScore] = useState("");
@@ -19,6 +21,7 @@ const [confidenceScore, setConfidenceScore] = useState("");
 const [consistencyScore, setConsistencyScore] = useState("");
 const handleLogout = async () => {
   await signOut(auth);
+  navigate("/");
 };
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {

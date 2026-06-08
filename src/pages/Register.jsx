@@ -1,14 +1,20 @@
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
+import { useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { auth, db } from "../firebase";
 
 export default function Register() {
  const [firstName, setFirstName] = useState("");
-const [email, setEmail] = useState("");
-const [password, setPassword] = useState("");
+const [searchParams] = useSearchParams();
 
+const [email, setEmail] = useState(
+  searchParams.get("email") || ""
+);
+const [password, setPassword] = useState("");
+const navigate = useNavigate();
   const handleRegister = async (e) => {
     e.preventDefault();
 
@@ -30,7 +36,7 @@ const [password, setPassword] = useState("");
 
       console.log("User created:", userCredential.user);
 console.log("First Name:", firstName);
-      alert("Account created!");
+     navigate("/dashboard");
     } catch (error) {
       console.error(error);
       alert(error.message);
