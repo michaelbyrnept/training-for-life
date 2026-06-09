@@ -49,7 +49,10 @@ const handleSaveMetric = async () => {
 };
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
+      if (!user) {
+  navigate("/login");
+  return;
+}
 
       setEmail(user.email);
 
@@ -82,7 +85,7 @@ setConsistencyScore(resultData.consistencyScore);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 let scoreColor = "text-red-600";
 let badgeColor = "bg-red-100 text-red-700";
 
