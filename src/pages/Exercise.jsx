@@ -1,7 +1,8 @@
 import PortalNav from "../components/PortalNav";
 import { useParams } from "react-router-dom";
 import { useState } from "react";
-import NumberWheel from "../components/NumberWheel";
+import PickerField from "../components/PickerField";
+import WheelPicker from "../components/WheelPicker";
 
 export default function Exercise() {
   const { exerciseId } = useParams();
@@ -11,6 +12,11 @@ const [set3Complete, setSet3Complete] = useState(false);
 const [reps, setReps] = useState(10);
 const [weight, setWeight] = useState(20);
 const [rir, setRir] = useState(2);
+const repValues = [];
+
+for (let i = 0; i <= 20; i++) {
+  repValues.push(i);
+}
 
   return (
     <div className="min-h-screen bg-stone-50 p-8">
@@ -153,88 +159,28 @@ const [rir, setRir] = useState(2);
 </div>
           <div className="grid md:grid-cols-3 gap-4 mb-6">
 
-            <div>
-  <p className="mb-3 text-sm text-zinc-500">
-    Weight
-  </p>
+  <PickerField
+    label="Weight"
+    value={weight}
+    setValue={setWeight}
+    step={2.5}
+    suffix="kg"
+  />
 
-  <div className="flex items-center justify-between rounded-3xl border bg-white p-4">
+  <WheelPicker
+  label="Reps"
+  value={reps}
+  setValue={setReps}
+  values={repValues}
+/>
 
-    <button
-      onClick={() => setWeight(weight - 2.5)}
-      className="h-14 w-14 rounded-2xl bg-zinc-100 text-3xl"
-    >
-      -
-    </button>
+  <PickerField
+    label="RIR"
+    value={rir}
+    setValue={setRir}
+  />
 
-    <span className="text-4xl font-bold">
-      {weight}kg
-    </span>
 
-    <button
-      onClick={() => setWeight(weight + 2.5)}
-      className="h-14 w-14 rounded-2xl bg-zinc-100 text-3xl"
-    >
-      +
-    </button>
-
-  </div>
-</div>
-
-      <div>
-  <p className="mb-3 text-sm text-zinc-500">
-    Reps
-  </p>
-
-  <div className="flex items-center justify-between rounded-3xl border bg-white p-4">
-
-    <button
-      onClick={() => setReps(Math.max(0, reps - 1))}
-      className="h-14 w-14 rounded-2xl bg-zinc-100 text-3xl"
-    >
-      -
-    </button>
-
-    <span className="text-4xl font-bold">
-      {reps}
-    </span>
-
-    <button
-      onClick={() => setReps(reps + 1)}
-      className="h-14 w-14 rounded-2xl bg-zinc-100 text-3xl"
-    >
-      +
-    </button>
-
-  </div>
-</div>
-           <div>
-  <p className="mb-3 text-sm text-zinc-500">
-    RIR
-  </p>
-
-  <div className="flex items-center justify-between rounded-3xl border bg-white p-4">
-
-    <button
-      onClick={() => setRir(Math.max(0, rir - 1))}
-      className="h-14 w-14 rounded-2xl bg-zinc-100 text-3xl"
-    >
-      -
-    </button>
-
-    <span className="text-4xl font-bold">
-      {rir}
-    </span>
-
-    <button
-      onClick={() => setRir(Math.min(5, rir + 1))}
-      className="h-14 w-14 rounded-2xl bg-zinc-100 text-3xl"
-    >
-      +
-    </button>
-
-  </div>
-</div>
 
           </div>
 
