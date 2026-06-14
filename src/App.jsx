@@ -13,6 +13,18 @@ import Programme from "./pages/Programme";
 import Week from "./pages/Week";
 import Workout from "./pages/Workout";
 import Exercise from "./pages/Exercise";
+import AdminRoute from "./pages/Admin/AdminRoute";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
+import AdminExercises from "./pages/Admin/AdminExercises";
+import AdminWorkouts from "./pages/Admin/AdminWorkouts";
+import AdminProgrammes from "./pages/Admin/AdminProgrammes";
+import Onboarding from "./pages/Onboarding";
+import Profile from "./pages/Profile";
+import NutritionCalculator from "./pages/NutritionCalculator";
+import AdminMetrics from "./pages/Admin/AdminMetrics";
+import AdminClients from "./pages/Admin/AdminClients";
+import AdminClientProfile from "./pages/Admin/AdminClientProfile";
+
 
 export default function App() {
   return (
@@ -71,6 +83,16 @@ export default function App() {
   path="/exercise/:exerciseId"
   element={<Exercise />}
 />
+<Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+<Route path="/admin/exercises" element={<AdminRoute><AdminExercises /></AdminRoute>} />
+<Route path="/admin/workouts" element={<AdminRoute><AdminWorkouts /></AdminRoute>} />
+<Route path="/admin/programmes" element={<AdminRoute><AdminProgrammes /></AdminRoute>} />
+<Route path="/onboarding" element={<Onboarding />} />
+<Route path="/profile" element={<Profile />} />
+<Route path="/nutrition/calculator" element={<NutritionCalculator />} />
+<Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
+<Route path="/admin/clients" element={<AdminRoute><AdminClients /></AdminRoute>} />
+<Route path="/admin/clients/:uid" element={<AdminRoute><AdminClientProfile /></AdminRoute>} />
     </Routes>
     
   )

@@ -434,8 +434,7 @@ await addDoc(
   collection(db, "assessmentResults"),
   {
     firstName,
-    email,
-
+    email: email.toLowerCase(),
     capabilityScore: totalScore,
     category,
 

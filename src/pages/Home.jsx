@@ -8,6 +8,7 @@ import Testimonials from '../components/Testimonials'
 import About from '../components/About'
 import FinalCTA from '../components/FinalCTA'
 import Footer from '../components/Footer'
+import Services from '../components/Services'
 
 export default function Home() {
   return (
@@ -17,6 +18,7 @@ export default function Home() {
       <Problem />
       <Philosophy />
       <Outcomes />
+      <Services />
       <Process />
       <Testimonials />
       <About />
