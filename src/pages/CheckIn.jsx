@@ -5,6 +5,12 @@ import { collection, addDoc, getDocs, query, where, orderBy, doc, updateDoc } fr
 import { useNavigate, Link } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
 
+function getYouTubeId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
+}
+
 const QUESTIONS = [
   { id: "training", label: "How did training feel this week?", type: "slider", min: 1, max: 10, lowLabel: "Terrible", highLabel: "Amazing" },
   { id: "energy", label: "How were your energy levels overall?", type: "slider", min: 1, max: 10, lowLabel: "Exhausted", highLabel: "Energised" },
@@ -158,13 +164,43 @@ export default function CheckIn() {
           })}
 
           {/* Coach reply */}
-          {viewing.coachReply && (
+          {viewing.coachReply && !viewing.coachVideoUrl && (
             <div style={{ backgroundColor: "#2d6a4f", borderRadius: "14px", padding: "16px", marginTop: "16px" }}>
               <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>💬 Reply from Michael</p>
               <p style={{ fontSize: "15px", color: "#fff", margin: "0 0 8px", lineHeight: 1.6 }}>{viewing.coachReply}</p>
               <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", margin: 0 }}>
                 {viewing.replyAt ? new Date(viewing.replyAt).toLocaleDateString("en-IE", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : ""}
               </p>
+            </div>
+          )}
+
+          {viewing.coachVideoUrl && (
+            <div style={{ marginTop: "16px" }}>
+              <div style={{ backgroundColor: "#2d6a4f", borderRadius: "14px", padding: "14px 16px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "22px" }}>🎥</span>
+                <div>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: 0 }}>Video response from Michael</p>
+                  <p style={{ fontSize: "12px", color: "#9fe1cb", margin: "2px 0 0" }}>
+                    {viewing.replyAt ? new Date(viewing.replyAt).toLocaleDateString("en-IE", { day: "numeric", month: "long" }) : ""}
+                  </p>
+                </div>
+              </div>
+              <div style={{ borderRadius: "14px", overflow: "hidden", backgroundColor: "#000", aspectRatio: "16/9" }}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${getYouTubeId(viewing.coachVideoUrl)}?autoplay=1`}
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ display: "block" }}
+                />
+              </div>
+              {viewing.coachReply && (
+                <div style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "12px", padding: "12px 14px", marginTop: "10px" }}>
+                  <p style={{ fontSize: "14px", color: "#fff", margin: 0, lineHeight: 1.6 }}>{viewing.coachReply}</p>
+                </div>
+              )}
             </div>
           )}
         </div>

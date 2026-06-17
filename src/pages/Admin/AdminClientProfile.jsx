@@ -12,6 +12,12 @@ const TIERS = [
   { id: "in-person", label: "In-Person", color: "#2d6a4f", bg: "#eaf5ef" },
 ];
 
+function getYouTubeId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
+}
+
 function tierInfo(tier) { return TIERS.find(t => t.id === tier) || TIERS[0]; }
 function getInitials(name) { if (!name) return "?"; return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2); }
 function timeAgo(dateStr) {
@@ -87,6 +93,7 @@ export default function AdminClientProfile() {
   const [checkIns, setCheckIns] = useState([]);
   const [viewingCheckIn, setViewingCheckIn] = useState(null);
   const [replyText, setReplyText] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
   const [editingNutrition, setEditingNutrition] = useState(false);
@@ -208,16 +215,19 @@ export default function AdminClientProfile() {
   };
 
   const sendReply = async (checkInId) => {
-    if (!replyText.trim()) return;
+    if (!replyText.trim() && !videoUrl.trim()) return;
     setSendingReply(true);
-    await updateDoc(doc(db, "checkIns", checkInId), {
+    const update = {
       coachReply: replyText.trim(),
+      coachVideoUrl: videoUrl.trim() || null,
       replyAt: new Date().toISOString(),
       replyRead: false,
-    });
-    setCheckIns(prev => prev.map(c => c.id === checkInId ? { ...c, coachReply: replyText.trim(), replyAt: new Date().toISOString(), replyRead: false } : c));
-    if (viewingCheckIn?.id === checkInId) setViewingCheckIn(prev => ({ ...prev, coachReply: replyText.trim(), replyAt: new Date().toISOString() }));
+    };
+    await updateDoc(doc(db, "checkIns", checkInId), update);
+    setCheckIns(prev => prev.map(c => c.id === checkInId ? { ...c, ...update } : c));
+    if (viewingCheckIn?.id === checkInId) setViewingCheckIn(prev => ({ ...prev, ...update }));
     setReplyText("");
+    setVideoUrl("");
     setSendingReply(false);
   };
 
@@ -708,27 +718,63 @@ export default function AdminClientProfile() {
                 {/* Reply section */}
                 <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px" }}>
                   <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>
-                    {viewingCheckIn.coachReply ? "Your Reply" : "Send Reply"}
+                    {viewingCheckIn.coachReply || viewingCheckIn.coachVideoUrl ? "Your Reply" : "Send Reply"}
                   </p>
-                  {viewingCheckIn.coachReply ? (
-                    <div>
-                      <p style={{ fontSize: "15px", color: "#111", lineHeight: 1.6, margin: "0 0 8px" }}>{viewingCheckIn.coachReply}</p>
-                      <p style={{ fontSize: "11px", color: "#aaa", margin: "0 0 16px" }}>
+
+                  {/* Show existing video */}
+                  {viewingCheckIn.coachVideoUrl && (
+                    <div style={{ marginBottom: "12px" }}>
+                      <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Video Response</p>
+                      <div style={{ borderRadius: "12px", overflow: "hidden", backgroundColor: "#000", aspectRatio: "16/9", marginBottom: "6px" }}>
+                        <iframe
+                          src={`https://www.youtube.com/embed/${getYouTubeId(viewingCheckIn.coachVideoUrl)}`}
+                          width="100%"
+                          height="100%"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          style={{ display: "block" }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show existing text reply */}
+                  {viewingCheckIn.coachReply && (
+                    <div style={{ marginBottom: "12px" }}>
+                      <p style={{ fontSize: "15px", color: "#111", lineHeight: 1.6, margin: "0 0 4px" }}>{viewingCheckIn.coachReply}</p>
+                      <p style={{ fontSize: "11px", color: "#aaa", margin: 0 }}>
                         Sent {viewingCheckIn.replyAt ? new Date(viewingCheckIn.replyAt).toLocaleDateString("en-IE", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : ""}
                         {viewingCheckIn.replyRead ? " · Read" : " · Unread"}
                       </p>
-                      <p style={{ fontSize: "12px", fontWeight: 700, color: "#aaa", margin: "0 0 8px" }}>Update reply:</p>
                     </div>
-                  ) : null}
+                  )}
+
+                  {(viewingCheckIn.coachReply || viewingCheckIn.coachVideoUrl) && (
+                    <p style={{ fontSize: "12px", fontWeight: 700, color: "#aaa", margin: "0 0 10px" }}>Update reply:</p>
+                  )}
+
+                  {/* Video URL input */}
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>YouTube Video URL (optional)</p>
+                  <input
+                    type="text"
+                    placeholder="https://youtube.com/watch?v=... (Unlisted)"
+                    value={videoUrl}
+                    onChange={e => setVideoUrl(e.target.value)}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1px solid #ddd", fontSize: "13px", color: "#111", boxSizing: "border-box", marginBottom: "10px", outline: "none" }}
+                  />
+
+                  {/* Text reply */}
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Text reply (optional)</p>
                   <textarea
                     value={replyText}
                     onChange={e => setReplyText(e.target.value)}
                     placeholder={`Write your coaching feedback for ${displayName}...`}
-                    rows={5}
+                    rows={4}
                     style={{ width: "100%", padding: "12px 14px", borderRadius: "12px", border: "1.5px solid #2d6a4f", fontSize: "15px", outline: "none", boxSizing: "border-box", resize: "none", lineHeight: 1.6 }}
                   />
-                  <button onClick={() => sendReply(viewingCheckIn.id)} disabled={sendingReply || !replyText.trim()} style={{ width: "100%", backgroundColor: sendingReply || !replyText.trim() ? "#e5e5e5" : "#2d6a4f", color: sendingReply || !replyText.trim() ? "#aaa" : "#fff", border: "none", borderRadius: "12px", padding: "13px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "10px" }}>
-                    {sendingReply ? "Sending..." : viewingCheckIn.coachReply ? "Update Reply" : "Send Reply →"}
+                  <button onClick={() => sendReply(viewingCheckIn.id)} disabled={sendingReply || (!replyText.trim() && !videoUrl.trim())} style={{ width: "100%", backgroundColor: sendingReply || (!replyText.trim() && !videoUrl.trim()) ? "#e5e5e5" : "#2d6a4f", color: sendingReply || (!replyText.trim() && !videoUrl.trim()) ? "#aaa" : "#fff", border: "none", borderRadius: "12px", padding: "13px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "10px" }}>
+                    {sendingReply ? "Sending..." : viewingCheckIn.coachReply || viewingCheckIn.coachVideoUrl ? "Update Reply" : "Send Reply →"}
                   </button>
                 </div>
               </div>
@@ -746,14 +792,17 @@ export default function AdminClientProfile() {
                       const hasReply = !!c.coachReply;
                       const unread = hasReply && !c.replyRead;
                       return (
-                        <div key={c.id} onClick={() => { setViewingCheckIn(c); setReplyText(c.coachReply || ""); }} style={{ backgroundColor: "#fff", borderRadius: "14px", border: `0.5px solid ${unread ? "#86efac" : "#e5e5e5"}`, padding: "14px 16px", cursor: "pointer" }}>
+                        <div key={c.id} onClick={() => { setViewingCheckIn(c); setReplyText(c.coachReply || ""); setVideoUrl(c.coachVideoUrl || ""); }} style={{ backgroundColor: "#fff", borderRadius: "14px", border: `0.5px solid ${unread ? "#86efac" : "#e5e5e5"}`, padding: "14px 16px", cursor: "pointer" }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                             <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>
                               Week of {new Date(c.weekOf + "T12:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
                             </p>
-                            <span style={{ fontSize: "11px", fontWeight: 700, color: hasReply ? "#2d6a4f" : "#b45309", backgroundColor: hasReply ? "#eaf5ef" : "#fffbeb", padding: "3px 8px", borderRadius: "10px" }}>
-                              {hasReply ? (unread ? "Unread" : "Replied") : "Needs reply"}
-                            </span>
+                            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                              {c.coachVideoUrl && <span style={{ fontSize: "11px", fontWeight: 700, color: "#0369a1", backgroundColor: "#e0f2fe", padding: "2px 8px", borderRadius: "10px" }}>🎥 Video</span>}
+                              <span style={{ fontSize: "11px", fontWeight: 700, color: hasReply ? "#2d6a4f" : "#b45309", backgroundColor: hasReply ? "#eaf5ef" : "#fffbeb", padding: "3px 8px", borderRadius: "10px" }}>
+                                {hasReply ? (unread ? "Unread" : "Replied") : "Needs reply"}
+                              </span>
+                            </div>
                           </div>
                           <div style={{ display: "flex", gap: "16px" }}>
                             {["training", "energy", "sleep", "stress"].map(key => (

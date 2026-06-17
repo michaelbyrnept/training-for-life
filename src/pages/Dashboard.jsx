@@ -273,10 +273,16 @@ export default function Dashboard() {
         <div style={{ padding: "0 16px", marginBottom: "12px" }}>
           <Link to="/check-in" style={{ textDecoration: "none", display: "block" }}>
             <div style={{ background: "linear-gradient(135deg, #2d6a4f 0%, #16a34a 100%)", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>💬</div>
+              <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>
+                {unreadReply?.coachVideoUrl ? "🎥" : "💬"}
+              </div>
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>Michael replied to your check-in</p>
-                <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: 0 }}>Tap to read your feedback</p>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>
+                  {unreadReply?.coachVideoUrl ? "Michael sent you a video response" : "Michael replied to your check-in"}
+                </p>
+                <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: 0 }}>
+                  {unreadReply?.coachVideoUrl ? "Tap to watch your personalised feedback" : "Tap to read your feedback"}
+                </p>
               </div>
               <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#4ade80", flexShrink: 0 }} />
             </div>
