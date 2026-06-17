@@ -1,18 +1,15 @@
-export default function ResultsStrength({
-  highestCategory,
-}) {
+export default function ResultsStrength({ highestCategory }) {
   return (
-    <div className="rounded-3xl bg-white p-8 shadow-sm border border-zinc-200">
-      <h3 className="text-2xl font-bold mb-4">
-        🏆 Your Strongest Area
-      </h3>
-
-      <p className="text-xl font-semibold mb-4 text-emerald-700">
-        {highestCategory.name}
-      </p>
-
-      <p className="text-zinc-600 leading-relaxed">
-        This appears to be one of your strongest areas right now and provides a solid foundation for your long-term health, capability and independence.
+    <div style={{ backgroundColor: "#eaf5ef", borderRadius: "24px", padding: "28px", border: "0.5px solid #86efac" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+        <span style={{ fontSize: "28px" }}>🏆</span>
+        <div>
+          <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>Strongest Area</p>
+          <h3 style={{ fontSize: "20px", fontWeight: 700, color: "#1a3a2a", margin: 0 }}>{highestCategory.name}</h3>
+        </div>
+      </div>
+      <p style={{ fontSize: "14px", color: "#2d6a4f", lineHeight: 1.6, margin: 0 }}>
+        This is one of your strongest areas right now and provides a solid foundation for your long-term health, capability and independence.
       </p>
     </div>
   );

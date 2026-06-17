@@ -9,11 +9,31 @@ const sections = [
     highlight: true,
   },
   {
+    to: "/admin/consultations",
+    label: "Consultations",
+    description: "Review incoming consultation applications.",
+    icon: "📝",
+    highlight: true,
+  },
+  {
+    to: "/admin/classes",
+    label: "Class Timetable",
+    description: "Schedule and manage AMRAP class blocks.",
+    icon: "🏋️",
+    highlight: true,
+  },
+  {
+    to: "/admin/outreach",
+    label: "Outreach Tracker",
+    description: "Log and track your daily outreach. 20/day target.",
+    icon: "📣",
+    highlight: true,
+  },
+  {
     to: "/admin/metrics",
     label: "Metrics Builder",
-    description: "Define what clients track. No coding required.",
+    description: "Define what clients track.",
     icon: "📊",
-    highlight: true,
   },
   {
     to: "/admin/exercises",

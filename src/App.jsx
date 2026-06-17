@@ -24,76 +24,45 @@ import NutritionCalculator from "./pages/NutritionCalculator";
 import AdminMetrics from "./pages/Admin/AdminMetrics";
 import AdminClients from "./pages/Admin/AdminClients";
 import AdminClientProfile from "./pages/Admin/AdminClientProfile";
-
+import AdminClasses from "./pages/Admin/AdminClasses";
+import AdminConsultations from "./pages/Admin/AdminConsultations";
+import AdminOutreach from "./pages/Admin/AdminOutreach";
+import ClassLog from "./pages/ClassLog";
+import CheckIn from "./pages/CheckIn";
+import Consultation from "./pages/Consultation";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-
-      <Route
-        path="/capability-score"
-        element={<CapabilityScore />}
-      />
-
-      <Route
-        path="/register"
-        element={<Register />}
-      />
-      <Route
-  path="/login"
-  element={<Login />}
-/>
-<Route
-  path="/dashboard"
-  element={<Dashboard />}
-/>
-<Route
-  path="/training"
-  element={<Training />}
-/>
-
-<Route
-  path="/nutrition"
-  element={<Nutrition />}
-/>
-
-<Route
-  path="/habits"
-  element={<Habits />}
-/>
-
-<Route
-  path="/progress"
-  element={<Progress />}
-/>
-<Route
-  path="/programme/:id"
-  element={<Programme />}
-/>
-<Route
-  path="/programme/:programmeId/:weekId"
-  element={<Week />}
-/>
-<Route
-  path="/programme/:programmeId/:weekId/:workoutId"
-  element={<Workout />}
- />
- <Route
-  path="/exercise/:exerciseId"
-  element={<Exercise />}
-/>
-<Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-<Route path="/admin/exercises" element={<AdminRoute><AdminExercises /></AdminRoute>} />
-<Route path="/admin/workouts" element={<AdminRoute><AdminWorkouts /></AdminRoute>} />
-<Route path="/admin/programmes" element={<AdminRoute><AdminProgrammes /></AdminRoute>} />
-<Route path="/onboarding" element={<Onboarding />} />
-<Route path="/profile" element={<Profile />} />
-<Route path="/nutrition/calculator" element={<NutritionCalculator />} />
-<Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
-<Route path="/admin/clients" element={<AdminRoute><AdminClients /></AdminRoute>} />
-<Route path="/admin/clients/:uid" element={<AdminRoute><AdminClientProfile /></AdminRoute>} />
+      <Route path="/capability-score" element={<CapabilityScore />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/training" element={<Training />} />
+      <Route path="/nutrition" element={<Nutrition />} />
+      <Route path="/habits" element={<Habits />} />
+      <Route path="/progress" element={<Progress />} />
+      <Route path="/programme/:id" element={<Programme />} />
+      <Route path="/programme/:programmeId/:weekId" element={<Week />} />
+      <Route path="/programme/:programmeId/:weekId/:workoutId" element={<Workout />} />
+      <Route path="/exercise/:exerciseId" element={<Exercise />} />
+      <Route path="/class/:classId" element={<ClassLog />} />
+      <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+      <Route path="/admin/exercises" element={<AdminRoute><AdminExercises /></AdminRoute>} />
+      <Route path="/admin/workouts" element={<AdminRoute><AdminWorkouts /></AdminRoute>} />
+      <Route path="/admin/programmes" element={<AdminRoute><AdminProgrammes /></AdminRoute>} />
+      <Route path="/admin/classes" element={<AdminRoute><AdminClasses /></AdminRoute>} />
+      <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/nutrition/calculator" element={<NutritionCalculator />} />
+      <Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
+      <Route path="/admin/clients" element={<AdminRoute><AdminClients /></AdminRoute>} />
+      <Route path="/admin/clients/:uid" element={<AdminRoute><AdminClientProfile /></AdminRoute>} />
+      <Route path="/admin/consultations" element={<AdminRoute><AdminConsultations /></AdminRoute>} />
+      <Route path="/admin/outreach" element={<AdminRoute><AdminOutreach /></AdminRoute>} />
+      <Route path="/check-in" element={<CheckIn />} />
+      <Route path="/consultation" element={<Consultation />} />
     </Routes>
-    
   )
 }

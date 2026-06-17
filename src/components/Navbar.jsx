@@ -86,7 +86,7 @@ const [menuOpen, setMenuOpen] = useState(false);
        <div className="hidden md:block">
 
           <a
-  href="https://tally.so/r/Bz2QAe"
+  href="/consultation"
   target="_blank"
   rel="noopener noreferrer"
   className="inline-block rounded-2xl bg-emerald-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
@@ -137,7 +137,7 @@ const [menuOpen, setMenuOpen] = useState(false);
       </Link>
 
       <a
-        href="https://tally.so/r/Bz2QAe"
+        href="/consultation"
         target="_blank"
         rel="noopener noreferrer"
         className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-center text-white"

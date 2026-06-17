@@ -1,1 +1,10 @@
 @import "tailwindcss";
+@keyframes moveAcross {
+  0% { left: -60px; }
+  100% { left: 110%; }
+}
+
+@keyframes liftPulse {
+  0%, 100% { transform: translate(-50%, -60%) scale(1); }
+  50% { transform: translate(-50%, -70%) scale(1.1); }
+}

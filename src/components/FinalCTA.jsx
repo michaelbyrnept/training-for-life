@@ -20,7 +20,7 @@ export default function FinalCTA() {
         </p>
 
        <a
-  href="https://tally.so/r/Bz2QAe"
+  href="/consultation"
   target="_blank"
   rel="noopener noreferrer"
   className="inline-block rounded-2xl bg-emerald-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"

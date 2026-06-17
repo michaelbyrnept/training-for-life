@@ -1,26 +1,21 @@
 export default function ResultsCTA() {
   return (
-    <div className="rounded-3xl bg-white p-8 shadow-sm border border-zinc-200 text-center">
-      <h3 className="text-3xl font-bold mb-4">
-        Ready To Improve Your Capability Score?
+    <div style={{ backgroundColor: "#fff", borderRadius: "24px", padding: "36px 32px", border: "0.5px solid #e5e5e5", textAlign: "center", marginTop: "24px" }}>
+      <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 12px" }}>Work with Michael</p>
+      <h3 style={{ fontSize: "26px", fontWeight: 700, color: "#111", margin: "0 0 12px", lineHeight: 1.2 }}>
+        Ready to improve your Capability Score?
       </h3>
-
-      <p className="text-zinc-600 mb-8">
-        Book a Capability Consultation and receive a
-        personalised roadmap for improving your strength,
-        confidence and long-term capability.
+      <p style={{ fontSize: "15px", color: "#666", margin: "0 0 28px", lineHeight: 1.6, maxWidth: "480px", marginLeft: "auto", marginRight: "auto" }}>
+        Book a free Capability Consultation and get a personalised roadmap for improving your strength, confidence and long-term independence.
       </p>
-
       <a
-  href="https://tally.so/r/Bz2QAe"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
->
-  <span>
-    Book your Capability Consultation
-  </span>
-</a>
+        href="/consultation"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ display: "inline-block", background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", color: "#fff", fontSize: "16px", fontWeight: 700, padding: "16px 32px", borderRadius: "14px", textDecoration: "none", boxShadow: "0 4px 20px rgba(45,106,79,0.3)" }}
+      >
+        Book your free Capability Consultation
+      </a>
     </div>
   );
 }

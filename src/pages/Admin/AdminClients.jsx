@@ -117,7 +117,7 @@ export default function AdminClients() {
     }
     setCreating(false);
   };
-   const filtered = clients.filter(c => {
+    const filtered = clients.filter(c => {
     const matchesTier = filterTier === "all" || (c.subscription || "free") === filterTier;
     const name = `${c.firstName || ""} ${c.nickname || ""} ${c.email || ""}`.toLowerCase();
     const matchesSearch = search.trim() === "" || name.includes(search.toLowerCase());
