@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { Link } from "react-router-dom";
+import SeedCapabilityButton from "../../components/SeedCapabilityButton";
 
 const LEVELS = ["Beginner", "Beginner-Intermediate", "Intermediate", "All levels"];
 
@@ -49,12 +50,117 @@ export default function AdminProgrammes() {
     setForm({ ...form, weeks: [...form.weeks, { weekNumber: nextNum, title: `Week ${nextNum}`, workouts: [] }] });
   };
 
+  const duplicateWeek = (index) => {
+    const source = form.weeks[index];
+    const newWeeks = [...form.weeks];
+    const duplicate = { ...source, weekNumber: newWeeks.length + 1, title: `Week ${newWeeks.length + 1}` };
+    newWeeks.push(duplicate);
+    setForm({ ...form, weeks: newWeeks });
+  };
+
+  const duplicateWeekMultiple = async (index, count) => {
+  const source = form.weeks[index];
+  const newWeeks = [...form.weeks];
+
+  for (let i = 0; i < count; i++) {
+    const weekNumber = newWeeks.length + 1;
+const duplicateWorkoutInWeek = async (weekIndex, workoutId) => {
+  const snap = await getDoc(doc(db, "workouts", workoutId));
+  if (!snap.exists()) return;
+  const { ...data } = snap.data();
+
+  const newWorkout = {
+    ...data,
+    adminName: `${data.adminName}-COPY`,
+    displayName: `${data.displayName} (Copy)`,
+    createdFromProgramme: editing || "",
+    createdAt: new Date().toISOString(),
+  };
+  const ref = await addDoc(collection(db, "workouts"), newWorkout);
+
+  const newWeeks = [...form.weeks];
+  const week = { ...newWeeks[weekIndex] };
+  const idx = week.workouts.indexOf(workoutId);
+  week.workouts = [...week.workouts.slice(0, idx + 1), ref.id, ...week.workouts.slice(idx + 1)];
+  newWeeks[weekIndex] = week;
+  setForm({ ...form, weeks: newWeeks });
+
+  setWorkoutDetails(prev => ({ ...prev, [ref.id]: newWorkout }));
+};
+    const newWorkoutIds = await Promise.all(
+      (source.workouts || []).map(async (wId, letterIdx) => {
+        const snap = await getDoc(doc(db, "workouts", wId));
+        if (!snap.exists()) return null;
+        const { ...data } = snap.data();
+        const letter = String.fromCharCode(65 + letterIdx); // A, B, C...
+        const prefix = data.adminName?.split("-W")[0] || "WO";
+        const newWorkout = {
+          ...data,
+          adminName: `${prefix}-W${weekNumber}${letter}`,
+          createdFromProgramme: editing || "",
+          createdFromWeek: weekNumber,
+          createdAt: new Date().toISOString(),
+        };
+        const ref = await addDoc(collection(db, "workouts"), newWorkout);
+        return ref.id;
+      })
+    );
+
+    newWeeks.push({
+      ...source,
+      weekNumber,
+      title: `Week ${weekNumber}`,
+      workouts: newWorkoutIds.filter(Boolean),
+    });
+  }
+
+  setForm({ ...form, weeks: newWeeks });
+};
+
   const removeWeek = (index) => {
     if (form.weeks.length === 1) return alert("Programme must have at least one week.");
     const updated = form.weeks.filter((_, i) => i !== index);
     setForm({ ...form, weeks: updated.map((w, i) => ({ ...w, weekNumber: i + 1 })) });
   };
+const insertWeek = async (index, copyFromIndex = null) => {
+  const weekNumber = index + 2; // inserting after `index`
 
+  let newWorkoutIds = [];
+  if (copyFromIndex !== null) {
+    const source = form.weeks[copyFromIndex];
+    newWorkoutIds = (
+      await Promise.all(
+        (source.workouts || []).map(async (wId, letterIdx) => {
+          const snap = await getDoc(doc(db, "workouts", wId));
+          if (!snap.exists()) return null;
+          const { ...data } = snap.data();
+          const letter = String.fromCharCode(65 + letterIdx);
+          const prefix = data.adminName?.split("-W")[0] || "WO";
+          const newWorkout = {
+            ...data,
+            adminName: `${prefix}-W${weekNumber}${letter}`,
+            createdFromProgramme: editing || "",
+            createdFromWeek: weekNumber,
+            createdAt: new Date().toISOString(),
+          };
+          const ref = await addDoc(collection(db, "workouts"), newWorkout);
+          setWorkoutDetails(prev => ({ ...prev, [ref.id]: newWorkout }));
+          return ref.id;
+        })
+      )
+    ).filter(Boolean);
+  }
+
+  const newWeek = {
+    title: `Week ${weekNumber}`,
+    weekNumber,
+    workouts: newWorkoutIds,
+  };
+
+  const updated = [...form.weeks];
+  updated.splice(index + 1, 0, newWeek);
+  setForm({ ...form, weeks: updated.map((w, i) => ({ ...w, weekNumber: i + 1 })) });
+};
   const moveWeek = (index, direction) => {
     const updated = [...form.weeks];
     const swap = index + direction;
@@ -120,12 +226,7 @@ export default function AdminProgrammes() {
   };
 
   const handleDuplicate = async (programme) => {
-    const copy = {
-      ...programme,
-      name: `${programme.name} (Copy)`,
-      published: false,
-      createdAt: new Date().toISOString(),
-    };
+    const copy = { ...programme, name: `${programme.name} (Copy)`, published: false, createdAt: new Date().toISOString() };
     delete copy.id;
     await addDoc(collection(db, "programmes"), copy);
     await fetchAll();
@@ -165,7 +266,6 @@ export default function AdminProgrammes() {
         <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>{programmes.length} programmes</p>
       </div>
 
-      {/* FORM */}
       {showForm && (
         <div style={{ margin: "0 1.25rem 1.5rem", backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "20px" }}>
           <h2 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "16px", color: "#111" }}>
@@ -186,7 +286,6 @@ export default function AdminProgrammes() {
             {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
 
-          {/* Free / Premium */}
           <label style={labelStyle}>Access</label>
           <div style={{ display: "flex", gap: "10px" }}>
             {[
@@ -201,7 +300,6 @@ export default function AdminProgrammes() {
             ))}
           </div>
 
-          {/* Repeating toggle */}
           <label style={labelStyle}>Programme Type</label>
           <div style={{ display: "flex", gap: "10px" }}>
             {[
@@ -228,12 +326,14 @@ export default function AdminProgrammes() {
           <div style={{ marginTop: "20px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
               <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: 0 }}>
-                {form.repeating ? "Week Template" : "Weeks"}
+                {form.repeating ? "Week Template" : `Weeks (${form.weeks.length})`}
               </p>
               {!form.repeating && (
-                <button onClick={addWeek} style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "6px 12px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
-                  + Add Week
-                </button>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={addWeek} style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "6px 12px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
+                    + Add Week
+                  </button>
+                </div>
               )}
             </div>
 
@@ -251,11 +351,28 @@ export default function AdminProgrammes() {
                     value={week.title}
                     onChange={(e) => updateWeekTitle(weekIndex, e.target.value)}
                   />
-                  {!form.repeating && (
-                    <button onClick={() => removeWeek(weekIndex)} style={{ backgroundColor: "#fef2f2", color: "#dc2626", border: "none", borderRadius: "8px", padding: "8px 12px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-                      Remove
-                    </button>
-                  )}
+                 {!form.repeating && (
+  <>
+    <select
+      onChange={(e) => {
+        const val = e.target.value;
+        insertWeek(weekIndex, val === "blank" ? null : Number(val));
+        e.target.value = "insert";
+      }}
+      defaultValue="insert"
+      style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", border: "none", borderRadius: "8px", padding: "8px 6px", cursor: "pointer", flexShrink: 0 }}
+    >
+      <option value="insert" disabled>+ Insert After</option>
+      <option value="blank">Blank week</option>
+      {form.weeks.map((w, i) => (
+        <option key={i} value={i}>Copy of {w.title}</option>
+      ))}
+    </select>
+    <button onClick={() => removeWeek(weekIndex)} style={{ backgroundColor: "#fef2f2", color: "#dc2626", border: "none", borderRadius: "8px", padding: "8px 12px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+      Remove
+    </button>
+  </>
+)}
                 </div>
 
                 {/* Workouts in week */}
@@ -268,10 +385,7 @@ export default function AdminProgrammes() {
                         <div key={workoutId} style={{ backgroundColor: "#fff", borderRadius: "8px", overflow: "hidden" }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <button
-                                onClick={() => toggleWorkoutExpand(expandKey)}
-                                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", color: "#888", padding: 0 }}
-                              >
+                              <button onClick={() => toggleWorkoutExpand(expandKey)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", color: "#888", padding: 0 }}>
                                 {expandedWorkouts[expandKey] ? "▾" : "▸"}
                               </button>
                               <span style={{ fontSize: "13px", fontWeight: 600, color: "#111" }}>{getWorkoutName(workoutId)}</span>
@@ -279,7 +393,10 @@ export default function AdminProgrammes() {
                                 <span style={{ fontSize: "11px", color: "#888" }}>{wDetail.exercises?.length || 0} exercises · {wDetail.estimatedTime}min</span>
                               )}
                             </div>
-                            <button onClick={() => removeWorkoutFromWeek(weekIndex, workoutId)} style={{ backgroundColor: "transparent", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}>✕</button>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+  <button onClick={() => duplicateWorkoutInWeek(weekIndex, workoutId)} style={{ backgroundColor: "transparent", border: "none", color: "#2d6a4f", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>⧉</button>
+  <button onClick={() => removeWorkoutFromWeek(weekIndex, workoutId)} style={{ backgroundColor: "transparent", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "14px", fontWeight: 700 }}>✕</button>
+</div>
                           </div>
                           {expandedWorkouts[expandKey] && wDetail?.exercises?.length > 0 && (
                             <div style={{ padding: "0 12px 10px 32px", display: "flex", flexDirection: "column", gap: "3px" }}>
@@ -302,11 +419,27 @@ export default function AdminProgrammes() {
                     <option key={w.id} value={w.id}>{w.name} ({w.exercises?.length || 0} exercises)</option>
                   ))}
                 </select>
+
+                {/* Duplicate week controls */}
+                {!form.repeating && (
+                  <div style={{ marginTop: 10, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11, color: "#888", fontWeight: 600 }}>Duplicate this week:</span>
+                    {[1, 2, 3, 4, 5, 11].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => duplicateWeekMultiple(weekIndex, n)}
+                        style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        x{n}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          {/* Published */}
+          {/* Published toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "16px", padding: "12px 14px", backgroundColor: "#f7f5f2", borderRadius: "10px", cursor: "pointer" }} onClick={() => setForm({ ...form, published: !form.published })}>
             <div style={{ width: 44, height: 26, borderRadius: 13, background: form.published ? "#2d6a4f" : "#e5e5e5", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
               <div style={{ position: "absolute", width: 20, height: 20, borderRadius: "50%", background: "#fff", top: 3, left: form.published ? 21 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
@@ -328,7 +461,6 @@ export default function AdminProgrammes() {
         </div>
       )}
 
-      {/* Create button */}
       {!showForm && (
         <div style={{ padding: "0 1.25rem 1rem" }}>
           <button onClick={() => { setForm(emptyProgramme); setEditing(null); setShowForm(true); }} style={{ width: "100%", backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "12px", padding: "14px", fontWeight: 700, fontSize: "15px", cursor: "pointer" }}>
@@ -337,7 +469,6 @@ export default function AdminProgrammes() {
         </div>
       )}
 
-      {/* Programme list */}
       {loading ? (
         <p style={{ textAlign: "center", color: "#888", padding: "2rem" }}>Loading...</p>
       ) : programmes.length === 0 ? (
@@ -382,6 +513,9 @@ export default function AdminProgrammes() {
           })}
         </div>
       )}
+      <div style={{ padding: "1rem 1.25rem 0" }}>
+        <SeedCapabilityButton />
+      </div>
     </div>
   );
 }

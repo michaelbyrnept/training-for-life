@@ -84,7 +84,7 @@ export default function Week() {
                 <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "#eaf5ef", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, color: "#2d6a4f", flexShrink: 0 }}>
                   {String.fromCharCode(65 + index)}
                 </div>
-                <h2 style={{ fontSize: "17px", fontWeight: 700, color: "#111", margin: 0 }}>{workout.name}</h2>
+                <h2 style={{ fontSize: "17px", fontWeight: 700, color: "#111", margin: 0 }}>{workout.displayName || workout.name}</h2>
               </div>
 
               {workout.description && (

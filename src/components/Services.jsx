@@ -17,7 +17,7 @@ const services = [
     ],
     cta: "Book a Consultation",
     ctaHref: "/consultation",
-    external: true,
+    external: false,
     dark: true,
   },
   {
@@ -36,7 +36,7 @@ const services = [
     ],
     cta: "Book a Consultation",
     ctaHref: "/consultation",
-    external: true,
+    external: false,
     dark: false,
   },
   {
@@ -53,8 +53,8 @@ const services = [
       "Free to join",
       "Premium programmes available",
     ],
-    cta: "Take the Capability Assessment",
-    ctaHref: "/capability-score",
+    cta: "Get the Free App",
+    ctaHref: "/register",
     external: false,
     dark: false,
   },
@@ -93,80 +93,24 @@ export default function Services() {
                 gap: "0",
               }}
             >
-              {/* Tag */}
-              <div style={{
-                display: "inline-flex",
-                alignItems: "center",
-                backgroundColor: s.dark ? "rgba(255,255,255,0.1)" : "#eaf5ef",
-                color: s.dark ? "#9fe1cb" : s.tagColor,
-                fontSize: "11px",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                padding: "4px 12px",
-                borderRadius: "20px",
-                marginBottom: "20px",
-                width: "fit-content",
-              }}>
+              <div style={{ display: "inline-flex", alignItems: "center", backgroundColor: s.dark ? "rgba(255,255,255,0.1)" : "#eaf5ef", color: s.dark ? "#9fe1cb" : s.tagColor, fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 12px", borderRadius: "20px", marginBottom: "20px", width: "fit-content" }}>
                 {s.tag}
               </div>
 
-              {/* Title */}
-              <h3 style={{
-                fontSize: "22px",
-                fontWeight: 700,
-                color: s.dark ? "#fff" : "#111",
-                margin: "0 0 4px",
-                lineHeight: 1.2,
-              }}>
+              <h3 style={{ fontSize: "22px", fontWeight: 700, color: s.dark ? "#fff" : "#111", margin: "0 0 4px", lineHeight: 1.2 }}>
                 {s.title}
               </h3>
-              <p style={{
-                fontSize: "13px",
-                fontWeight: 600,
-                color: s.dark ? "#9fe1cb" : "#2d6a4f",
-                margin: "0 0 16px",
-              }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: s.dark ? "#9fe1cb" : "#2d6a4f", margin: "0 0 16px" }}>
                 {s.subtitle}
               </p>
-
-              <p style={{
-                fontSize: "15px",
-                color: s.dark ? "#c5e8d8" : "#555",
-                lineHeight: 1.6,
-                margin: "0 0 24px",
-              }}>
+              <p style={{ fontSize: "15px", color: s.dark ? "#c5e8d8" : "#555", lineHeight: 1.6, margin: "0 0 24px" }}>
                 {s.description}
               </p>
 
-              {/* Features */}
-              <ul style={{
-                listStyle: "none",
-                padding: 0,
-                margin: "0 0 32px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-                flex: 1,
-              }}>
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
                 {s.features.map((f) => (
-                  <li key={f} style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    fontSize: "14px",
-                    color: s.dark ? "#c5e8d8" : "#444",
-                  }}>
-                    <span style={{
-                      width: "18px",
-                      height: "18px",
-                      borderRadius: "50%",
-                      backgroundColor: s.dark ? "rgba(255,255,255,0.1)" : "#eaf5ef",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}>
+                  <li key={f} style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", color: s.dark ? "#c5e8d8" : "#444" }}>
+                    <span style={{ width: "18px", height: "18px", borderRadius: "50%", backgroundColor: s.dark ? "rgba(255,255,255,0.1)" : "#eaf5ef", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                         <path d="M2 5l2.5 2.5L8 3" stroke={s.dark ? "#9fe1cb" : "#2d6a4f"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
@@ -176,48 +120,12 @@ export default function Services() {
                 ))}
               </ul>
 
-              {/* CTA */}
-              {s.external ? (
-                <a
-                  href={s.ctaHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: s.dark ? "#fff" : "#2d6a4f",
-                    color: s.dark ? "#1a3a2a" : "#fff",
-                    borderRadius: "12px",
-                    padding: "14px 20px",
-                    fontSize: "14px",
-                    fontWeight: 700,
-                    textDecoration: "none",
-                    textAlign: "center",
-                  }}
-                >
-                  {s.cta}
-                </a>
-              ) : (
-                <Link
-                  to={s.ctaHref}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: "#2d6a4f",
-                    color: "#fff",
-                    borderRadius: "12px",
-                    padding: "14px 20px",
-                    fontSize: "14px",
-                    fontWeight: 700,
-                    textDecoration: "none",
-                    textAlign: "center",
-                  }}
-                >
-                  {s.cta}
-                </Link>
-              )}
+              <Link
+                to={s.ctaHref}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: s.dark ? "#fff" : "#2d6a4f", color: s.dark ? "#1a3a2a" : "#fff", borderRadius: "12px", padding: "14px 20px", fontSize: "14px", fontWeight: 700, textDecoration: "none", textAlign: "center" }}
+              >
+                {s.cta}
+              </Link>
             </div>
           ))}
         </div>

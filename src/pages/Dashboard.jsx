@@ -342,7 +342,7 @@ export default function Dashboard() {
                 <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 3px" }}>
                   {strengthRemaining > 0 ? "Strength" : "Cardio"} · {todayProgramme.name}
                 </p>
-                <p style={{ fontSize: "16px", fontWeight: 700, color: "#111", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{todayWorkout.name}</p>
+                <p style={{ fontSize: "16px", fontWeight: 700, color: "#111", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{todayWorkout.displayName || todayWorkout.name}</p>
                 <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>
                   {todayWorkout.exercises?.length || 0} exercises{todayWorkout.estimatedTime ? ` · ${todayWorkout.estimatedTime} min` : ""}
                 </p>

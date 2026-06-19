@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, doc, getDoc, updateDoc, setDoc, query, where } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import PortalNav from "../components/PortalNav";
 
@@ -27,6 +27,7 @@ function getWeekRange() {
 }
 
 export default function Training() {
+  const navigate = useNavigate();
   const [programmes, setProgrammes] = useState([]);
   const [userData, setUserData] = useState(null);
   const [user, setUser] = useState(null);
@@ -39,7 +40,6 @@ export default function Training() {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) return;
       setUser(u);
-
       const userSnap = await getDoc(doc(db, "users", u.uid));
       const uData = userSnap.exists() ? userSnap.data() : {};
       setUserData(uData);
@@ -70,7 +70,6 @@ export default function Training() {
         })
         .sort((a, b) => new Date(a.date) - new Date(b.date));
       setClasses(classData);
-
       setLoading(false);
     });
     return () => unsub();
@@ -86,7 +85,7 @@ export default function Training() {
 
   const strengthProgramme = programmes.find(p => p.id === userData?.strengthProgrammeId);
   const cardioProgramme = programmes.find(p => p.id === userData?.cardioProgrammeId);
-  const isPremium = userData?.subscription === "premium" || userData?.subscription === "hybrid";
+  const isPremium = userData?.subscription === "premium" || userData?.subscription === "hybrid" || userData?.subscription === "in-person" || user?.uid === "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
   const strengthOptions = programmes.filter(p => p.tag !== "cardio" && p.tag !== "walk");
   const cardioOptions = programmes.filter(p => p.tag === "cardio" || p.tag === "walk" || p.repeating);
 
@@ -183,7 +182,7 @@ export default function Training() {
                   <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flexShrink: 0 }}>{icon}</div>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: 0 }}>{cls.title}</p>
-                    <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>{dateLabel} · {cls.time} · {cls.duration} min{cls.exercises?.length > 0 ? ` · ${cls.exercises.length} exercises` : ""}</p>
+                    <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>{dateLabel} · {cls.time} · {cls.duration} min</p>
                   </div>
                   {isStrength ? (
                     <div style={{ backgroundColor: color, color: "#fff", fontSize: "12px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px" }}>Log →</div>
@@ -203,6 +202,32 @@ export default function Training() {
           </div>
         </div>
       )}
+
+      {/* AI RUNNING PLAN */}
+      <div style={{ padding: "0 16px 16px" }}>
+        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>AI Tools</p>
+        {isPremium ? (
+          <Link to="/ai-running-plan" style={{ textDecoration: "none", display: "block" }}>
+            <div style={{ background: "linear-gradient(135deg, #0d2b1f 0%, #1a3a2a 50%, #2d6a4f 100%)", borderRadius: "16px", padding: "18px 20px", display: "flex", alignItems: "center", gap: "14px" }}>
+              <div style={{ width: 52, height: 52, borderRadius: "14px", backgroundColor: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", flexShrink: 0 }}>🤖</div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: "16px", fontWeight: 700, color: "#fff", margin: "0 0 3px" }}>AI Running Plan</p>
+                <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>Personalised to your goals, fitness and race date</p>
+              </div>
+              <div style={{ backgroundColor: "#4ade80", color: "#1a3a2a", fontSize: "12px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px", flexShrink: 0 }}>Generate →</div>
+            </div>
+          </Link>
+        ) : (
+          <div style={{ background: "linear-gradient(135deg, #0d2b1f 0%, #1a3a2a 50%, #2d6a4f 100%)", borderRadius: "16px", padding: "18px 20px", display: "flex", alignItems: "center", gap: "14px", opacity: 0.7 }}>
+            <div style={{ width: 52, height: 52, borderRadius: "14px", backgroundColor: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", flexShrink: 0 }}>🤖</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "16px", fontWeight: 700, color: "#fff", margin: "0 0 3px" }}>AI Running Plan</p>
+              <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>Personalised to your goals, fitness and race date</p>
+            </div>
+            <div style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "#fff", fontSize: "11px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px", flexShrink: 0 }}>🔒 Premium</div>
+          </div>
+        )}
+      </div>
 
       {/* ALL PROGRAMMES */}
       <div style={{ padding: "0 16px" }}>
@@ -277,7 +302,7 @@ function ComingSoonSection({ user, userData }) {
     try {
       await setDoc(doc(db, "waitlist", user.uid), {
         userId: user.uid,
-        email: userData?.email || "",
+        email: userData?.email || user.email || "",
         name: userData?.nickname || userData?.firstName || "",
         signedUpAt: new Date().toISOString(),
       });
@@ -300,14 +325,13 @@ function ComingSoonSection({ user, userData }) {
           { icon: "🏅", name: "10k Builder", sub: "Step up your distance and pace", tag: "Running" },
           { icon: "🎽", name: "Half Marathon", sub: "16 week structured plan", tag: "Running" },
           { icon: "🏆", name: "Coach to Marathon", sub: "52 weeks. One goal. Cross the finish line.", tag: "Running" },
-          { icon: "🤖", name: "AI Running Plan", sub: "Personalised to your mileage, PRs and goal race", tag: "Premium" },
         ].map((item, i) => (
           <div key={i} style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: "12px", padding: "12px 14px", display: "flex", alignItems: "center", gap: "12px" }}>
             <span style={{ fontSize: "22px", flexShrink: 0 }}>{item.icon}</span>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
                 <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: 0 }}>{item.name}</p>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: item.tag === "Running" ? "#60a5fa" : item.tag === "Premium" ? "#c084fc" : "#9fe1cb", backgroundColor: "rgba(255,255,255,0.08)", padding: "1px 7px", borderRadius: "10px" }}>{item.tag}</span>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: item.tag === "Running" ? "#60a5fa" : "#9fe1cb", backgroundColor: "rgba(255,255,255,0.08)", padding: "1px 7px", borderRadius: "10px" }}>{item.tag}</span>
               </div>
               <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>{item.sub}</p>
             </div>
@@ -330,48 +354,30 @@ function ComingSoonSection({ user, userData }) {
 function getAnimation(tag, name) {
   const t = (tag || "").toLowerCase();
   const n = (name || "").toLowerCase();
-  if (t === "walk" || n.includes("walk")) return { emoji: "🚶", speed: "8s", label: "walking" };
-  if (t === "cardio" || n.includes("run") || n.includes("5k") || n.includes("10k") || n.includes("marathon")) return { emoji: "🏃", speed: "3s", label: "running" };
-  if (t === "spin" || n.includes("cycle") || n.includes("spin")) return { emoji: "🚴", speed: "4s", label: "cycling" };
-  return { emoji: "🏋️", speed: null, label: "lifting" };
+  if (t === "walk" || n.includes("walk")) return { emoji: "🚶", speed: "8s" };
+  if (t === "cardio" || n.includes("run") || n.includes("5k") || n.includes("10k") || n.includes("marathon")) return { emoji: "🏃", speed: "3s" };
+  if (t === "spin" || n.includes("cycle") || n.includes("spin")) return { emoji: "🚴", speed: "4s" };
+  return { emoji: "🏋️", speed: null };
 }
 
 function ProgrammeCard({ programme: p, fallback, isPremiumUser }) {
   const isLocked = p.free === false && !isPremiumUser;
   const anim = getAnimation(p.tag, p.name);
   const isMoving = anim.speed !== null;
-
   return (
     <Link to={isLocked ? "#" : `/programme/${p.id}`} style={{ textDecoration: "none", display: "block", opacity: isLocked ? 0.75 : 1 }}>
       <div style={{ borderRadius: "16px", overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
         <div style={{ height: "160px", background: fallback, backgroundSize: "cover", backgroundPosition: "center", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%)" }} />
-
-          {/* Animated character */}
           {isMoving ? (
-            <div style={{
-              position: "absolute",
-              top: "50%",
-              transform: "translateY(-60%)",
-              fontSize: "40px",
-              animation: `moveAcross ${anim.speed} linear infinite`,
-              whiteSpace: "nowrap",
-            }}>
+            <div style={{ position: "absolute", top: "50%", transform: "translateY(-60%)", fontSize: "40px", animation: `moveAcross ${anim.speed} linear infinite`, whiteSpace: "nowrap" }}>
               {anim.emoji}
             </div>
           ) : (
-            <div style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -60%)",
-              fontSize: "40px",
-              animation: "liftPulse 1.2s ease-in-out infinite",
-            }}>
+            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -60%)", fontSize: "40px", animation: "liftPulse 1.2s ease-in-out infinite" }}>
               {anim.emoji}
             </div>
           )}
-
           <div style={{ position: "absolute", top: "12px", left: "12px", backgroundColor: isLocked ? "#854d0e" : "#2d6a4f", color: "#fff", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 10px", borderRadius: "20px" }}>
             {isLocked ? "🔒 Premium" : p.tag || "Free"}
           </div>

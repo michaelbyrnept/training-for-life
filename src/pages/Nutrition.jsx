@@ -42,7 +42,40 @@ function MacroRing({ value, target, color, label, unit = "g", size = 80 }) {
 function BarcodeScanner({ onResult, onClose }) {
   const [manualBarcode, setManualBarcode] = useState("");
   const [searching, setSearching] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
+  const videoRef = useState(null);
+  const [videoEl, setVideoEl] = useState(null);
+  const readerRef = useState(null);
+
+  const startScan = async () => {
+    setScanning(true);
+    setError("");
+    try {
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const codeReader = new BrowserMultiFormatReader();
+      readerRef[0] = codeReader;
+      const videoElement = document.getElementById("barcode-video");
+      codeReader.decodeFromVideoDevice(null, videoElement, (result, err) => {
+        if (result) {
+          codeReader.reset();
+          setScanning(false);
+          lookupBarcode(result.getText());
+        }
+      });
+    } catch (e) {
+      console.error(e);
+      setError("Camera not available. Please type the barcode below.");
+      setScanning(false);
+    }
+  };
+
+  const stopScan = () => {
+    if (readerRef[0]) {
+      try { readerRef[0].reset(); } catch (e) {}
+    }
+    setScanning(false);
+  };
 
   const lookupBarcode = async (barcode) => {
     setSearching(true);
@@ -66,7 +99,7 @@ function BarcodeScanner({ onResult, onClose }) {
           per100g: true,
         });
       } else {
-        setError("Product not found. Try searching by name or add it manually.");
+        setError("Product not found. Try searching by name instead.");
       }
     } catch (e) {
       setError("Could not connect. Check your internet connection.");
@@ -74,32 +107,39 @@ function BarcodeScanner({ onResult, onClose }) {
     setSearching(false);
   };
 
-  const openNativeScanner = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.capture = "environment";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      setError("Barcode scanning from image coming soon. Please type the barcode number below.");
-    };
-    input.click();
-  };
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
-      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px" }}>
+      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
         <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Scan Barcode</h2>
-        <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>Scan a product barcode or enter it manually</p>
+        <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px" }}>Point your camera at the barcode on the packaging</p>
 
-        <button onClick={openNativeScanner} style={{ width: "100%", backgroundColor: "#1a3a2a", color: "#fff", border: "none", borderRadius: "12px", padding: "16px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-          📷 Open Camera to Scan
-        </button>
+        {/* Camera view */}
+        {scanning ? (
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{ position: "relative", borderRadius: "12px", overflow: "hidden", backgroundColor: "#000", aspectRatio: "4/3" }}>
+              <video id="barcode-video" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                <div style={{ width: "60%", height: "30%", border: "2px solid #4ade80", borderRadius: "8px", boxShadow: "0 0 0 9999px rgba(0,0,0,0.4)" }} />
+              </div>
+            </div>
+            <button onClick={stopScan} style={{ width: "100%", backgroundColor: "#f0f0f0", color: "#555", border: "none", borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "10px" }}>
+              Stop Scanning
+            </button>
+          </div>
+        ) : (
+          <button onClick={startScan} disabled={searching} style={{ width: "100%", backgroundColor: "#1a3a2a", color: "#fff", border: "none", borderRadius: "12px", padding: "16px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+            📷 Scan with Camera
+          </button>
+        )}
 
-        <p style={{ textAlign: "center", fontSize: "12px", color: "#aaa", margin: "0 0 12px" }}>or enter barcode manually</p>
+        {searching && (
+          <div style={{ textAlign: "center", padding: "12px", backgroundColor: "#eaf5ef", borderRadius: "10px", marginBottom: "12px" }}>
+            <p style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 700, margin: 0 }}>Looking up product...</p>
+          </div>
+        )}
 
+        <p style={{ textAlign: "center", fontSize: "12px", color: "#aaa", margin: "0 0 10px" }}>or enter barcode manually</p>
         <div style={{ display: "flex", gap: "8px" }}>
           <input
             type="number"
@@ -115,7 +155,7 @@ function BarcodeScanner({ onResult, onClose }) {
 
         {error && <p style={{ fontSize: "13px", color: "#dc2626", margin: "10px 0 0", backgroundColor: "#fef2f2", padding: "10px 12px", borderRadius: "8px" }}>{error}</p>}
 
-        <button onClick={onClose} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "16px", padding: "6px" }}>
+        <button onClick={() => { stopScan(); onClose(); }} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "16px", padding: "6px" }}>
           Cancel
         </button>
       </div>
