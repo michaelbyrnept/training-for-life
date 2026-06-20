@@ -82,9 +82,11 @@ const [selectedIds, setSelectedIds] = useState([]);
           workoutSwapAlternatives: [],
           topSetMode: false,
         } : {
-          exerciseId: exercise.id,
+         exerciseId: exercise.id,
           name: exercise.name,
           type: "strength",
+          isTimed: false,
+          holdDuration: 30,
           sets: exercise.defaultSets || 3,
           reps: exercise.defaultReps || 10,
           repsMin: exercise.repsMin || 8,
@@ -140,7 +142,33 @@ const [selectedIds, setSelectedIds] = useState([]);
       ),
     });
   };
+const addRepsToAll = (amount) => {
+  setForm({
+    ...form,
+    exercises: form.exercises.map(e => {
+      if (e.type === "cardio") return e;
+      if (e.topSetMode) {
+        return {
+          ...e,
+          topSet: { ...e.topSet, repsMin: (e.topSet?.repsMin || 1) + amount, repsMax: (e.topSet?.repsMax || 3) + amount },
+          backOff: { ...e.backOff, repsMin: (e.backOff?.repsMin || 3) + amount, repsMax: (e.backOff?.repsMax || 5) + amount },
+        };
+      }
+      return { ...e, repsMin: (e.repsMin || 8) + amount, repsMax: (e.repsMax || 12) + amount };
+    }),
+  });
+};
 
+const addSetToAll = () => {
+  setForm({
+    ...form,
+    exercises: form.exercises.map(e => {
+      if (e.type === "cardio") return e;
+      if (e.topSetMode) return { ...e, backOff: { ...e.backOff, sets: (e.backOff?.sets || 3) + 1 } };
+      return { ...e, sets: (e.sets || 3) + 1 };
+    }),
+  });
+};
   const updateTopSetField = (exerciseId, field, value) => {
     setForm({
       ...form,
@@ -174,7 +202,14 @@ const [selectedIds, setSelectedIds] = useState([]);
       }),
     });
   };
-
+const toggleTimedMode = (exerciseId) => {
+  setForm({
+    ...form,
+    exercises: form.exercises.map(e =>
+      e.exerciseId === exerciseId ? { ...e, isTimed: !e.isTimed, holdDuration: e.holdDuration || 30 } : e
+    ),
+  });
+};
   const toggleSuperset = (index) => {
     const updated = [...form.exercises];
     const ex = updated[index];
@@ -408,6 +443,14 @@ const handleBulkDelete = async () => {
             <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
               <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {form.exercises.length} exercise{form.exercises.length !== 1 ? "s" : ""} added
+                <div style={{ display: "flex", gap: "8px" }}>
+  <button onClick={() => addRepsToAll(2)} style={{ flex: 1, backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
+    +2 Reps (all)
+  </button>
+  <button onClick={addSetToAll} style={{ flex: 1, backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
+    +1 Set (all)
+  </button>
+</div>
               </p>
 
               {form.exercises.map((ex, index) => {
@@ -565,25 +608,39 @@ const handleBulkDelete = async () => {
                       ) : (
                         // Standard sets/reps
                         <>
-                          <div style={{ display: "flex", gap: "10px" }}>
-                            <div style={{ flex: 1 }}>
-                              <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Sets</label>
-                              <input type="number" value={ex.sets} onChange={(e) => updateExerciseField(ex.exerciseId, "sets", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Min reps</label>
-                              <input type="number" value={ex.repsMin || 8} onChange={(e) => updateExerciseField(ex.exerciseId, "repsMin", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Max reps</label>
-                              <input type="number" value={ex.repsMax || 12} onChange={(e) => updateExerciseField(ex.exerciseId, "repsMax", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
-                            </div>
-                          </div>
-                          <p style={{ fontSize: "11px", color: "#aaa", margin: "6px 0 0" }}>
-                            Progression triggers at {ex.sets} sets of {ex.repsMax || 12} reps
-                          </p>
-                        </>
-                      )}
+                    
+{ex.isTimed ? (
+  <div style={{ display: "flex", gap: "10px" }}>
+    <div style={{ flex: 1 }}>
+      <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Sets</label>
+      <input type="number" value={ex.sets} onChange={(e) => updateExerciseField(ex.exerciseId, "sets", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
+    </div>
+    <div style={{ flex: 1 }}>
+      <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Hold (seconds)</label>
+      <input type="number" value={ex.holdDuration || 30} onChange={(e) => updateExerciseField(ex.exerciseId, "holdDuration", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
+    </div>
+  </div>
+) : (
+  <div style={{ display: "flex", gap: "10px" }}>
+    <div style={{ flex: 1 }}>
+      <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Sets</label>
+      <input type="number" value={ex.sets} onChange={(e) => updateExerciseField(ex.exerciseId, "sets", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
+    </div>
+    <div style={{ flex: 1 }}>
+      <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Min reps</label>
+      <input type="number" value={ex.repsMin || 8} onChange={(e) => updateExerciseField(ex.exerciseId, "repsMin", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
+    </div>
+    <div style={{ flex: 1 }}>
+      <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Max reps</label>
+      <input type="number" value={ex.repsMax || 12} onChange={(e) => updateExerciseField(ex.exerciseId, "repsMax", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
+    </div>
+  </div>
+)}
+<p style={{ fontSize: "11px", color: "#aaa", margin: "6px 0 0" }}>
+  {ex.isTimed ? `Progression triggers at ${ex.sets} sets of ${ex.holdDuration || 30}s` : `Progression triggers at ${ex.sets} sets of ${ex.repsMax || 12} reps`}
+</p>
+</>
+)}
 
                       {/* Bottom toolbar -- Top Set toggle + Swap options */}
                       {!isCardio && (
@@ -663,7 +720,17 @@ const handleBulkDelete = async () => {
                         </div>
                       )}
                     </div>
-
+<button
+  onClick={() => toggleTimedMode(ex.exerciseId)}
+  style={{
+    backgroundColor: ex.isTimed ? "#0369a1" : "#e0f2fe",
+    color: ex.isTimed ? "#fff" : "#0369a1",
+    border: "none", borderRadius: 20,
+    padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+  }}
+>
+  {ex.isTimed ? "✓ Timed Hold -- tap for reps" : "⏱ Make Timed"}
+</button>
                     {/* Superset toggle -- never on last exercise */}
                     {!isLastExercise && !isSecondInSuperset && (
                       <div style={{ display: "flex", justifyContent: "center", margin: "4px 0" }}>
