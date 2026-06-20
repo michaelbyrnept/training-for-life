@@ -19,9 +19,9 @@ async function subscribeToKit(firstName, email) {
 }
 
 export default function Register() {
- const [firstName, setFirstName] = useState(searchParams.get("first_name") || "");
-  const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState(searchParams.get("email") || "");
+const [searchParams] = useSearchParams();
+const [firstName, setFirstName] = useState(searchParams.get("first_name") || "");
+const [email, setEmail] = useState(searchParams.get("email") || "");
   const [password, setPassword] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [loading, setLoading] = useState(false);
