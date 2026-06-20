@@ -297,7 +297,7 @@ export default function AdminWorkouts() {
   const filteredWorkouts = workouts.filter(w => {
     if (filter === "all") return true;
     return getWorkoutType(w) === filter;
-  }).sort((a, b) => a.name.localeCompare(b.name));
+ }).sort((a, b) => (a.adminName || a.name || "").localeCompare(b.adminName || b.name || ""));
 
   const groupExercises = (exList) => {
     const groups = [];
