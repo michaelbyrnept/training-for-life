@@ -19,6 +19,8 @@ export default function AdminWorkouts() {
   const [replaceSearch, setReplaceSearch] = useState({});
   const [swapPanelOpen, setSwapPanelOpen] = useState({});
   const [swapSearch, setSwapSearch] = useState({});
+  const [selectMode, setSelectMode] = useState(false);
+const [selectedIds, setSelectedIds] = useState([]);
 
  const emptyWorkout = {
   adminName: "",
@@ -195,7 +197,21 @@ export default function AdminWorkouts() {
     [updated[index], updated[swap]] = [updated[swap], updated[index]];
     setForm({ ...form, exercises: updated.map((e, i) => ({ ...e, order: i + 1 })) });
   };
+const [expandedBatches, setExpandedBatches] = useState({});
 
+const getBatchKey = (createdAt) => createdAt ? createdAt.slice(0, 16) : "no-date"; // groups by same minute
+
+const groupIntoBatches = (list) => {
+  const map = {};
+  list.forEach(w => {
+    const key = getBatchKey(w.createdAt);
+    if (!map[key]) map[key] = [];
+    map[key].push(w);
+  });
+  return Object.entries(map)
+    .map(([key, items]) => ({ key, items }))
+    .sort((a, b) => b.key.localeCompare(a.key));
+};
   const addWorkoutSwap = (exerciseId, altExercise) => {
     const ex = form.exercises.find(e => e.exerciseId === exerciseId);
     if (!ex) return;
@@ -281,7 +297,18 @@ export default function AdminWorkouts() {
     await deleteDoc(doc(db, "workouts", id));
     await fetchAll();
   };
+const toggleSelect = (id) => {
+  setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+};
 
+const handleBulkDelete = async () => {
+  if (selectedIds.length === 0) return;
+  if (!window.confirm(`Delete ${selectedIds.length} workouts? This cannot be undone.`)) return;
+  await Promise.all(selectedIds.map(id => deleteDoc(doc(db, "workouts", id))));
+  setSelectedIds([]);
+  setSelectMode(false);
+  await fetchAll();
+};
   const filteredExercises = exercises.filter(
     (e) =>
       e.name.toLowerCase().includes(search.toLowerCase()) &&
@@ -682,6 +709,14 @@ export default function AdminWorkouts() {
               </button>
             ))}
           </div>
+          <button onClick={() => { setSelectMode(!selectMode); setSelectedIds([]); }} style={{ width: "100%", backgroundColor: selectMode ? "#dc2626" : "#f0f0f0", color: selectMode ? "#fff" : "#555", border: "none", borderRadius: "12px", padding: "10px", fontWeight: 700, fontSize: "13px", cursor: "pointer", marginBottom: "10px" }}>
+  {selectMode ? `Cancel (${selectedIds.length} selected)` : "Select Multiple"}
+</button>
+{selectMode && selectedIds.length > 0 && (
+  <button onClick={handleBulkDelete} style={{ width: "100%", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "12px", padding: "12px", fontWeight: 700, fontSize: "14px", cursor: "pointer", marginBottom: "10px" }}>
+    Delete {selectedIds.length} Workouts
+  </button>
+)}
         </div>
       )}
 
@@ -694,8 +729,17 @@ export default function AdminWorkouts() {
           <p style={{ fontSize: "14px", color: "#888", margin: 0 }}>Create your first workout above to get started.</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "0 1.25rem" }}>
-          {filteredWorkouts.map((workout) => {
+       <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "0 1.25rem" }}>
+          {groupIntoBatches(filteredWorkouts).map((batch) => {
+            if (batch.items.length > 1 && !expandedBatches[batch.key]) {
+              return (
+                <div key={batch.key} onClick={() => setExpandedBatches(prev => ({ ...prev, [batch.key]: true }))} style={{ backgroundColor: "#fff", borderRadius: "12px", border: "1px dashed #ccc", padding: "14px 16px", cursor: "pointer" }}>
+                  <p style={{ fontWeight: 700, fontSize: "15px", color: "#111", margin: 0 }}>📁 {batch.items.length} workouts (created together)</p>
+                  <p style={{ fontSize: "12px", color: "#888", margin: "4px 0 0" }}>Tap to view</p>
+                </div>
+              );
+            }
+            return batch.items.map((workout) => {
             const type = getWorkoutType(workout);
             const badge = typeBadge(type);
             const isExpanded = expandedWorkout === workout.id;
@@ -720,6 +764,9 @@ export default function AdminWorkouts() {
                       <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>{workout.exercises?.length || 0} exercises · {workout.estimatedTime} min</p>
                     </div>
                     <div style={{ display: "flex", gap: "6px", flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        {selectMode && (
+  <input type="checkbox" checked={selectedIds.includes(workout.id)} onChange={() => toggleSelect(workout.id)} style={{ width: 20, height: 20, marginRight: 4 }} />
+)}
                       <button onClick={() => setExpandedWorkout(isExpanded ? null : workout.id)} style={smallBtnStyle("#f3f4f6", "#555")}>{isExpanded ? "Hide" : "Preview"}</button>
                       <button onClick={() => handleEdit(workout)} style={smallBtnStyle("#eaf5ef", "#2d6a4f")}>Edit</button>
                       <button onClick={() => handleDuplicate(workout)} style={smallBtnStyle("#f3f4f6", "#555")}>Copy</button>
@@ -779,6 +826,7 @@ export default function AdminWorkouts() {
                 )}
               </div>
             );
+            });
           })}
         </div>
       )}
