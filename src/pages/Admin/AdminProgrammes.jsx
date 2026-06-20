@@ -243,7 +243,8 @@ const insertWeek = async (index, copyFromIndex = null) => {
     await fetchAll();
   };
 
-  const getWorkoutName = (id) => workoutDetails[id]?.name || "Unknown workout";
+  const getWorkoutName = (id) =>
+  workoutDetails[id]?.displayName || workoutDetails[id]?.name || "Unknown workout";
 
   const getProgrammeStats = (programme) => {
     const totalWorkouts = programme.weeks?.reduce((acc, w) => acc + (w.workouts?.length || 0), 0) || 0;
