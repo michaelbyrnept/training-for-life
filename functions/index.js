@@ -1,11 +1,17 @@
 const {setGlobalOptions} = require("firebase-functions");
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
+const {initializeApp} = require("firebase-admin/app");
+const {getFirestore} = require("firebase-admin/firestore");
 
 setGlobalOptions({ maxInstances: 10 });
 
+initializeApp();
+const db = getFirestore();
+
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+const zapierWebhookSecret = defineSecret("ZAPIER_WEBHOOK_SECRET");
 
 exports.generateRunningPlan = onCall(
   { secrets: [anthropicApiKey] },
@@ -46,6 +52,42 @@ exports.generateRunningPlan = onCall(
     } catch (e) {
       logger.error("Anthropic API call failed", e);
       throw new HttpsError("internal", "Failed to generate plan.");
+    }
+  }
+);
+
+exports.zapierLeadWebhook = onRequest(
+  { secrets: [zapierWebhookSecret] },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).send("Method not allowed");
+    }
+
+    const providedSecret = req.get("x-webhook-secret");
+    if (providedSecret !== zapierWebhookSecret.value()) {
+      logger.warn("Rejected lead webhook call with invalid secret");
+      return res.status(401).send("Unauthorized");
+    }
+
+    const { firstName, email, phone } = req.body || {};
+    if (!email || typeof email !== "string") {
+      return res.status(400).send("Email is required");
+    }
+
+    try {
+      await db.collection("leads").add({
+        firstName: firstName || "",
+        email: email.toLowerCase(),
+        phone: phone || "",
+        source: "instant_form",
+        consentStatus: "pending",
+        createdAt: new Date().toISOString(),
+      });
+
+      return res.status(200).send("OK");
+    } catch (e) {
+      logger.error("Failed to write lead from Zapier webhook", e);
+      return res.status(500).send("Internal error");
     }
   }
 );

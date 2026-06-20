@@ -34,6 +34,7 @@ import Consultation from "./pages/Consultation";
 import AIRunningPlan from "./pages/AIRunningPlan";
 import CapabilityProgramme from "./pages/CapabilityProgramme";
 import CapabilitySession   from "./pages/CapabilitySession";
+import PrivacyPolicy from "./PrivacyPolicy";
 
 export default function App() {
   return (
@@ -71,6 +72,7 @@ export default function App() {
       <Route path="/check-in" element={<CheckIn />} />
       <Route path="/consultation" element={<Consultation />} />
       <Route path="/ai-running-plan" element={<AIRunningPlan />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
     </Routes>
   )
