@@ -61,15 +61,18 @@ export default function Training() {
       setWeeklyLogs({ strength: strengthCount, cardio: cardioCount, mobility: 0 });
 
       const classSnap = await getDocs(collection(db, "classes"));
-      const classData = classSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(c => {
-          if (c.published === false || !c.date) return false;
-          const classDate = new Date(c.date + "T12:00:00");
-          return classDate >= monday && classDate <= sunday;
-        })
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-      setClasses(classData);
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const classData = classSnap.docs
+  .map(d => ({ id: d.id, ...d.data() }))
+  .filter(c => {
+    if (c.published === false || !c.date) return false;
+    const classDate = new Date(c.date + "T12:00:00");
+    return classDate >= today;
+  })
+  .sort((a, b) => new Date(a.date) - new Date(b.date))
+  .slice(0, 10);
+setClasses(classData);
       setLoading(false);
     });
     return () => unsub();
@@ -168,7 +171,7 @@ export default function Training() {
       {/* CLASSES */}
       {classes.length > 0 && (
         <div style={{ padding: "0 16px 16px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>This Week's Classes</p>
+          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>Upcoming Classes</p>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {classes.map(cls => {
               const isStrength = cls.type === "strength";
