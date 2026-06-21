@@ -32,6 +32,14 @@ function getAnimalComparison(kg) {
   return closest;
 }
 
+function normalizeDate(val) {
+  if (!val) return null;
+  if (typeof val === "string") return val;
+  if (val.toDate) return val.toDate().toISOString();
+  if (val.seconds) return new Date(val.seconds * 1000).toISOString();
+  return null;
+}
+
 // ----------------------------------------------------------------
 // Rest Timer
 // ----------------------------------------------------------------
@@ -139,7 +147,7 @@ function LogSheet({ field, current, suggestedWeight, onSave, onClose }) {
 // ----------------------------------------------------------------
 // Top Set + Back Off Card
 // ----------------------------------------------------------------
-function TopSetCard({ exercise, logs, openSheet, toggleSetDone, setRestTimer, onSwap }) {
+function TopSetCard({ exercise, logs, openSheet, toggleSetDone, setRestTimer, onSwap, onViewHistory }) {
   const topSetLogs = logs[`${exercise.exerciseId}_top`] || [{ reps: null, weight: null, rpe: null, done: false }];
   const backOffLogs = logs[`${exercise.exerciseId}_backoff`] || Array.from({ length: exercise.backOff?.sets || 3 }, () => ({ reps: null, weight: null, done: false }));
 
@@ -170,6 +178,9 @@ function TopSetCard({ exercise, logs, openSheet, toggleSetDone, setRestTimer, on
           <button onClick={onSwap} style={{ flexShrink: 0, backgroundColor: "#f7f5f2", border: "1px solid #e5e5e5", borderRadius: 10, padding: "6px 10px", fontSize: 11, fontWeight: 700, color: "#555", cursor: "pointer" }}>🔄 Swap</button>
         </div>
         {exercise.description && <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px", lineHeight: 1.5 }}>{exercise.description}</p>}
+        <div onClick={onViewHistory} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#2d6a4f" }}>📊 View full history</span>
+        </div>
       </div>
 
       {exercise.coachingNotes && (
@@ -267,7 +278,7 @@ function TopSetCard({ exercise, logs, openSheet, toggleSetDone, setRestTimer, on
 // ----------------------------------------------------------------
 // Standard Exercise Card
 // ----------------------------------------------------------------
-function ExerciseCard({ exercise, exerciseLogs, isCardio, repRange, openSheet, toggleSetDone, addSet, updateCardioField, toggleCardioDone, onSwap }) {
+function ExerciseCard({ exercise, exerciseLogs, isCardio, repRange, openSheet, toggleSetDone, addSet, updateCardioField, toggleCardioDone, onSwap, onViewHistory }) {
   const embedUrl = (() => {
     const url = exercise.videoUrl || "";
     const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/|m\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/);
@@ -289,6 +300,11 @@ function ExerciseCard({ exercise, exerciseLogs, isCardio, repRange, openSheet, t
           <button onClick={onSwap} style={{ flexShrink: 0, backgroundColor: "#f7f5f2", border: "1px solid #e5e5e5", borderRadius: 10, padding: "6px 10px", fontSize: 11, fontWeight: 700, color: "#555", cursor: "pointer" }}>🔄 Swap</button>
         </div>
         <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px", lineHeight: 1.5 }}>{exercise.description}</p>
+        {!isCardio && (
+          <div onClick={onViewHistory} style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8, cursor: "pointer" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#2d6a4f" }}>📊 View full history</span>
+          </div>
+        )}
         {isCardio ? (
           <span style={{ fontSize: 12, fontWeight: 700, color: "#0369a1", backgroundColor: "#e0f2fe", padding: "3px 10px", borderRadius: 20 }}>
             {exercise.defaultDuration || 30} min · {exercise.defaultEffort || "moderate"}
@@ -505,6 +521,48 @@ function SwapSheet({ exercise, userProfile, userPreferences, onSwap, onClose }) 
 }
 
 // ----------------------------------------------------------------
+// History Sheet
+// ----------------------------------------------------------------
+function HistorySheet({ exerciseName, history, onClose }) {
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+      <div style={{ backgroundColor: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "75vh", overflowY: "auto" }}>
+        <div style={{ width: 36, height: 4, backgroundColor: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: "0 0 4px" }}>{exerciseName}</h2>
+        <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Combined from your solo training and classes</p>
+
+        {history.length === 0 ? (
+          <p style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>No history yet for this exercise.</p>
+        ) : (
+          <>
+            <div style={{ backgroundColor: "#eaf5ef", borderRadius: 12, padding: "12px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Personal Best</p>
+              <p style={{ fontSize: 20, fontWeight: 700, color: "#1a3a2a", margin: 0 }}>{Math.max(...history.map(h => h.weight || 0))}kg</p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {history.map((h, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "0.5px solid #f5f5f5" }}>
+                  <div>
+                    <p style={{ fontSize: 13, color: "#111", fontWeight: 600, margin: 0 }}>
+                      {new Date(h.date).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}
+                    </p>
+                    <p style={{ fontSize: 11, color: "#aaa", margin: "2px 0 0" }}>
+                      {h.source === "class" ? `Class · ${h.classTitle || ""}` : "Solo training"}
+                    </p>
+                  </div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: "#2d6a4f", margin: 0 }}>{h.weight}kg × {h.reps}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        <button onClick={onClose} style={{ width: "100%", background: "#f0f0f0", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, color: "#555", cursor: "pointer", marginTop: 16 }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------
 // Main Workout Component
 // ----------------------------------------------------------------
 export default function Workout() {
@@ -533,6 +591,9 @@ export default function Workout() {
   const [saving, setSaving] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [userPreferences, setUserPreferences] = useState({});
+  const [allWorkoutLogs, setAllWorkoutLogs] = useState([]);
+  const [allClassLogs, setAllClassLogs] = useState([]);
+  const [historyExercise, setHistoryExercise] = useState(null); // { id, name } or null
 
   const exerciseGroups = (() => {
     const groups = [];
@@ -560,6 +621,18 @@ export default function Workout() {
       if (u) {
         const snap = await getDoc(doc(db, "users", u.uid));
         if (snap.exists()) { const d = snap.data(); setUserProfile(d); setUserPreferences(d.exercisePreferences || {}); }
+
+        const wlSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", u.uid)));
+        const wlData = wlSnap.docs
+          .map(dd => ({ id: dd.id, ...dd.data(), completedAt: normalizeDate(dd.data().completedAt) }))
+          .filter(l => l.completedAt);
+        setAllWorkoutLogs(wlData);
+
+        const clSnap = await getDocs(query(collection(db, "classLogs"), where("userId", "==", u.uid)));
+        const clData = clSnap.docs
+          .map(dd => ({ id: dd.id, ...dd.data(), completedAt: normalizeDate(dd.data().completedAt) }))
+          .filter(l => l.completedAt);
+        setAllClassLogs(clData);
       }
     }) : null;
     return () => { if (unsub) unsub(); };
@@ -610,6 +683,32 @@ export default function Workout() {
     };
     fetchData();
   }, [workoutId, userPreferences]);
+
+  const buildHistory = (exerciseId) => {
+    const entries = [];
+
+    allWorkoutLogs.forEach(log => {
+      const sets = [
+        ...(Array.isArray(log.logs?.[exerciseId]) ? log.logs[exerciseId] : []),
+        ...(Array.isArray(log.logs?.[`${exerciseId}_top`]) ? log.logs[`${exerciseId}_top`] : []),
+        ...(Array.isArray(log.logs?.[`${exerciseId}_backoff`]) ? log.logs[`${exerciseId}_backoff`] : []),
+      ];
+      const doneSets = sets.filter(s => s.done && s.weight && s.reps);
+      if (doneSets.length > 0) {
+        const best = doneSets.reduce((a, b) => (parseFloat(b.weight) > parseFloat(a.weight) ? b : a));
+        entries.push({ date: log.completedAt, weight: parseFloat(best.weight), reps: best.reps, source: "solo" });
+      }
+    });
+
+    allClassLogs.forEach(log => {
+      const l = log.logs?.[exerciseId];
+      if (l?.weight && l?.reps) {
+        entries.push({ date: log.completedAt, weight: parseFloat(l.weight) || l.weight, reps: l.reps, source: "class", classTitle: log.classTitle });
+      }
+    });
+
+    return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+  };
 
   // openSheet supports both standard exerciseId keys and top/backoff keys
   const openSheet = (logKey, setIndex, field, suggestedWeight) => setSheet({ logKey, setIndex, field, suggestedWeight });
@@ -734,7 +833,7 @@ export default function Workout() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "80px", position: "relative" }}>
-      {!sheet && !progressionModal && !swapSheet && !restTimer && <PortalNav />}
+      {!sheet && !progressionModal && !swapSheet && !restTimer && !historyExercise && <PortalNav />}
 
       <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Link to={`/programme/${programmeId}/${weekId}`} style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 700, textDecoration: "none" }}>← Back</Link>
@@ -768,9 +867,9 @@ export default function Workout() {
                         <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed" }}>Exercise {ei === 0 ? "A" : "B"}</span>
                       </div>
                       {exercise.topSetMode ? (
-                        <TopSetCard exercise={exercise} logs={logs} openSheet={openSheet} toggleSetDone={toggleSetDone} setRestTimer={setRestTimer} onSwap={() => setSwapSheet(exercise)} />
+                        <TopSetCard exercise={exercise} logs={logs} openSheet={openSheet} toggleSetDone={toggleSetDone} setRestTimer={setRestTimer} onSwap={() => setSwapSheet(exercise)} onViewHistory={() => setHistoryExercise({ id: exercise.exerciseId, name: exercise.name })} />
                       ) : (
-                        <ExerciseCard exercise={exercise} exerciseLogs={exerciseLogs} isCardio={isCardio} repRange={repRange} openSheet={(id, i, f) => openSheet(id, i, f)} toggleSetDone={toggleSetDone} addSet={addSet} updateCardioField={updateCardioField} toggleCardioDone={toggleCardioDone} onSwap={() => setSwapSheet(exercise)} />
+                        <ExerciseCard exercise={exercise} exerciseLogs={exerciseLogs} isCardio={isCardio} repRange={repRange} openSheet={(id, i, f) => openSheet(id, i, f)} toggleSetDone={toggleSetDone} addSet={addSet} updateCardioField={updateCardioField} toggleCardioDone={toggleCardioDone} onSwap={() => setSwapSheet(exercise)} onViewHistory={() => setHistoryExercise({ id: exercise.exerciseId, name: exercise.name })} />
                       )}
                     </div>
                   );
@@ -787,9 +886,9 @@ export default function Workout() {
               const exerciseLogs = logs[exercise.exerciseId] || (isCardio ? {} : []);
               const repRange = `${exercise.repsMin || 8}-${exercise.repsMax || exercise.reps || 12}`;
               if (exercise.topSetMode) {
-                return <TopSetCard exercise={exercise} logs={logs} openSheet={openSheet} toggleSetDone={toggleSetDone} setRestTimer={setRestTimer} onSwap={() => setSwapSheet(exercise)} />;
+                return <TopSetCard exercise={exercise} logs={logs} openSheet={openSheet} toggleSetDone={toggleSetDone} setRestTimer={setRestTimer} onSwap={() => setSwapSheet(exercise)} onViewHistory={() => setHistoryExercise({ id: exercise.exerciseId, name: exercise.name })} />;
               }
-              return <ExerciseCard exercise={exercise} exerciseLogs={exerciseLogs} isCardio={isCardio} repRange={repRange} openSheet={(id, i, f) => openSheet(id, i, f)} toggleSetDone={toggleSetDone} addSet={addSet} updateCardioField={updateCardioField} toggleCardioDone={toggleCardioDone} onSwap={() => setSwapSheet(exercise)} />;
+              return <ExerciseCard exercise={exercise} exerciseLogs={exerciseLogs} isCardio={isCardio} repRange={repRange} openSheet={(id, i, f) => openSheet(id, i, f)} toggleSetDone={toggleSetDone} addSet={addSet} updateCardioField={updateCardioField} toggleCardioDone={toggleCardioDone} onSwap={() => setSwapSheet(exercise)} onViewHistory={() => setHistoryExercise({ id: exercise.exerciseId, name: exercise.name })} />;
             })()
           )}
         </div>
@@ -810,6 +909,7 @@ export default function Workout() {
       {swapSheet && <SwapSheet exercise={swapSheet} userProfile={userProfile} userPreferences={userPreferences} onSwap={(newEx) => handleSwap(swapSheet, newEx)} onClose={() => setSwapSheet(null)} />}
       {restTimer && <RestTimer defaultSeconds={restTimer.defaultSeconds} onDismiss={() => setRestTimer(null)} />}
       {progressionModal && <ProgressionModal exerciseName={progressionModal.exerciseName} currentWeight={progressionModal.currentWeight} repsMax={progressionModal.repsMax} targetSets={progressionModal.targetSets} nextWeight={nextWeight} setNextWeight={setNextWeight} onClose={() => setProgressionModal(null)} />}
+      {historyExercise && <HistorySheet exerciseName={historyExercise.name} history={buildHistory(historyExercise.id)} onClose={() => setHistoryExercise(null)} />}
     </div>
   );
 }

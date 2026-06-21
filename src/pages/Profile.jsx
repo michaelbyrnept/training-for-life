@@ -1,9 +1,50 @@
 import { useState, useEffect, useRef } from "react";
-import { auth, db } from "../firebase";
+import { auth, db, storage } from "../firebase";
 import { onAuthStateChanged, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
-import { doc, getDoc, updateDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, addDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useNavigate, Link } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
+
+function normalizeDate(val) {
+  if (!val) return null;
+  if (typeof val === "string") return val;
+  if (val.toDate) return val.toDate().toISOString();
+  if (val.seconds) return new Date(val.seconds * 1000).toISOString();
+  return null;
+}
+
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  date.setDate(date.getDate() + (day === 0 ? -6 : 1 - day));
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function computeWeeklyAchievements(logs) {
+  const COMPLETE_THRESHOLD = 4;
+  const PERFECT_THRESHOLD = 6;
+  const weeks = {};
+  logs.forEach(l => {
+    if (!l.completedAt) return;
+    const key = getMonday(l.completedAt).toISOString().split("T")[0];
+    weeks[key] = (weeks[key] || 0) + 1;
+  });
+  const currentWeekKey = getMonday(new Date()).toISOString().split("T")[0];
+  return Object.keys(weeks)
+    .filter(key => key !== currentWeekKey)
+    .map(key => ({ key, count: weeks[key] }))
+    .filter(({ count }) => count >= COMPLETE_THRESHOLD)
+    .sort((a, b) => new Date(b.key) - new Date(a.key))
+    .slice(0, 8)
+    .map(({ key, count }) => {
+      const monday = new Date(key);
+      const weekLabel = `${monday.toLocaleDateString("en-IE", { month: "short" })} W${Math.ceil(monday.getDate() / 7)}`;
+      const isPerfect = count >= PERFECT_THRESHOLD;
+      return { icon: isPerfect ? "⭐" : "✅", label: `${isPerfect ? "Perfect Week" : "Week"}\n${weekLabel}`, type: isPerfect ? "perfect" : "complete" };
+    });
+}
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -18,6 +59,11 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [workoutCount, setWorkoutCount] = useState(0);
   const [assessmentData, setAssessmentData] = useState(null);
+  const [photos, setPhotos] = useState({ front: [], side: [], back: [] });
+  const [uploading, setUploading] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const [achievements, setAchievements] = useState([]);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -32,11 +78,24 @@ export default function Profile() {
         setUnits(data.units === "imperial" ? "lbs" : "kg");
       }
 
-      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", u.uid)));
-      setWorkoutCount(logsSnap.size);
-
       const resultsSnap = await getDocs(query(collection(db, "assessmentResults"), where("email", "==", u.email)));
       if (!resultsSnap.empty) setAssessmentData(resultsSnap.docs[0].data());
+
+      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", u.uid)));
+      const logsData = logsSnap.docs
+        .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
+        .filter(l => l.completedAt);
+      setWorkoutCount(logsData.length);
+      setAchievements(computeWeeklyAchievements(logsData));
+
+      const photosSnap = await getDocs(query(collection(db, "progressPhotos"), where("userId", "==", u.uid)));
+      const grouped = { front: [], side: [], back: [] };
+      photosSnap.docs.forEach(d => {
+        const p = { id: d.id, ...d.data() };
+        if (grouped[p.angle]) grouped[p.angle].push(p);
+      });
+      Object.keys(grouped).forEach(angle => grouped[angle].sort((a, b) => new Date(b.date) - new Date(a.date)));
+      setPhotos(grouped);
 
       setLoading(false);
     });
@@ -57,19 +116,32 @@ export default function Profile() {
     setSaving(false);
   };
 
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !user) return;
+    setUploading(true);
+    try {
+      const date = new Date().toISOString().split("T")[0];
+      const storageRef = ref(storage, `progressPhotos/${user.uid}/${Date.now()}_${activePhotoAngle}.jpg`);
+      await uploadBytes(storageRef, file);
+      const photoUrl = await getDownloadURL(storageRef);
+      const docRef = await addDoc(collection(db, "progressPhotos"), {
+        userId: user.uid, angle: activePhotoAngle, photoUrl, date, uploadedAt: new Date().toISOString(),
+      });
+      setPhotos(prev => ({ ...prev, [activePhotoAngle]: [{ id: docRef.id, photoUrl, date }, ...prev[activePhotoAngle]] }));
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed. Please try again.");
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
+
   const memberSince = user?.metadata?.creationTime
     ? new Date(user.metadata.creationTime).toLocaleDateString("en-IE", { month: "long", year: "numeric" })
     : "Recently";
 
   const displayName = userData?.nickname || userData?.firstName || "Member";
-
-  const achievements = [
-    { icon: "⭐", label: "Perfect Week\nJun W2", type: "perfect" },
-    { icon: "✅", label: "Week\nJun W1", type: "complete" },
-    { icon: "⭐", label: "Perfect Week\nMay W4", type: "perfect" },
-    { icon: "✅", label: "Week\nMay W3", type: "complete" },
-    { icon: "✅", label: "Week\nMay W2", type: "complete" },
-  ];
 
   const achStyles = {
     perfect: { background: "linear-gradient(135deg, #fef9c3, #fde68a)", border: "2px solid #f59e0b" },
@@ -165,6 +237,9 @@ export default function Profile() {
         </p>
       </div>
       <div style={{ display: "flex", gap: "10px", overflowX: "auto", padding: "0 16px", scrollbarWidth: "none" }}>
+        {achievements.length === 0 && (
+          <p style={{ fontSize: "12px", color: "#aaa", padding: "8px 0" }}>Complete your first week to start earning badges here.</p>
+        )}
         {achievements.map((a, i) => (
           <div key={i} style={{ flexShrink: 0, width: 72, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
             <div style={{
@@ -207,45 +282,57 @@ export default function Profile() {
         </div>
       </div>
 
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
+
       <div style={{ display: "flex", gap: "10px", overflowX: "auto", padding: "0 16px", scrollbarWidth: "none" }}>
-        {/* Add new photo */}
         <div style={{ flexShrink: 0 }}>
-          <p style={{ fontSize: "10px", fontWeight: 700, color: "#aaa", textAlign: "center", marginBottom: "6px" }}>Today</p>
-          <div style={{
-            width: 110, height: 140, borderRadius: "12px",
-            background: "#f0f0f0", border: "1.5px dashed #ccc",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            gap: "6px", cursor: "pointer",
-          }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="#ccc" strokeWidth="1.5"/>
-              <path d="M12 8v8M8 12h8" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            <span style={{ fontSize: "10px", color: "#aaa", fontWeight: 600 }}>Add photo</span>
+          <p style={{ fontSize: "10px", fontWeight: 700, color: "#aaa", textAlign: "center", marginBottom: "6px" }}>Add new</p>
+          <div
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            style={{
+              width: 110, height: 140, borderRadius: "12px",
+              background: "#f0f0f0", border: "1.5px dashed #ccc",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: "6px", cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1,
+            }}
+          >
+            {uploading ? (
+              <span style={{ fontSize: "10px", color: "#aaa", fontWeight: 600 }}>Uploading...</span>
+            ) : (
+              <>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="#ccc" strokeWidth="1.5"/>
+                  <path d="M12 8v8M8 12h8" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize: "10px", color: "#aaa", fontWeight: 600 }}>Add photo</span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Placeholder photo entries */}
-        {["1 Jun", "1 May", "1 Apr"].map((date, i) => (
-          <div key={i} style={{ flexShrink: 0 }}>
-            <p style={{ fontSize: "10px", fontWeight: 700, color: "#aaa", textAlign: "center", marginBottom: "6px" }}>{date}</p>
-            <div style={{
-              width: 110, height: 140, borderRadius: "12px",
-              background: `linear-gradient(135deg, ${i === 0 ? "#2d6a4f, #1a3a2a" : i === 1 ? "#1a4a35, #2d6a4f" : "#064e3b, #065f46"})`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer",
-            }}>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>Photo</span>
-            </div>
+        {photos[activePhotoAngle].length === 0 ? (
+          <div style={{ flexShrink: 0, width: 110, height: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <p style={{ fontSize: "11px", color: "#bbb", textAlign: "center", padding: "0 8px" }}>No {activePhotoAngle} photos yet</p>
           </div>
-        ))}
+        ) : (
+          photos[activePhotoAngle].map((p) => (
+            <div key={p.id} style={{ flexShrink: 0 }}>
+              <p style={{ fontSize: "10px", fontWeight: 700, color: "#aaa", textAlign: "center", marginBottom: "6px" }}>
+                {new Date(p.date).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
+              </p>
+              <div style={{ width: 110, height: 140, borderRadius: "12px", overflow: "hidden", backgroundColor: "#000" }}>
+                <img src={p.photoUrl} alt={`${p.angle} progress photo`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      <button style={{
+      <button onClick={() => setShowCompare(true)} disabled={photos[activePhotoAngle].length < 2} style={{
         margin: "10px 16px 0", background: "#2d6a4f", color: "#fff",
         border: "none", borderRadius: "12px", padding: "12px",
         fontSize: "14px", fontWeight: 700, cursor: "pointer", width: "calc(100% - 32px)",
-        display: "block",
+        display: "block", opacity: photos[activePhotoAngle].length < 2 ? 0.5 : 1,
       }}>
         Compare Two Photos →
       </button>
@@ -386,6 +473,74 @@ export default function Profile() {
         </div>
       </div>
 
+      {showCompare && (
+        <ComparePhotosModal photos={photos[activePhotoAngle]} angle={activePhotoAngle} onClose={() => setShowCompare(false)} />
+      )}
+
+    </div>
+  );
+}
+
+function ComparePhotosModal({ photos, angle, onClose }) {
+  const [selected, setSelected] = useState([]);
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  };
+  const photoA = photos.find(p => p.id === selected[0]);
+  const photoB = photos.find(p => p.id === selected[1]);
+
+  return (
+    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: "0 0 4px", textTransform: "capitalize" }}>Compare {angle} Photos</h2>
+        <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Select two photos to compare side by side.</p>
+
+        {photoA && photoB ? (
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            {[photoA, photoB].map(p => (
+              <div key={p.id} style={{ flex: 1 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#888", textAlign: "center", marginBottom: 6 }}>
+                  {new Date(p.date).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}
+                </p>
+                <div style={{ borderRadius: 12, overflow: "hidden", backgroundColor: "#000", aspectRatio: "3/4" }}>
+                  <img src={p.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>
+            {photos.map(p => {
+              const isSelected = selected.includes(p.id);
+              return (
+                <div key={p.id} onClick={() => toggleSelect(p.id)} style={{ position: "relative", borderRadius: 10, overflow: "hidden", backgroundColor: "#000", aspectRatio: "3/4", cursor: "pointer", border: isSelected ? "3px solid #2d6a4f" : "3px solid transparent" }}>
+                  <img src={p.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <p style={{ position: "absolute", bottom: 4, left: 0, right: 0, textAlign: "center", fontSize: 10, color: "#fff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
+                    {new Date(p.date).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
+                  </p>
+                  {isSelected && (
+                    <div style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", backgroundColor: "#2d6a4f", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5l3 3 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {photoA && photoB && (
+          <button onClick={() => setSelected([])} style={{ width: "100%", background: "#f7f5f2", border: "none", borderRadius: 12, padding: 12, fontSize: 13, fontWeight: 700, color: "#2d6a4f", cursor: "pointer", marginBottom: 10 }}>
+            Choose different photos
+          </button>
+        )}
+        <button onClick={onClose} style={{ width: "100%", background: "none", border: "none", fontSize: 13, color: "#aaa", cursor: "pointer", padding: 6 }}>Close</button>
+      </div>
     </div>
   );
 }

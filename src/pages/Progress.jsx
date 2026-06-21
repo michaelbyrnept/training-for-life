@@ -15,7 +15,13 @@ function timeAgo(dateStr) {
   if (days < 30) return `${Math.floor(days / 7)}w ago`;
   return `${Math.floor(days / 30)}mo ago`;
 }
-
+function normalizeDate(val) {
+  if (!val) return null;
+  if (typeof val === "string") return val;
+  if (val.toDate) return val.toDate().toISOString(); // Firestore Timestamp
+  if (val.seconds) return new Date(val.seconds * 1000).toISOString(); // raw Timestamp-like object
+  return null;
+}
 function MiniLineGraph({ data, color = "#2d6a4f", height = 60 }) {
   if (!data || data.length < 2) return null;
   const vals = data.map(d => d.value);
@@ -109,12 +115,15 @@ export default function Progress() {
       let uData = {};
       if (userSnap.exists()) { uData = userSnap.data(); setUserData(uData); }
 
-      const scoreSnap = await getDocs(query(collection(db, "assessmentResults"), where("email", "==", u.email)));
+        const scoreSnap = await getDocs(query(collection(db, "assessmentResults"), where("email", "==", u.email)));
       const scores = scoreSnap.docs.map(d => d.data()).sort((a, b) => new Date(a.assessmentDate) - new Date(b.assessmentDate));
       setCapabilityScores(scores);
 
-      const logsSnap = await getDocs(collection(db, "workoutLogs"));
-      const myLogs = logsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => l.userId === u.uid).sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+     const logsSnap = await getDocs(collection(db, "workoutLogs"));
+      const myLogs = logsSnap.docs
+        .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
+        .filter(l => l.userId === u.uid && l.completedAt)
+        .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
       setWorkoutLogs(myLogs);
 
       const exSnap = await getDocs(collection(db, "exercises"));

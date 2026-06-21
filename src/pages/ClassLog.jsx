@@ -12,6 +12,14 @@ const INTENSITY = [
   { id: "max", label: "Max Effort", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
 ];
 
+function normalizeDate(val) {
+  if (!val) return null;
+  if (typeof val === "string") return val;
+  if (val.toDate) return val.toDate().toISOString();
+  if (val.seconds) return new Date(val.seconds * 1000).toISOString();
+  return null;
+}
+
 export default function ClassLog() {
   const { classId } = useParams();
   const navigate = useNavigate();
@@ -25,6 +33,9 @@ export default function ClassLog() {
   const [done, setDone] = useState(false);
   const [sheet, setSheet] = useState(null); // { exerciseId, field }
   const [sheetValue, setSheetValue] = useState("");
+  const [allWorkoutLogs, setAllWorkoutLogs] = useState([]);
+  const [allClassLogs, setAllClassLogs] = useState([]);
+  const [historySheet, setHistorySheet] = useState(null); // exerciseId or null
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -42,6 +53,18 @@ export default function ClassLog() {
         const sorted = prevSnap.docs.map(d => d.data()).sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
         setPrevLogs(sorted[0]?.logs || {});
       }
+
+      const wlSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", u.uid)));
+      const wlData = wlSnap.docs
+        .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
+        .filter(l => l.completedAt);
+      setAllWorkoutLogs(wlData);
+
+      const clSnap = await getDocs(query(collection(db, "classLogs"), where("userId", "==", u.uid)));
+      const clData = clSnap.docs
+        .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
+        .filter(l => l.completedAt);
+      setAllClassLogs(clData);
 
       setLoading(false);
     });
@@ -62,6 +85,32 @@ export default function ClassLog() {
     updateLog(sheet.exerciseId, sheet.field, sheetValue);
     setSheet(null);
     setSheetValue("");
+  };
+
+  const buildHistory = (exerciseId) => {
+    const entries = [];
+
+    allWorkoutLogs.forEach(log => {
+      const sets = [
+        ...(Array.isArray(log.logs?.[exerciseId]) ? log.logs[exerciseId] : []),
+        ...(Array.isArray(log.logs?.[`${exerciseId}_top`]) ? log.logs[`${exerciseId}_top`] : []),
+        ...(Array.isArray(log.logs?.[`${exerciseId}_backoff`]) ? log.logs[`${exerciseId}_backoff`] : []),
+      ];
+      const doneSets = sets.filter(s => s.done && s.weight && s.reps);
+      if (doneSets.length > 0) {
+        const best = doneSets.reduce((a, b) => (parseFloat(b.weight) > parseFloat(a.weight) ? b : a));
+        entries.push({ date: log.completedAt, weight: parseFloat(best.weight), reps: best.reps, source: "solo" });
+      }
+    });
+
+    allClassLogs.forEach(log => {
+      const l = log.logs?.[exerciseId];
+      if (l?.weight && l?.reps) {
+        entries.push({ date: log.completedAt, weight: parseFloat(l.weight) || l.weight, reps: l.reps, source: "class", classTitle: log.classTitle });
+      }
+    });
+
+    return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
   const handleFinish = async () => {
@@ -151,7 +200,7 @@ export default function ClassLog() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "120px" }}>
-      {!sheet && <PortalNav />}
+      {!sheet && !historySheet && <PortalNav />}
 
       <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Link to="/training" style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 700, textDecoration: "none" }}>← Training</Link>
@@ -200,6 +249,10 @@ export default function ClassLog() {
                       {prev.intensity && <p style={{ fontSize: "11px", color: "#888", margin: 0 }}>({INTENSITY.find(i => i.id === prev.intensity)?.label})</p>}
                     </div>
                   )}
+
+                  <div onClick={() => setHistorySheet(ex.exerciseId)} style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginBottom: "10px", cursor: "pointer" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f" }}>📊 View full history</span>
+                  </div>
 
                   {/* Top set inputs */}
                   <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Top Set</p>
@@ -280,6 +333,52 @@ export default function ClassLog() {
               <input autoFocus type={sheet.field === "reps" ? "number" : "text"} inputMode="decimal" placeholder={sheet.field === "weight" ? "e.g. 100" : "e.g. 3"} value={sheetValue} onChange={e => setSheetValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveSheet(); }} style={{ flex: 1, border: "1.5px solid #2d6a4f", borderRadius: "12px", padding: "14px 16px", fontSize: "18px", fontWeight: 700, color: "#111", outline: "none", textAlign: "center" }} />
               <button onClick={saveSheet} style={{ backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "12px", padding: "14px 20px", fontSize: "15px", fontWeight: 700, cursor: "pointer" }}>Done</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* History sheet */}
+      {historySheet && (
+        <div onClick={e => { if (e.target === e.currentTarget) setHistorySheet(null); }} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ backgroundColor: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "75vh", overflowY: "auto" }}>
+            <div style={{ width: 36, height: 4, backgroundColor: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: "0 0 4px" }}>
+              {block?.exercises?.find(e => e.exerciseId === historySheet)?.name || "Exercise History"}
+            </h2>
+            <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Combined from your solo training and classes</p>
+
+            {(() => {
+              const history = buildHistory(historySheet);
+              if (history.length === 0) {
+                return <p style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>No history yet for this exercise.</p>;
+              }
+              const pb = Math.max(...history.map(h => h.weight || 0));
+              return (
+                <>
+                  <div style={{ backgroundColor: "#eaf5ef", borderRadius: 12, padding: "12px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Personal Best</p>
+                    <p style={{ fontSize: 20, fontWeight: 700, color: "#1a3a2a", margin: 0 }}>{pb}kg</p>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {history.map((h, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "0.5px solid #f5f5f5" }}>
+                        <div>
+                          <p style={{ fontSize: 13, color: "#111", fontWeight: 600, margin: 0 }}>
+                            {new Date(h.date).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}
+                          </p>
+                          <p style={{ fontSize: 11, color: "#aaa", margin: "2px 0 0" }}>
+                            {h.source === "class" ? `Class · ${h.classTitle || ""}` : "Solo training"}
+                          </p>
+                        </div>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: "#2d6a4f", margin: 0 }}>{h.weight}kg × {h.reps}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+
+            <button onClick={() => setHistorySheet(null)} style={{ width: "100%", background: "#f0f0f0", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, color: "#555", cursor: "pointer", marginTop: 16 }}>Close</button>
           </div>
         </div>
       )}
