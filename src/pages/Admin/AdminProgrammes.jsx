@@ -417,7 +417,7 @@ const insertWeek = async (index, copyFromIndex = null) => {
                 <select style={{ ...inputStyle, backgroundColor: "#fff" }} value="" onChange={(e) => addWorkoutToWeek(weekIndex, e.target.value)}>
                   <option value="">+ Add workout to this week</option>
                   {workouts.filter((w) => !week.workouts.includes(w.id)).map((w) => (
-                    <option key={w.id} value={w.id}>{w.name} ({w.exercises?.length || 0} exercises)</option>
+                    <option key={w.id} value={w.id}>{getWorkoutName(w.id)} ({w.exercises?.length || 0} exercises)</option>
                   ))}
                 </select>
 
