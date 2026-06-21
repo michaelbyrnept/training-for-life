@@ -2,67 +2,109 @@ import { Link } from "react-router-dom";
 
 const services = [
   {
-    tag: "Most Popular",
-    tagColor: "#2d6a4f",
-    title: "1-to-1 Capability Coaching",
-    subtitle: "In Person · South Dublin",
-    description:
-      "Private, structured coaching sessions designed around your goals, your body, and your life. Available 1, 2, or 3 times per week.",
-    features: [
-      "Fully personalised programme",
-      "Strength, mobility & conditioning",
-      "Ongoing coaching & accountability",
-      "Regular capability assessments",
-      "South Dublin based",
-    ],
-    cta: "Book a Consultation",
-    ctaHref: "/consultation",
-    external: false,
-    dark: true,
-  },
-  {
-    tag: "Flexible",
-    tagColor: "#2d6a4f",
-    title: "Hybrid Coaching",
-    subtitle: "Online + In Person",
-    description:
-      "A structured online programme with regular check-ins, video feedback, and the option to combine with in-person sessions.",
-    features: [
-      "Custom online programming",
-      "Weekly check-ins & feedback",
-      "Video form review",
-      "Progress tracking",
-      "Flexible around your schedule",
-    ],
-    cta: "Book a Consultation",
-    ctaHref: "/consultation",
-    external: false,
-    dark: false,
-  },
-  {
     tag: "Free to Join",
     tagColor: "#0369a1",
-    title: "Training App",
+    title: "Free App",
     subtitle: "Start Training Today",
+    price: "Free",
+    priceNote: null,
     description:
-      "Access structured programmes, track your workouts, and follow guided training — all built around long-term capability.",
+      "Access the exercise library, follow structured workouts, and start tracking. The first step into Training For Life.",
     features: [
-      "Structured training programmes",
-      "Workout logging & history",
-      "Capability assessment & score",
-      "Free to join",
-      "Premium programmes available",
+      "Exercise library",
+      "Structured workouts",
+      "Basic tracking",
     ],
     cta: "Get the Free App",
     ctaHref: "/register",
     external: false,
     dark: false,
   },
+  {
+    tag: "Self-Serve",
+    tagColor: "#0369a1",
+    title: "Premium Membership",
+    subtitle: "Train at Your Own Pace",
+    price: "€19.99",
+    priceNote: "/month",
+    description:
+      "Full access to training programmes, habit and progress tracking, and educational content. No 1-to-1 access included.",
+    features: [
+      "All training programmes",
+      "Habit tracking",
+      "Progress tracking",
+      "Educational content",
+    ],
+    cta: "Join Premium",
+    ctaHref: "/register",
+    external: false,
+    dark: false,
+  },
+  {
+    tag: "Remote",
+    tagColor: "#2d6a4f",
+    title: "Online Coaching",
+    subtitle: "Anywhere · Fully Remote",
+    price: "From €149",
+    priceNote: "/month",
+    description:
+      "Everything in Premium, plus real accountability and direct guidance, delivered entirely online, wherever you are.",
+    features: [
+      "Everything in Premium",
+      "Regular check-ins",
+      "Video form review",
+      "Direct access to Michael",
+    ],
+    cta: "Book a Consultation",
+    ctaHref: "/consultation",
+    external: false,
+    dark: false,
+  },
+  {
+    tag: "Flexible",
+    tagColor: "#2d6a4f",
+    title: "Hybrid Coaching",
+    subtitle: "Online + Optional In Person",
+    price: "From €199",
+    priceNote: "/month",
+    description:
+      "Everything in Online Coaching, with the option to add a monthly in-person session if you're based near South Dublin.",
+    features: [
+      "Everything in Online Coaching",
+      "Personalised adjustments",
+      "Optional monthly in-person session",
+      "South Dublin (in-person add-on only)",
+    ],
+    cta: "Book a Consultation",
+    ctaHref: "/consultation",
+    external: false,
+    dark: false,
+  },
+  {
+    tag: "Most Popular",
+    tagColor: "#2d6a4f",
+    title: "In-Person Coaching",
+    subtitle: "South Dublin",
+    price: "From €55",
+    priceNote: "/session",
+    description:
+      "Private, in-person coaching, from a 6-session Starter Package through to ongoing 1:1, 1:2, or small group coaching.",
+    features: [
+      "Starter Package (6 sessions)",
+      "1:1, 1:2 & small group options",
+      "Fully personalised, in person",
+      "South Dublin based",
+    ],
+    cta: "See In-Person Options",
+    ctaHref: "/coaching/in-person",
+    external: false,
+    dark: true,
+  },
 ];
 
 export default function Services() {
   return (
-    <section className="bg-stone-50 px-6 py-24">
+   <section id="services" className="bg-stone-50 px-6 py-24">
       <div className="mx-auto max-w-7xl">
 
         {/* Header */}
@@ -71,15 +113,15 @@ export default function Services() {
             How We Work Together
           </p>
           <h2 className="text-4xl font-semibold leading-tight tracking-tight text-zinc-900 md:text-5xl">
-            Three ways to build your capability.
+            Five ways to build your capability.
           </h2>
           <p className="mt-6 text-lg leading-8 text-zinc-600">
-            Whether you want hands-on coaching, flexible online support, or a free way to start — there's a path that fits your life.
+           Whether you want hands-on coaching, flexible online support, or a free way to start, there's a path that fits your life.
           </p>
         </div>
 
         {/* Service cards */}
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
             <div
               key={s.title}
@@ -103,6 +145,18 @@ export default function Services() {
               <p style={{ fontSize: "13px", fontWeight: 600, color: s.dark ? "#9fe1cb" : "#2d6a4f", margin: "0 0 16px" }}>
                 {s.subtitle}
               </p>
+
+              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", margin: "0 0 16px" }}>
+                <span style={{ fontSize: "26px", fontWeight: 700, color: s.dark ? "#fff" : "#111" }}>
+                  {s.price}
+                </span>
+                {s.priceNote && (
+                  <span style={{ fontSize: "13px", color: s.dark ? "#c5e8d8" : "#777" }}>
+                    {s.priceNote}
+                  </span>
+                )}
+              </div>
+
               <p style={{ fontSize: "15px", color: s.dark ? "#c5e8d8" : "#555", lineHeight: 1.6, margin: "0 0 24px" }}>
                 {s.description}
               </p>

@@ -35,6 +35,7 @@ import AIRunningPlan from "./pages/AIRunningPlan";
 import CapabilityProgramme from "./pages/CapabilityProgramme";
 import CapabilitySession   from "./pages/CapabilitySession";
 import PrivacyPolicy from "./PrivacyPolicy";
+import InPersonCoaching from "./pages/InPersonCoaching";
 
 export default function App() {
   return (
@@ -74,6 +75,7 @@ export default function App() {
       <Route path="/ai-running-plan" element={<AIRunningPlan />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
+<Route path="/coaching/in-person" element={<InPersonCoaching />} />
     </Routes>
   )
 }
