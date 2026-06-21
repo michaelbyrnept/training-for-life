@@ -184,8 +184,8 @@ export default function AdminClasses() {
                   </div>
 
                   {/* Duration */}
-                  <p style={{ fontSize: "11px", fontWeight: 600, color: "#555", margin: "0 0 4px" }}>Duration (minutes)</p>
-                 <div style={{ display: "flex", gap: "6px", marginBottom: "10px", alignItems: "center" }}>
+                 <p style={{ fontSize: "11px", fontWeight: 600, color: "#555", margin: "0 0 4px" }}>Duration (minutes)</p>
+<div style={{ display: "flex", gap: "6px", marginBottom: "10px", alignItems: "center" }}>
   {[8, 10, 12, 15, 20].map(d => (
     <div key={d} onClick={() => updateBlock(bi, "duration", d)} style={{ padding: "6px 12px", borderRadius: "8px", border: `1.5px solid ${block.duration === d ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: block.duration === d ? "#eaf5ef" : "#fff", fontSize: "13px", fontWeight: 700, color: block.duration === d ? "#2d6a4f" : "#111", cursor: "pointer" }}>
       {d}

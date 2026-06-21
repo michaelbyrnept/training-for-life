@@ -169,42 +169,42 @@ setClasses(classData);
       </div>
 
       {/* CLASSES */}
-      {classes.length > 0 && (
-        <div style={{ padding: "0 16px 16px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>Upcoming Classes</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {classes.map(cls => {
-              const isStrength = cls.type === "strength";
-              const isConditioning = cls.type === "conditioning";
-              const icon = isStrength ? "🏋️" : isConditioning ? "🔥" : "🚴";
-              const color = isStrength ? "#2d6a4f" : isConditioning ? "#b45309" : "#0369a1";
-              const bg = isStrength ? "#eaf5ef" : isConditioning ? "#fffbeb" : "#e0f2fe";
-              const dateLabel = new Date(cls.date + "T12:00:00").toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
-              const cardContent = (
-                <div style={{ backgroundColor: "#fff", borderRadius: "14px", border: `0.5px solid ${isStrength ? "#86efac" : "#e5e5e5"}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flexShrink: 0 }}>{icon}</div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: 0 }}>{cls.title}</p>
-                    <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>{dateLabel} · {cls.time} · {cls.duration} min</p>
-                  </div>
-                  {isStrength ? (
-                    <div style={{ backgroundColor: color, color: "#fff", fontSize: "12px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px" }}>Log →</div>
-                  ) : (
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", backgroundColor: "#f0f0f0", padding: "4px 10px", borderRadius: "20px" }}>
-                      {isConditioning ? "Surprise" : "Spin"}
-                    </span>
-                  )}
-                </div>
-              );
-              return isStrength ? (
-                <Link key={cls.id} to={`/class/${cls.id}`} style={{ textDecoration: "none", display: "block" }}>{cardContent}</Link>
-              ) : (
-                <div key={cls.id}>{cardContent}</div>
-              );
-            })}
+{classes.length > 0 && (
+  <div style={{ padding: "0 16px 16px" }}>
+    <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>Upcoming Classes</p>
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      {classes.map(cls => {
+        const isStrength = cls.type === "strength";
+        const isConditioning = cls.type === "conditioning";
+        const icon = isStrength ? "🏋️" : isConditioning ? "🔥" : "🚴";
+        const color = isStrength ? "#2d6a4f" : isConditioning ? "#b45309" : "#0369a1";
+        const bg = isStrength ? "#eaf5ef" : isConditioning ? "#fffbeb" : "#e0f2fe";
+        const dateLabel = new Date(cls.date + "T12:00:00").toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
+        const cardContent = (
+          <div style={{ backgroundColor: "#fff", borderRadius: "14px", border: `0.5px solid ${isStrength ? "#86efac" : "#e5e5e5"}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flexShrink: 0 }}>{icon}</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: 0 }}>{cls.title}</p>
+              <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>{dateLabel} · {cls.time} · {cls.duration} min</p>
+            </div>
+            {isStrength ? (
+              <div style={{ backgroundColor: color, color: "#fff", fontSize: "12px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px" }}>Log →</div>
+            ) : (
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", backgroundColor: "#f0f0f0", padding: "4px 10px", borderRadius: "20px" }}>
+                {isConditioning ? "Surprise" : "Spin"}
+              </span>
+            )}
           </div>
-        </div>
-      )}
+        );
+        return isStrength ? (
+          <Link key={cls.id} to={`/class/${cls.id}`} style={{ textDecoration: "none", display: "block" }}>{cardContent}</Link>
+        ) : (
+          <div key={cls.id}>{cardContent}</div>
+        );
+      })}
+    </div>
+  </div>
+)}
 
       {/* AI RUNNING PLAN */}
       <div style={{ padding: "0 16px 16px" }}>
