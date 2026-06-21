@@ -185,13 +185,20 @@ export default function AdminClasses() {
 
                   {/* Duration */}
                   <p style={{ fontSize: "11px", fontWeight: 600, color: "#555", margin: "0 0 4px" }}>Duration (minutes)</p>
-                  <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
-                    {[8, 10, 12, 15, 20].map(d => (
-                      <div key={d} onClick={() => updateBlock(bi, "duration", d)} style={{ padding: "6px 12px", borderRadius: "8px", border: `1.5px solid ${block.duration === d ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: block.duration === d ? "#eaf5ef" : "#fff", fontSize: "13px", fontWeight: 700, color: block.duration === d ? "#2d6a4f" : "#111", cursor: "pointer" }}>
-                        {d}
-                      </div>
-                    ))}
-                  </div>
+                 <div style={{ display: "flex", gap: "6px", marginBottom: "10px", alignItems: "center" }}>
+  {[8, 10, 12, 15, 20].map(d => (
+    <div key={d} onClick={() => updateBlock(bi, "duration", d)} style={{ padding: "6px 12px", borderRadius: "8px", border: `1.5px solid ${block.duration === d ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: block.duration === d ? "#eaf5ef" : "#fff", fontSize: "13px", fontWeight: 700, color: block.duration === d ? "#2d6a4f" : "#111", cursor: "pointer" }}>
+      {d}
+    </div>
+  ))}
+  <input
+    type="number"
+    min="1"
+    value={block.duration}
+    onChange={e => updateBlock(bi, "duration", Number(e.target.value))}
+    style={{ width: "60px", padding: "6px 8px", borderRadius: "8px", border: "1.5px solid #e5e5e5", fontSize: "13px", fontWeight: 700, color: "#111", textAlign: "center" }}
+  />
+</div>
 
                   {/* Coaching goal */}
                   <p style={{ fontSize: "11px", fontWeight: 600, color: "#555", margin: "0 0 4px" }}>Coaching Goal</p>
