@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 const tabs = [
   { to: "/dashboard", label: "Home", icon: "🏠" },
   { to: "/training", label: "Training", icon: "💪" },
+  { to: "/coaching", label: "Coaching", icon: "🤝" },
   { to: "/nutrition", label: "Nutrition", icon: "🥗" },
   { to: "/habits", label: "Habits", icon: "✅" },
   { to: "/progress", label: "Progress", icon: "📈" },

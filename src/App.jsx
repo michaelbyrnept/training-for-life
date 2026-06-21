@@ -36,6 +36,11 @@ import CapabilityProgramme from "./pages/CapabilityProgramme";
 import CapabilitySession   from "./pages/CapabilitySession";
 import PrivacyPolicy from "./PrivacyPolicy";
 import InPersonCoaching from "./pages/InPersonCoaching";
+import CoachingOverview from "./pages/CoachingOverview";
+import CoachingAbout from "./pages/CoachingAbout";
+import CoachingPhilosophy from "./pages/CoachingPhilosophy";
+import CoachingSupport from "./pages/CoachingSupport";
+import CoachingBook from "./pages/CoachingBook";
 
 export default function App() {
   return (
@@ -74,8 +79,14 @@ export default function App() {
       <Route path="/consultation" element={<Consultation />} />
       <Route path="/ai-running-plan" element={<AIRunningPlan />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/coaching" element={<CoachingOverview />} />
 
+<Route path="/coaching/about" element={<CoachingAbout />} />
 <Route path="/coaching/in-person" element={<InPersonCoaching />} />
+<Route path="/coaching/philosophy" element={<CoachingPhilosophy />} />
+<Route path="/coaching/support" element={<CoachingSupport />} />
+
+<Route path="/coaching/book" element={<CoachingBook />} />
     </Routes>
   )
 }
