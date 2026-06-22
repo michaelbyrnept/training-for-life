@@ -5,6 +5,7 @@ import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebas
 import { Link, useNavigate } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
 
+const ADMIN_UID = "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
 const WEEKLY_TARGETS = { strength: 3, cardio: 2, mobility: 1 };
 const TOTAL_TARGET = 6;
 
@@ -20,10 +21,19 @@ function getWeekRange() {
   return { monday, sunday };
 }
 
+function normalizeDate(val) {
+  if (!val) return null;
+  if (typeof val === "string") return val;
+  if (val.toDate) return val.toDate().toISOString();
+  if (val.seconds) return new Date(val.seconds * 1000).toISOString();
+  return null;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [userData, setUserData] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [capabilityScore, setCapabilityScore] = useState(null);
   const [allScores, setAllScores] = useState([]);
   const [category, setCategory] = useState("");
@@ -57,6 +67,7 @@ export default function Dashboard() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { navigate("/login"); return; }
+      setIsAdmin(user.uid === ADMIN_UID);
 
       const userSnap = await getDoc(doc(db, "users", user.uid));
       let uData = {};
@@ -89,8 +100,8 @@ export default function Dashboard() {
       const { monday, sunday } = getWeekRange();
       const logsSnap = await getDocs(collection(db, "workoutLogs"));
       const allMyLogs = logsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(l => l.userId === user.uid);
+        .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
+        .filter(l => l.userId === user.uid && l.completedAt);
 
       const thisWeekLogs = allMyLogs.filter(l => {
         const d = new Date(l.completedAt);
@@ -128,8 +139,8 @@ export default function Dashboard() {
       await buildTodaysPlan(uData, thisWeekLogs, strengthDone, cardioDone);
 
       // Load check-ins for in-person/hybrid users
-      if (uData.subscription === "in-person" || uData.subscription === "hybrid") {
-        const checkInSnap = await getDocs(query(collection(db, "checkIns"), where("userId", "==", u.uid)));
+      if (uData.subscription === "in-person" || uData.subscription === "hybrid" || uData.subscription === "online") {
+        const checkInSnap = await getDocs(query(collection(db, "checkIns"), where("userId", "==", user.uid)));
         const allCheckIns = checkInSnap.docs.map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
         const now = new Date();
@@ -137,7 +148,7 @@ export default function Dashboard() {
         const mon = new Date(now);
         mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
         const weekMonday = mon.toISOString().split("T")[0];
-        const thisWeekCheckIn = allCheckIns.find(c => c.weekOf === weekMonday);
+        const thisWeekCheckIn = allCheckIns.find(c => c.weekOf === weekMonday && !c.coachInitiated);
         setCheckIn(thisWeekCheckIn || null);
         const unread = allCheckIns.find(c => c.coachReply && !c.replyRead);
         setUnreadReply(unread || null);
@@ -229,6 +240,11 @@ export default function Dashboard() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
           <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Training for Life</p>
           <div style={{ display: "flex", gap: "10px" }}>
+            {isAdmin && (
+              <Link to="/admin" style={{ height: 36, borderRadius: "20px", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", padding: "0 12px", fontSize: "11px", fontWeight: 700, color: "#9fe1cb", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Admin
+              </Link>
+            )}
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path d="M9 2a5 5 0 015 5c0 3 1.5 4 2 5H2c.5-1 2-2 2-5a5 5 0 015-5z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round"/>
@@ -291,22 +307,23 @@ export default function Dashboard() {
       )}
 
       {/* CHECK-IN CARD */}
-      {(userData?.subscription === "in-person" || userData?.subscription === "hybrid") && !unreadReply && (
+      {(userData?.subscription === "in-person" || userData?.subscription === "hybrid" || userData?.subscription === "online") && (
         <div style={{ padding: "0 16px", marginBottom: "12px" }}>
-          {checkIn ? (
+          {!unreadReply && (checkIn ? (
             <Link to="/check-in" style={{ textDecoration: "none", display: "block" }}>
               <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #86efac", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "#eaf5ef", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>✅</div>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "#2d6a4f", margin: "0 0 2px" }}>Check-in submitted</p>
-                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>View your previous check-ins →</p>
+                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>Waiting for your review</p>
                 </div>
               </div>
             </Link>
           ) : (() => {
             const now = new Date();
-            const isSunday = now.getDay() === 0;
-            if (!isSunday) return null;
+            const day = now.getDay();
+            const isCheckInWindow = day === 5 || day === 6 || day === 0; // Fri, Sat, Sun
+            if (!isCheckInWindow) return null;
             return (
               <Link to="/check-in" style={{ textDecoration: "none", display: "block" }}>
                 <div style={{ background: "linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 100%)", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
@@ -319,7 +336,10 @@ export default function Dashboard() {
                 </div>
               </Link>
             );
-          })()}
+          })())}
+          <Link to="/check-in" style={{ display: "block", textAlign: "center", marginTop: "8px", fontSize: "12px", fontWeight: 700, color: "#2d6a4f", textDecoration: "none" }}>
+            View check-in history →
+          </Link>
         </div>
       )}
 

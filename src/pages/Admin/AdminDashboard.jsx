@@ -10,11 +10,19 @@ const TIERS = [
   { id: "free", label: "Free", color: "#888", bg: "#f0f0f0" },
   { id: "premium", label: "Premium", color: "#b45309", bg: "#fffbeb" },
   { id: "premium_trial", label: "Trial", color: "#7c3aed", bg: "#f5f3ff" },
-  { id: "hybrid", label: "Hybrid", color: "#0369a1", bg: "#e0f2fe" },
+  { id: "online", label: "Online", color: "#0369a1", bg: "#e0f2fe" },
+  { id: "hybrid", label: "Hybrid", color: "#0891b2", bg: "#ecfeff" },
   { id: "in-person", label: "In-Person", color: "#2d6a4f", bg: "#eaf5ef" },
 ];
 
 const sections = [
+  {
+    to: "/admin/check-ins",
+    label: "Check-ins",
+    description: "Review weekly check-ins and send video replies.",
+    icon: "📋",
+    highlight: true,
+  },
   {
     to: "/admin/clients",
     label: "Clients",

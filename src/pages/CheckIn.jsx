@@ -131,10 +131,12 @@ export default function CheckIn() {
           <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 4px" }}>
             Week of {new Date(viewing.weekOf + "T12:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
           </p>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 20px" }}>Your Check-in</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 20px" }}>
+            {viewing.coachInitiated ? "Message from Michael" : "Your Check-in"}
+          </h1>
 
-          {/* Sliders summary */}
-          <div style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "14px", padding: "16px", marginBottom: "12px" }}>
+          {/* Sliders summary — only shown for client-submitted check-ins */}
+          {!viewing.coachInitiated && <div style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "14px", padding: "16px", marginBottom: "12px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               {["training", "energy", "sleep", "stress"].map(key => {
                 const q = QUESTIONS.find(q => q.id === key);
@@ -148,10 +150,10 @@ export default function CheckIn() {
                 );
               })}
             </div>
-          </div>
+          </div>}
 
-          {/* Text answers */}
-          {["pain", "win", "struggle", "other"].map(key => {
+          {/* Text answers — only for client-submitted check-ins */}
+          {!viewing.coachInitiated && ["pain", "win", "struggle", "other"].map(key => {
             const q = QUESTIONS.find(q => q.id === key);
             const val = viewing.answers[key];
             if (!val) return null;
@@ -239,22 +241,36 @@ export default function CheckIn() {
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {previousCheckIns.map(c => (
                 <div key={c.id} onClick={() => setViewing(c)} style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "14px", padding: "14px 16px", cursor: "pointer" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                    <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: 0 }}>
-                      Week of {new Date(c.weekOf + "T12:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
-                    </p>
-                    {c.coachReply && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: c.coachInitiated ? 0 : "8px" }}>
+                    <div>
+                      <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: 0 }}>
+                        {c.coachInitiated ? "Message from Michael" : `Week of ${new Date(c.weekOf + "T12:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "long" })}`}
+                      </p>
+                      {c.coachInitiated && (
+                        <p style={{ fontSize: "11px", color: "#9fe1cb", margin: "2px 0 0" }}>
+                          {new Date(c.replyAt).toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
+                        </p>
+                      )}
+                    </div>
+                    {!c.coachInitiated && c.coachReply && (
                       <span style={{ fontSize: "11px", fontWeight: 700, color: "#4ade80", backgroundColor: "rgba(74,222,128,0.15)", padding: "3px 8px", borderRadius: "10px" }}>Reply received</span>
                     )}
+                    {c.coachInitiated && (
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", backgroundColor: "rgba(159,225,203,0.15)", padding: "3px 8px", borderRadius: "10px" }}>
+                        {c.coachVideoUrl ? "Video" : "Note"}
+                      </span>
+                    )}
                   </div>
-                  <div style={{ display: "flex", gap: "12px" }}>
-                    {["training", "energy", "sleep", "stress"].map(key => (
-                      <div key={key} style={{ textAlign: "center" }}>
-                        <p style={{ fontSize: "16px", fontWeight: 700, color: "#4ade80", margin: 0 }}>{c.answers[key]}</p>
-                        <p style={{ fontSize: "10px", color: "#9fe1cb", margin: "2px 0 0", textTransform: "capitalize" }}>{key}</p>
-                      </div>
-                    ))}
-                  </div>
+                  {!c.coachInitiated && (
+                    <div style={{ display: "flex", gap: "12px" }}>
+                      {["training", "energy", "sleep", "stress"].map(key => (
+                        <div key={key} style={{ textAlign: "center" }}>
+                          <p style={{ fontSize: "16px", fontWeight: 700, color: "#4ade80", margin: 0 }}>{c.answers[key]}</p>
+                          <p style={{ fontSize: "10px", color: "#9fe1cb", margin: "2px 0 0", textTransform: "capitalize" }}>{key}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

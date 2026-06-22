@@ -48,12 +48,12 @@ const services = [
     price: "From €149",
     priceNote: "/month",
     description:
-      "Everything in Premium, plus real accountability and direct guidance, delivered entirely online, wherever you are.",
+      "Check in every Friday. Every Sunday, Michael records a personalised video reviewing your week and laying out exactly what to focus on next.",
     features: [
+      "Weekly Friday check-in",
+      "Personal Sunday video review from Michael",
+      "Your next week planned out for you",
       "Everything in Premium",
-      "Regular check-ins",
-      "Video form review",
-      "Direct access to Michael",
     ],
     cta: "Book a Consultation",
     ctaHref: "/consultation",
@@ -68,12 +68,12 @@ const services = [
     price: "From €199",
     priceNote: "/month",
     description:
-      "Everything in Online Coaching, with the option to add a monthly in-person session if you're based near South Dublin.",
+      "Everything in Online Coaching, plus the option to add a monthly in-person session if you're based near South Dublin.",
     features: [
       "Everything in Online Coaching",
-      "Personalised adjustments",
       "Optional monthly in-person session",
-      "South Dublin (in-person add-on only)",
+      "Personalised adjustments in person",
+      "South Dublin based",
     ],
     cta: "Book a Consultation",
     ctaHref: "/consultation",

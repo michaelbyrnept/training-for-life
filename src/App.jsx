@@ -28,6 +28,7 @@ import AdminClasses from "./pages/Admin/AdminClasses";
 import AdminConsultations from "./pages/Admin/AdminConsultations";
 import AdminOutreach from "./pages/Admin/AdminOutreach";
 import AdminWaitlist from "./pages/Admin/AdminWaitlist";
+import AdminCheckIns from "./pages/Admin/AdminCheckIns";
 import ClassLog from "./pages/ClassLog";
 import CheckIn from "./pages/CheckIn";
 import Consultation from "./pages/Consultation";
@@ -75,6 +76,7 @@ export default function App() {
       <Route path="/admin/consultations" element={<AdminRoute><AdminConsultations /></AdminRoute>} />
       <Route path="/admin/outreach" element={<AdminRoute><AdminOutreach /></AdminRoute>} />
       <Route path="/admin/waitlist" element={<AdminRoute><AdminWaitlist /></AdminRoute>} />
+      <Route path="/admin/check-ins" element={<AdminRoute><AdminCheckIns /></AdminRoute>} />
       <Route path="/check-in" element={<CheckIn />} />
       <Route path="/consultation" element={<Consultation />} />
       <Route path="/ai-running-plan" element={<AIRunningPlan />} />

@@ -8,7 +8,8 @@ const TIERS = [
   { id: "free", label: "Free", color: "#888", bg: "#f0f0f0" },
   { id: "premium", label: "Premium", color: "#b45309", bg: "#fffbeb" },
   { id: "premium_trial", label: "Trial", color: "#7c3aed", bg: "#f5f3ff" },
-  { id: "hybrid", label: "Hybrid", color: "#0369a1", bg: "#e0f2fe" },
+  { id: "online", label: "Online", color: "#0369a1", bg: "#e0f2fe" },
+  { id: "hybrid", label: "Hybrid", color: "#0891b2", bg: "#ecfeff" },
   { id: "in-person", label: "In-Person", color: "#2d6a4f", bg: "#eaf5ef" },
 ];
 
@@ -71,6 +72,56 @@ function MiniGraph({ data, color = "#2d6a4f", height = 60 }) {
   );
 }
 
+function BarGraph({ data, color = "#4ade80", height = 80 }) {
+  if (!data || data.length === 0) return null;
+  const max = Math.max(...data.map(d => d.value), 1);
+  const width = 280;
+  const slotW = (width - 16) / data.length;
+  const barW = Math.max(Math.floor(slotW - 4), 4);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ display: "block" }}>
+      {data.map((d, i) => {
+        const barH = Math.max((d.value / max) * (height - 24), d.value > 0 ? 3 : 0);
+        const x = 8 + i * slotW + (slotW - barW) / 2;
+        const y = height - 18 - barH;
+        const isLast = i === data.length - 1;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH || 2} rx={3} fill={color} opacity={isLast ? 1 : 0.45}/>
+            <text x={x + barW / 2} y={height - 2} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.5)">{d.label}</text>
+            {d.value > 0 && <text x={x + barW / 2} y={Math.max(y - 3, 10)} textAnchor="middle" fontSize="9" fill={isLast ? color : "rgba(255,255,255,0.7)"} fontWeight="700">{d.value}</text>}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function MultiLineGraph({ data, keys, colors, height = 90 }) {
+  if (!data || data.length < 2) return null;
+  const width = 280;
+  const pad = 8;
+  const min = 0;
+  const max = 10;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ display: "block" }}>
+      {keys.map((key, ki) => {
+        const coords = data.map((d, i) => ({
+          x: pad + (i / (data.length - 1)) * (width - pad * 2),
+          y: height - pad - ((d[key] || 0) / max) * (height - pad * 2),
+        }));
+        const pts = coords.map(c => `${c.x},${c.y}`).join(" ");
+        return (
+          <g key={key}>
+            <polyline points={pts} fill="none" stroke={colors[ki]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85"/>
+            {coords.map((c, i) => <circle key={i} cx={c.x} cy={c.y} r="2.5" fill={colors[ki]} stroke="#fff" strokeWidth="1"/>)}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function AdminClientProfile() {
   const { uid } = useParams();
   const [client, setClient] = useState(null);
@@ -84,7 +135,7 @@ export default function AdminClientProfile() {
   const [consultation, setConsultation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("weekly-review");
   const [showTierSheet, setShowTierSheet] = useState(false);
   const [showProgrammeSheet, setShowProgrammeSheet] = useState(null);
   const [showNoteSheet, setShowNoteSheet] = useState(false);
@@ -98,6 +149,7 @@ export default function AdminClientProfile() {
   const [resendStatus, setResendStatus] = useState("");
   const [editingNutrition, setEditingNutrition] = useState(false);
   const [nutritionForm, setNutritionForm] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const [exercises, setExercises] = useState({});
 
   useEffect(() => { loadAll(); }, [uid]);
 
@@ -116,12 +168,13 @@ export default function AdminClientProfile() {
         });
       }
 
-      const [progSnap, logsSnap, workoutsSnap, notesSnap, weightSnap] = await Promise.all([
+      const [progSnap, logsSnap, workoutsSnap, notesSnap, weightSnap, exercisesSnap] = await Promise.all([
         getDocs(collection(db, "programmes")),
         getDocs(collection(db, "workoutLogs")),
         getDocs(collection(db, "workouts")),
         getDocs(collection(db, "clientNotes")),
         getDocs(query(collection(db, "weightLogs"), where("userId", "==", uid))),
+        getDocs(collection(db, "exercises")),
       ]);
 
       setProgrammes(progSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.published));
@@ -134,6 +187,10 @@ export default function AdminClientProfile() {
       const wkMap = {};
       workoutsSnap.docs.forEach(d => { wkMap[d.id] = d.data(); });
       setWorkouts(wkMap);
+
+      const exMap = {};
+      exercisesSnap.docs.forEach(d => { exMap[d.id] = d.data(); });
+      setExercises(exMap);
 
       setNotes(notesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(n => n.clientId === uid)
@@ -287,7 +344,38 @@ export default function AdminClientProfile() {
       }, 0) / recentNutrition.length)
     : 0;
 
-  const TABS = ["overview", "training", "nutrition", "metrics", "check-ins", "notes"];
+  const TABS = ["weekly-review", "overview", "training", "nutrition", "metrics", "check-ins", "notes"];
+
+  // ── Weekly review computed values ──
+  const getWM = (d) => { const dt = new Date(d); const day = dt.getDay(); dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1)); dt.setHours(0,0,0,0); return dt.toISOString().split("T")[0]; };
+  const weekBars = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (7 - i) * 7);
+    const mon = getWM(d);
+    const count = workoutLogs.filter(l => getWM(l.completedAt) === mon).length;
+    return { label: i === 7 ? "Now" : `W${i - 7}`, value: count };
+  });
+  const activeWeeks = weekBars.filter(w => w.value > 0).length;
+  const avgSessions = (weekBars.reduce((s, w) => s + w.value, 0) / 8).toFixed(1);
+  let streak = 0;
+  for (let i = weekBars.length - 1; i >= 0; i--) { if (weekBars[i].value > 0) streak++; else break; }
+  const ciTrend = checkIns.filter(c => !c.coachInitiated && c.answers).slice(0, 8).reverse();
+  const wins = checkIns.filter(c => !c.coachInitiated && c.answers?.win).slice(0, 4);
+  const prMap = {};
+  workoutLogs.forEach(log => {
+    Object.entries(log.logs || {}).forEach(([exId, sets]) => {
+      if (!Array.isArray(sets)) return;
+      sets.filter(s => s.done && parseFloat(s.weight) > 0).forEach(s => {
+        const w = parseFloat(s.weight);
+        if (!prMap[exId] || w > prMap[exId].weight) {
+          prMap[exId] = { weight: w, reps: s.reps, date: log.completedAt, name: exercises[exId]?.name || null };
+        }
+      });
+    });
+  });
+  const topPRs = Object.values(prMap).filter(p => p.name).sort((a, b) => b.weight - a.weight).slice(0, 6);
+  const weightChange = weightLogs.length >= 2
+    ? (weightLogs[weightLogs.length - 1].weight - weightLogs[0].weight).toFixed(1)
+    : null;
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "40px" }}>
@@ -333,12 +421,170 @@ export default function AdminClientProfile() {
       <div style={{ display: "flex", backgroundColor: "#fff", borderBottom: "0.5px solid #e5e5e5", overflowX: "auto" }}>
         {TABS.map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} style={{ flexShrink: 0, padding: "12px 14px", border: "none", backgroundColor: "transparent", fontSize: "13px", fontWeight: 700, color: activeTab === tab ? "#2d6a4f" : "#aaa", cursor: "pointer", borderBottom: activeTab === tab ? "2px solid #2d6a4f" : "2px solid transparent", textTransform: "capitalize" }}>
-            {tab}
+            {tab === "weekly-review" ? "Weekly Review" : tab}
           </button>
         ))}
       </div>
 
       <div style={{ padding: "16px" }}>
+
+        {/* ── WEEKLY REVIEW TAB ── */}
+        {activeTab === "weekly-review" && (
+          <>
+            {/* Scorecard */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+              {[
+                { label: "This week", value: weekBars[7].value, unit: "sessions" },
+                { label: "Streak", value: streak, unit: "wks", highlight: streak >= 4 },
+                { label: "Avg / wk", value: avgSessions, unit: "" },
+              ].map(s => (
+                <div key={s.label} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 10px", textAlign: "center" }}>
+                  <p style={{ fontSize: "26px", fontWeight: 700, color: s.highlight ? "#f59e0b" : "#2d6a4f", margin: 0, lineHeight: 1 }}>{s.value}</p>
+                  <p style={{ fontSize: "10px", color: "#aaa", margin: "4px 0 0", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Consistency bar chart */}
+            <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                <div>
+                  <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>Consistency</p>
+                  <p style={{ fontSize: "11px", color: "#9fe1cb", margin: 0 }}>Sessions per week, last 8 weeks</p>
+                </div>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#4ade80", backgroundColor: "rgba(74,222,128,0.15)", padding: "4px 10px", borderRadius: "20px" }}>
+                  {activeWeeks}/8 active
+                </span>
+              </div>
+              <BarGraph data={weekBars} color="#4ade80" />
+            </div>
+
+            {/* Check-in trends */}
+            {ciTrend.length >= 2 && (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Check-in Trends</p>
+                  <span style={{ fontSize: "11px", color: "#aaa" }}>Last {ciTrend.length} weeks</span>
+                </div>
+                <MultiLineGraph
+                  data={ciTrend.map(c => ({ training: c.answers.training, energy: c.answers.energy, sleep: c.answers.sleep, stress: c.answers.stress }))}
+                  keys={["training", "energy", "sleep", "stress"]}
+                  colors={["#2d6a4f", "#f59e0b", "#3b82f6", "#ef4444"]}
+                />
+                <div style={{ display: "flex", gap: "12px", marginTop: "10px", flexWrap: "wrap" }}>
+                  {[{ label: "Training", color: "#2d6a4f" }, { label: "Energy", color: "#f59e0b" }, { label: "Sleep", color: "#3b82f6" }, { label: "Stress", color: "#ef4444" }].map(item => (
+                    <div key={item.label} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <div style={{ width: 12, height: 3, borderRadius: 2, backgroundColor: item.color }} />
+                      <span style={{ fontSize: "11px", color: "#888" }}>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px", marginTop: "12px" }}>
+                  {["training", "energy", "sleep", "stress"].map((key, i) => {
+                    const avg = (ciTrend.reduce((s, c) => s + (c.answers[key] || 0), 0) / ciTrend.length).toFixed(1);
+                    const colors = ["#2d6a4f", "#f59e0b", "#3b82f6", "#ef4444"];
+                    return (
+                      <div key={key} style={{ backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                        <p style={{ fontSize: "20px", fontWeight: 700, color: colors[i], margin: 0, lineHeight: 1 }}>{avg}</p>
+                        <p style={{ fontSize: "10px", color: "#aaa", margin: "3px 0 0", textTransform: "capitalize" }}>{key}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Wins */}
+            {wins.length > 0 && (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "12px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>Recent Wins</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {wins.map((w, i) => (
+                    <div key={i} style={{ backgroundColor: "#eaf5ef", borderRadius: "12px", padding: "12px 14px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                      <span style={{ fontSize: "16px", flexShrink: 0 }}>🏆</span>
+                      <div>
+                        <p style={{ fontSize: "14px", color: "#1a4a35", lineHeight: 1.5, margin: "0 0 4px", fontStyle: "italic" }}>"{w.answers.win}"</p>
+                        <p style={{ fontSize: "11px", color: "#888", margin: 0 }}>
+                          {new Date(w.weekOf + "T12:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Personal Records */}
+            {topPRs.length > 0 && (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "12px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>Personal Records</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  {topPRs.map((pr, i) => (
+                    <div key={i} style={{ backgroundColor: i === 0 ? "#1a3a2a" : "#f7f5f2", borderRadius: "12px", padding: "14px 12px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, color: i === 0 ? "#9fe1cb" : "#888", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pr.name}</p>
+                      <p style={{ fontSize: "24px", fontWeight: 700, color: i === 0 ? "#fff" : "#2d6a4f", margin: 0, lineHeight: 1 }}>{pr.weight}<span style={{ fontSize: "13px", fontWeight: 400 }}>kg</span></p>
+                      {pr.reps && <p style={{ fontSize: "11px", color: i === 0 ? "#9fe1cb" : "#888", margin: "4px 0 0" }}>x{pr.reps} reps</p>}
+                      <p style={{ fontSize: "10px", color: i === 0 ? "rgba(159,225,203,0.6)" : "#aaa", margin: "3px 0 0" }}>{timeAgo(pr.date)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Weight trend */}
+            {weightLogs.length > 0 && (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Body Weight</p>
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ fontSize: "22px", fontWeight: 700, color: "#2d6a4f", margin: 0, lineHeight: 1 }}>{weightLogs[weightLogs.length - 1].weight}kg</p>
+                    {weightChange !== null && parseFloat(weightChange) !== 0 && (
+                      <p style={{ fontSize: "12px", fontWeight: 700, color: parseFloat(weightChange) < 0 ? "#2d6a4f" : "#ef4444", margin: "3px 0 0" }}>
+                        {parseFloat(weightChange) > 0 ? "+" : ""}{weightChange}kg total
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <MiniGraph data={weightLogs.map(l => ({ value: l.weight, date: l.date }))} color="#3b82f6" />
+              </div>
+            )}
+
+            {/* Capability score */}
+            {allScores.length > 0 && (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Capability Score</p>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "3px 10px", borderRadius: "10px" }}>
+                    {allScores[allScores.length - 1].category}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: allScores.length >= 2 ? "12px" : 0 }}>
+                  <p style={{ fontSize: "52px", fontWeight: 700, color: "#2d6a4f", margin: 0, lineHeight: 1 }}>{allScores[allScores.length - 1].capabilityScore}</p>
+                  <div>
+                    <p style={{ fontSize: "13px", color: "#555", margin: 0 }}>out of 65</p>
+                    {allScores.length >= 2 && (() => {
+                      const delta = allScores[allScores.length - 1].capabilityScore - allScores[0].capabilityScore;
+                      return (
+                        <p style={{ fontSize: "13px", fontWeight: 700, color: delta >= 0 ? "#2d6a4f" : "#ef4444", margin: "4px 0 0" }}>
+                          {delta >= 0 ? "+" : ""}{delta} from first test
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+                {allScores.length >= 2 && <MiniGraph data={allScores.map(s => ({ value: s.capabilityScore, date: s.assessmentDate }))} />}
+              </div>
+            )}
+
+            {workoutLogs.length === 0 && checkIns.length === 0 && weightLogs.length === 0 && (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "32px", textAlign: "center" }}>
+                <p style={{ fontSize: "28px", margin: "0 0 10px" }}>📊</p>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 6px" }}>No data yet</p>
+                <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>Data will appear here as {displayName} starts logging sessions and check-ins.</p>
+              </div>
+            )}
+          </>
+        )}
 
         {/* ── OVERVIEW TAB ── */}
         {activeTab === "overview" && (

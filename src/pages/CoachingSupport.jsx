@@ -29,8 +29,8 @@ const tiers = [
     badge: "From €149/mo",
     badgeColor: "#2d6a4f",
     badgeBg: "#eaf5ef",
-    features: ["Everything in Premium", "Regular check-ins", "Direct access to Michael"],
-   cta: { label: "Book a consultation", to: "/coaching/book" },
+    features: ["Weekly Friday check-in", "Personal Sunday video review from Michael", "Your next week planned out", "Everything in Premium"],
+    cta: { label: "Book a consultation", to: "/coaching/book" },
   },
   {
     icon: "🤝",
