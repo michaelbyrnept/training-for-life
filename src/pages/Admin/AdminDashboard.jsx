@@ -59,6 +59,12 @@ const sections = [
     highlight: true,
   },
   {
+    to: "/admin/meals",
+    label: "Meal Library",
+    description: "Build recommended meals clients can log with one tap.",
+    icon: "🍽️",
+  },
+  {
     to: "/admin/metrics",
     label: "Metrics Builder",
     description: "Define what clients track.",

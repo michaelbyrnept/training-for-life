@@ -29,6 +29,8 @@ import AdminConsultations from "./pages/Admin/AdminConsultations";
 import AdminOutreach from "./pages/Admin/AdminOutreach";
 import AdminWaitlist from "./pages/Admin/AdminWaitlist";
 import AdminCheckIns from "./pages/Admin/AdminCheckIns";
+import AdminMeals from "./pages/Admin/AdminMeals";
+import NutritionGroceryList from "./pages/NutritionGroceryList";
 import ClassLog from "./pages/ClassLog";
 import CheckIn from "./pages/CheckIn";
 import Consultation from "./pages/Consultation";
@@ -77,6 +79,8 @@ export default function App() {
       <Route path="/admin/outreach" element={<AdminRoute><AdminOutreach /></AdminRoute>} />
       <Route path="/admin/waitlist" element={<AdminRoute><AdminWaitlist /></AdminRoute>} />
       <Route path="/admin/check-ins" element={<AdminRoute><AdminCheckIns /></AdminRoute>} />
+      <Route path="/admin/meals" element={<AdminRoute><AdminMeals /></AdminRoute>} />
+      <Route path="/nutrition/grocery-list" element={<NutritionGroceryList />} />
       <Route path="/check-in" element={<CheckIn />} />
       <Route path="/consultation" element={<Consultation />} />
       <Route path="/ai-running-plan" element={<AIRunningPlan />} />

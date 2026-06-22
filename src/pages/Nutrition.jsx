@@ -1,11 +1,42 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, getDocs, collection, query, where } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
 
 const USDA_API_KEY = import.meta.env.VITE_USDA_API_KEY;
+
+// Common PT foods — show instantly before any API call
+const QUICK_PICKS = [
+  { product_name: "Chicken Breast (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 165, proteins_100g: 31, carbohydrates_100g: 0, fat_100g: 3.6, fiber_100g: 0 } },
+  { product_name: "Oats (Dry)", brands: "Whole food", nutriments: { "energy-kcal_100g": 389, proteins_100g: 17, carbohydrates_100g: 66, fat_100g: 7, fiber_100g: 10 } },
+  { product_name: "Eggs (Whole)", brands: "Whole food", nutriments: { "energy-kcal_100g": 155, proteins_100g: 13, carbohydrates_100g: 1.1, fat_100g: 11, fiber_100g: 0 } },
+  { product_name: "Greek Yogurt (Plain)", brands: "Whole food", nutriments: { "energy-kcal_100g": 97, proteins_100g: 9, carbohydrates_100g: 4, fat_100g: 5, fiber_100g: 0 } },
+  { product_name: "Brown Rice (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 123, proteins_100g: 2.7, carbohydrates_100g: 26, fat_100g: 1, fiber_100g: 1.8 } },
+  { product_name: "White Rice (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 130, proteins_100g: 2.7, carbohydrates_100g: 28, fat_100g: 0.3, fiber_100g: 0.4 } },
+  { product_name: "Banana", brands: "Whole food", nutriments: { "energy-kcal_100g": 89, proteins_100g: 1.1, carbohydrates_100g: 23, fat_100g: 0.3, fiber_100g: 2.6 } },
+  { product_name: "Salmon (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 208, proteins_100g: 20, carbohydrates_100g: 0, fat_100g: 13, fiber_100g: 0 } },
+  { product_name: "Sweet Potato (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 86, proteins_100g: 1.6, carbohydrates_100g: 20, fat_100g: 0.1, fiber_100g: 3 } },
+  { product_name: "Broccoli", brands: "Whole food", nutriments: { "energy-kcal_100g": 34, proteins_100g: 2.8, carbohydrates_100g: 7, fat_100g: 0.4, fiber_100g: 2.6 } },
+  { product_name: "Cottage Cheese", brands: "Whole food", nutriments: { "energy-kcal_100g": 98, proteins_100g: 11, carbohydrates_100g: 3, fat_100g: 4, fiber_100g: 0 } },
+  { product_name: "Tuna (Tinned in Water)", brands: "Whole food", nutriments: { "energy-kcal_100g": 116, proteins_100g: 26, carbohydrates_100g: 0, fat_100g: 1, fiber_100g: 0 } },
+  { product_name: "Turkey Mince (Raw)", brands: "Whole food", nutriments: { "energy-kcal_100g": 150, proteins_100g: 19, carbohydrates_100g: 0, fat_100g: 8, fiber_100g: 0 } },
+  { product_name: "Beef Mince 5% Fat (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 175, proteins_100g: 28, carbohydrates_100g: 0, fat_100g: 7, fiber_100g: 0 } },
+  { product_name: "Pasta (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 158, proteins_100g: 5.8, carbohydrates_100g: 31, fat_100g: 0.9, fiber_100g: 1.8 } },
+  { product_name: "Whey Protein (Powder)", brands: "Supplement", nutriments: { "energy-kcal_100g": 400, proteins_100g: 80, carbohydrates_100g: 10, fat_100g: 7, fiber_100g: 0 } },
+  { product_name: "Almonds", brands: "Whole food", nutriments: { "energy-kcal_100g": 579, proteins_100g: 21, carbohydrates_100g: 22, fat_100g: 50, fiber_100g: 12.5 } },
+  { product_name: "Peanut Butter", brands: "Whole food", nutriments: { "energy-kcal_100g": 588, proteins_100g: 25, carbohydrates_100g: 20, fat_100g: 50, fiber_100g: 6 } },
+  { product_name: "Avocado", brands: "Whole food", nutriments: { "energy-kcal_100g": 160, proteins_100g: 2, carbohydrates_100g: 9, fat_100g: 15, fiber_100g: 6.7 } },
+  { product_name: "Sourdough Bread", brands: "Whole food", nutriments: { "energy-kcal_100g": 269, proteins_100g: 9, carbohydrates_100g: 51, fat_100g: 3, fiber_100g: 2.4 } },
+  { product_name: "Olive Oil", brands: "Whole food", nutriments: { "energy-kcal_100g": 884, proteins_100g: 0, carbohydrates_100g: 0, fat_100g: 100, fiber_100g: 0 } },
+  { product_name: "Cheddar Cheese", brands: "Whole food", nutriments: { "energy-kcal_100g": 403, proteins_100g: 25, carbohydrates_100g: 1.3, fat_100g: 33, fiber_100g: 0 } },
+  { product_name: "Milk (Full Fat)", brands: "Whole food", nutriments: { "energy-kcal_100g": 61, proteins_100g: 3.2, carbohydrates_100g: 4.8, fat_100g: 3.3, fiber_100g: 0 } },
+  { product_name: "Apple", brands: "Whole food", nutriments: { "energy-kcal_100g": 52, proteins_100g: 0.3, carbohydrates_100g: 14, fat_100g: 0.2, fiber_100g: 2.4 } },
+  { product_name: "Blueberries", brands: "Whole food", nutriments: { "energy-kcal_100g": 57, proteins_100g: 0.7, carbohydrates_100g: 14, fat_100g: 0.3, fiber_100g: 2.4 } },
+  { product_name: "Spinach (Raw)", brands: "Whole food", nutriments: { "energy-kcal_100g": 23, proteins_100g: 2.9, carbohydrates_100g: 3.6, fat_100g: 0.4, fiber_100g: 2.2 } },
+  { product_name: "Quinoa (Cooked)", brands: "Whole food", nutriments: { "energy-kcal_100g": 120, proteins_100g: 4.4, carbohydrates_100g: 22, fat_100g: 1.9, fiber_100g: 2.8 } },
+];
 
 const MACRO_COLORS = {
   calories: "#2d6a4f",
@@ -165,35 +196,67 @@ function BarcodeScanner({ onResult, onClose }) {
 
 function FoodSearch({ onAdd, onClose }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
+  const [apiResults, setApiResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState("100");
 
-  const search = async (q) => {
-    const term = q ?? query;
-    if (!term.trim() || term.trim().length < 3) return;
+  const toTitleCase = (str) => str.replace(/\b\w/g, txt => txt.toUpperCase());
+
+  const cleanUsdaName = (desc) => {
+    // "Chicken, broilers or fryers, breast..." -> "Chicken Breast"
+    const parts = desc.split(",").map(s => s.trim()).filter(Boolean);
+    const meaningful = parts.slice(0, 2).join(", ");
+    return toTitleCase(meaningful.toLowerCase());
+  };
+
+  const search = async (term) => {
+    if (!term || term.trim().length < 2) return;
     setSearching(true);
+    let results = [];
 
-    let foods = [];
+    // USDA \u2014 whole foods, Foundation + SR Legacy (high quality, English only)
+    try {
+      const usdaRes = await fetch(
+        `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(term)}&dataType=Foundation,SR%20Legacy&pageSize=8&api_key=${USDA_API_KEY}`
+      );
+      const usdaData = await usdaRes.json();
+      const usdaFoods = (usdaData.foods || []).slice(0, 6).map(f => {
+        const nutrients = f.foodNutrients || [];
+        const get = (id) => Math.round((nutrients.find(n => n.nutrientId === id)?.value || 0) * 10) / 10;
+        return {
+          product_name: cleanUsdaName(f.description),
+          brands: "Whole food",
+          nutriments: {
+            "energy-kcal_100g": get(1008),
+            proteins_100g: get(1003),
+            carbohydrates_100g: get(1005),
+            fat_100g: get(1004),
+            fiber_100g: get(1079),
+          }
+        };
+      }).filter(f => f.nutriments["energy-kcal_100g"] > 0);
+      results = [...results, ...usdaFoods];
+    } catch (e) { /* USDA unavailable */ }
 
+    // Open Food Facts \u2014 Ireland + UK products only, English language
     try {
       const offRes = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(term)}&search_simple=1&action=process&json=1&page_size=24&fields=product_name,brands,nutriments`
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(term)}&search_simple=1&action=process&json=1&page_size=20&fields=product_name,brands,nutriments&lc=en&countries_tags_en=ireland,united-kingdom`
       );
       const offData = await offRes.json();
-      foods = (offData.products || [])
+      const offFoods = (offData.products || [])
         .filter(p =>
           p.product_name &&
           p.product_name.trim().length > 2 &&
           p.nutriments &&
-          (p.nutriments["energy-kcal_100g"] || p.nutriments["energy-kcal"] || 0) > 0 &&
-          /^[\x20-\x7E\u00C0-\u024F\s]+$/.test(p.product_name)
+          (p.nutriments["energy-kcal_100g"] || 0) > 0 &&
+          /^[a-zA-Z0-9\s\-&'(),%.+*]+$/.test(p.product_name.trim())
         )
-        .slice(0, 10)
+        .slice(0, 6)
         .map(p => ({
           product_name: toTitleCase(p.product_name.trim()),
-          brands: p.brands ? toTitleCase(p.brands.split(",")[0].trim()) : "",
+          brands: p.brands ? toTitleCase(p.brands.split(",")[0].trim()) : "Branded",
           nutriments: {
             "energy-kcal_100g": Math.round(p.nutriments["energy-kcal_100g"] || p.nutriments["energy-kcal"] || 0),
             proteins_100g: Math.round((p.nutriments.proteins_100g || 0) * 10) / 10,
@@ -202,49 +265,30 @@ function FoodSearch({ onAdd, onClose }) {
             fiber_100g: Math.round((p.nutriments.fiber_100g || p.nutriments.fibers_100g || 0) * 10) / 10,
           }
         }));
-    } catch (e) {
-      console.log("Open Food Facts unavailable");
-    }
+      results = [...results, ...offFoods];
+    } catch (e) { /* OFT unavailable */ }
 
-    if (foods.length < 4) {
-      try {
-        const usdaRes = await fetch(
-          `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(term)}&dataType=SR%20Legacy,Foundation&pageSize=8&api_key=${USDA_API_KEY}`
-        );
-        const usdaData = await usdaRes.json();
-        const usdaFoods = (usdaData.foods || []).slice(0, 6).map(f => {
-          const nutrients = f.foodNutrients || [];
-          const get = (id) => Math.round((nutrients.find(n => n.nutrientId === id)?.value || 0) * 10) / 10;
-          return {
-            product_name: toTitleCase(f.description),
-            brands: "Whole food",
-            nutriments: {
-              "energy-kcal_100g": get(1008),
-              proteins_100g: get(1003),
-              carbohydrates_100g: get(1005),
-              fat_100g: get(1004),
-              fiber_100g: get(1079),
-            }
-          };
-        });
-        foods = [...foods, ...usdaFoods];
-      } catch (e) {
-        console.log("USDA unavailable");
-      }
-    }
-
-    setResults(foods.slice(0, 12));
+    setApiResults(results.slice(0, 12));
     setSearching(false);
   };
 
-  const toTitleCase = (str) =>
-    str.replace(/\b\w/g, txt => txt.toUpperCase());
-
   useEffect(() => {
-    if (query.trim().length < 3) { setResults([]); return; }
-    const timer = setTimeout(() => search(query), 500);
+    if (query.trim().length < 2) { setApiResults([]); return; }
+    const timer = setTimeout(() => search(query.trim()), 600);
     return () => clearTimeout(timer);
   }, [query]);
+
+  const matchedQuickPicks = query.trim().length >= 1
+    ? QUICK_PICKS.filter(p => p.product_name.toLowerCase().includes(query.toLowerCase()))
+    : QUICK_PICKS;
+
+  // Deduplicate: quick pick names take priority over API results
+  const quickPickNames = new Set(matchedQuickPicks.map(p => p.product_name.toLowerCase()));
+  const filteredApi = apiResults.filter(r => !quickPickNames.has(r.product_name.toLowerCase()));
+
+  const displayResults = query.trim().length >= 2
+    ? [...matchedQuickPicks.slice(0, 4), ...filteredApi]
+    : matchedQuickPicks;
 
   const addFood = () => {
     if (!selected) return;
@@ -264,60 +308,95 @@ function FoodSearch({ onAdd, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
-      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "85vh", overflowY: "auto" }}>
+      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "88vh", overflowY: "auto" }}>
         <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
         <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 16px" }}>Search Food</h2>
 
-        <div style={{ position: "relative", marginBottom: "12px" }}>
+        <div style={{ position: "relative", marginBottom: "16px" }}>
           <input
             type="text"
-            placeholder="e.g. chicken breast, banana, Greek yogurt..."
+            placeholder="e.g. chicken breast, oats, Greek yogurt..."
             value={query}
             onChange={e => { setQuery(e.target.value); setSelected(null); }}
-            style={{ width: "100%", padding: "12px 14px", paddingRight: searching ? "40px" : "14px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: "15px", outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", padding: "12px 40px 12px 14px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: "15px", outline: "none", boxSizing: "border-box" }}
             autoFocus
           />
-          {searching && (
-            <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "13px", color: "#aaa" }}>
-              ...
-            </div>
-          )}
+          <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "13px", color: "#aaa" }}>
+            {searching ? "..." : "\uD83D\uDD0D"}
+          </div>
         </div>
 
-        {!selected && results.map((product, i) => (
-          <div key={i} onClick={() => setSelected(product)} style={{ padding: "12px 14px", borderRadius: "10px", border: "0.5px solid #e5e5e5", marginBottom: "8px", cursor: "pointer", backgroundColor: "#fff" }}>
-            <p style={{ fontWeight: 700, fontSize: "14px", color: "#111", margin: "0 0 2px" }}>{product.product_name}</p>
-            <p style={{ fontSize: "12px", color: "#888", margin: "0 0 4px" }}>{product.brands || "Whole food"}</p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <span style={{ fontSize: "11px", color: "#2d6a4f", fontWeight: 700 }}>{product.nutriments?.["energy-kcal_100g"] || 0} kcal</span>
-              <span style={{ fontSize: "11px", color: "#888" }}>P: {product.nutriments?.proteins_100g || 0}g</span>
-              <span style={{ fontSize: "11px", color: "#888" }}>C: {product.nutriments?.carbohydrates_100g || 0}g</span>
-              <span style={{ fontSize: "11px", color: "#888" }}>F: {product.nutriments?.fat_100g || 0}g</span>
-            </div>
-          </div>
-        ))}
-
-        {!selected && !searching && query.length >= 3 && results.length === 0 && (
-          <p style={{ textAlign: "center", fontSize: "13px", color: "#aaa", padding: "20px 0" }}>No results found. Try a different search term.</p>
+        {!selected && (
+          <>
+            {query.trim().length === 0 && (
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Common Foods</p>
+            )}
+            {query.trim().length >= 2 && matchedQuickPicks.length > 0 && (
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>Common Foods</p>
+            )}
+            {displayResults.map((product, i) => {
+              const isQuickPick = matchedQuickPicks.includes(product);
+              const showApiLabel = i === matchedQuickPicks.slice(0, 4).length && filteredApi.length > 0 && query.trim().length >= 2;
+              return (
+                <div key={i}>
+                  {showApiLabel && <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "12px 0 8px" }}>Search Results</p>}
+                  <div onClick={() => setSelected(product)} style={{ padding: "12px 14px", borderRadius: "10px", border: `0.5px solid ${isQuickPick ? "#e5e5e5" : "#e5e5e5"}`, marginBottom: "8px", cursor: "pointer", backgroundColor: isQuickPick ? "#f7f5f2" : "#fff" }}>
+                    <p style={{ fontWeight: 700, fontSize: "14px", color: "#111", margin: "0 0 2px" }}>{product.product_name}</p>
+                    <p style={{ fontSize: "11px", color: "#888", margin: "0 0 4px" }}>{product.brands}</p>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <span style={{ fontSize: "11px", color: "#2d6a4f", fontWeight: 700 }}>{product.nutriments?.["energy-kcal_100g"] || 0} kcal</span>
+                      <span style={{ fontSize: "11px", color: "#888" }}>P: {product.nutriments?.proteins_100g || 0}g</span>
+                      <span style={{ fontSize: "11px", color: "#888" }}>C: {product.nutriments?.carbohydrates_100g || 0}g</span>
+                      <span style={{ fontSize: "11px", color: "#888" }}>F: {product.nutriments?.fat_100g || 0}g</span>
+                    </div>
+                    <p style={{ fontSize: "10px", color: "#aaa", margin: "2px 0 0" }}>per 100g</p>
+                  </div>
+                </div>
+              );
+            })}
+            {query.trim().length >= 2 && !searching && displayResults.length === 0 && (
+              <p style={{ textAlign: "center", fontSize: "13px", color: "#aaa", padding: "20px 0" }}>No results found. Try a different term.</p>
+            )}
+          </>
         )}
 
         {selected && (
           <div>
             <div style={{ backgroundColor: "#eaf5ef", borderRadius: "12px", padding: "14px", marginBottom: "16px" }}>
-              <p style={{ fontWeight: 700, fontSize: "15px", color: "#111", margin: "0 0 4px" }}>{selected.product_name}</p>
-              <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>{selected.brands}</p>
+              <p style={{ fontWeight: 700, fontSize: "15px", color: "#111", margin: "0 0 2px" }}>{selected.product_name}</p>
+              <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>{selected.brands} \u00B7 per 100g</p>
             </div>
-            <div style={{ marginBottom: "16px" }}>
+            <div style={{ marginBottom: "12px" }}>
               <label style={{ fontSize: "12px", fontWeight: 700, color: "#555", display: "block", marginBottom: "6px" }}>Amount (grams)</label>
-              <input type="number" value={amount} onChange={e => setAmount(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #2d6a4f", fontSize: "16px", fontWeight: 700, outline: "none", textAlign: "center", boxSizing: "border-box" }} />
+              <input type="number" value={amount} onChange={e => setAmount(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #2d6a4f", fontSize: "22px", fontWeight: 700, outline: "none", textAlign: "center", boxSizing: "border-box" }} />
             </div>
-            <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
               {["30", "50", "100", "150", "200"].map(a => (
                 <button key={a} onClick={() => setAmount(a)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: amount === a ? "2px solid #2d6a4f" : "1px solid #e5e5e5", backgroundColor: amount === a ? "#eaf5ef" : "#f7f5f2", color: amount === a ? "#2d6a4f" : "#888", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
                   {a}g
                 </button>
               ))}
             </div>
+            {/* Preview macros for selected amount */}
+            {amount && (() => {
+              const n = selected.nutriments || {};
+              const m = parseFloat(amount) / 100;
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px", marginBottom: "14px" }}>
+                  {[
+                    { label: "Kcal", value: Math.round((n["energy-kcal_100g"] || 0) * m), color: "#2d6a4f" },
+                    { label: "Protein", value: `${Math.round((n.proteins_100g || 0) * m * 10) / 10}g`, color: "#3b82f6" },
+                    { label: "Carbs", value: `${Math.round((n.carbohydrates_100g || 0) * m * 10) / 10}g`, color: "#f59e0b" },
+                    { label: "Fat", value: `${Math.round((n.fat_100g || 0) * m * 10) / 10}g`, color: "#ef4444" },
+                  ].map(s => (
+                    <div key={s.label} style={{ backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                      <p style={{ fontSize: "16px", fontWeight: 700, color: s.color, margin: 0, lineHeight: 1 }}>{s.value}</p>
+                      <p style={{ fontSize: "10px", color: "#aaa", margin: "3px 0 0" }}>{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
             <button onClick={addFood} style={{ width: "100%", backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "12px", padding: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "8px" }}>
               Add to Log
             </button>
@@ -346,6 +425,10 @@ export default function Nutrition() {
   const [showSearch, setShowSearch] = useState(false);
   const [activeMeal, setActiveMeal] = useState(null);
   const [addingTo, setAddingTo] = useState(null);
+  const [recommendedMeals, setRecommendedMeals] = useState([]);
+  const [mealTypeFilter, setMealTypeFilter] = useState("all");
+  const [viewingMeal, setViewingMeal] = useState(null);
+  const [mealAddTarget, setMealAddTarget] = useState("lunch");
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -362,6 +445,11 @@ export default function Nutrition() {
       const logRef = doc(db, "nutritionLogs", `${u.uid}_${today}`);
       const logSnap = await getDoc(logRef);
       if (logSnap.exists()) setTodayLog(logSnap.data().meals || { breakfast: [], lunch: [], dinner: [], snacks: [] });
+
+      // Load recommended meals
+      const mealsSnap = await getDocs(query(collection(db, "meals"), where("published", "==", true)));
+      setRecommendedMeals(mealsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
       setLoading(false);
     });
     return () => unsub();
@@ -492,6 +580,49 @@ export default function Nutrition() {
         </button>
       </div>
 
+      {/* MEAL RECOMMENDATIONS */}
+      {recommendedMeals.length > 0 && (
+        <div style={{ padding: "0 16px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+            <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: 0 }}>Meal Ideas</p>
+            <Link to="/nutrition/grocery-list" style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", textDecoration: "none" }}>
+              Grocery List →
+            </Link>
+          </div>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto", paddingBottom: "2px" }}>
+            {["all", "breakfast", "lunch", "dinner", "snack"].map(t => (
+              <button key={t} onClick={() => setMealTypeFilter(t)} style={{ flexShrink: 0, padding: "6px 14px", borderRadius: "20px", border: "none", backgroundColor: mealTypeFilter === t ? "#1a3a2a" : "#f0f0f0", color: mealTypeFilter === t ? "#fff" : "#555", fontSize: "12px", fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
+                {t === "all" ? "All" : t}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {recommendedMeals
+              .filter(m => mealTypeFilter === "all" || m.type === mealTypeFilter)
+              .map(meal => {
+                const t = meal.totals || {};
+                return (
+                  <div key={meal.id} onClick={() => { setViewingMeal(meal); setMealAddTarget(meal.type === "breakfast" ? "breakfast" : meal.type === "dinner" ? "dinner" : meal.type === "snack" ? "snacks" : "lunch"); }} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{meal.name}</p>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "2px 7px", borderRadius: "8px", textTransform: "capitalize" }}>{meal.type}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f" }}>{t.calories || 0} kcal</span>
+                        <span style={{ fontSize: "12px", color: "#3b82f6", fontWeight: 600 }}>P: {t.protein || 0}g</span>
+                        <span style={{ fontSize: "12px", color: "#888" }}>C: {t.carbs || 0}g</span>
+                        <span style={{ fontSize: "12px", color: "#888" }}>F: {t.fat || 0}g</span>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: "16px", color: "#2d6a4f" }}>→</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       {/* MEAL SECTIONS */}
       {meals.map(meal => {
         const mealFoods = todayLog[meal.id] || [];
@@ -578,6 +709,84 @@ export default function Nutrition() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* MEAL DETAIL SHEET */}
+      {viewingMeal && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setViewingMeal(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "88vh", overflowY: "auto" }}>
+            <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px" }}>
+              <div>
+                <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{viewingMeal.name}</h2>
+                {viewingMeal.description && <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>{viewingMeal.description}</p>}
+              </div>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "4px 10px", borderRadius: "10px", textTransform: "capitalize", flexShrink: 0 }}>{viewingMeal.type}</span>
+            </div>
+            {/* Totals */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px", marginBottom: "16px" }}>
+              {[
+                { label: "Kcal", value: viewingMeal.totals?.calories || 0, color: "#2d6a4f" },
+                { label: "Protein", value: `${viewingMeal.totals?.protein || 0}g`, color: "#3b82f6" },
+                { label: "Carbs", value: `${viewingMeal.totals?.carbs || 0}g`, color: "#f59e0b" },
+                { label: "Fat", value: `${viewingMeal.totals?.fat || 0}g`, color: "#ef4444" },
+              ].map(s => (
+                <div key={s.label} style={{ backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "10px", textAlign: "center" }}>
+                  <p style={{ fontSize: "18px", fontWeight: 700, color: s.color, margin: 0, lineHeight: 1 }}>{s.value}</p>
+                  <p style={{ fontSize: "10px", color: "#aaa", margin: "3px 0 0" }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+            {/* Ingredients */}
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Ingredients</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "20px" }}>
+              {(viewingMeal.ingredients || []).map((ing, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", backgroundColor: "#f7f5f2", borderRadius: "10px" }}>
+                  <div>
+                    <p style={{ fontSize: "14px", fontWeight: 600, color: "#111", margin: 0 }}>{ing.name}</p>
+                    <p style={{ fontSize: "11px", color: "#888", margin: "2px 0 0" }}>{ing.amount}g</p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", margin: 0 }}>{ing.calories} kcal</p>
+                    <p style={{ fontSize: "11px", color: "#888", margin: "2px 0 0" }}>P:{ing.protein}g</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Add to meal target picker */}
+            <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 8px" }}>Add to:</p>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+              {[{ id: "breakfast", label: "Breakfast" }, { id: "lunch", label: "Lunch" }, { id: "dinner", label: "Dinner" }, { id: "snacks", label: "Snacks" }].map(m => (
+                <button key={m.id} onClick={() => setMealAddTarget(m.id)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: mealAddTarget === m.id ? "2px solid #2d6a4f" : "1px solid #e5e5e5", backgroundColor: mealAddTarget === m.id ? "#eaf5ef" : "#f7f5f2", color: mealAddTarget === m.id ? "#2d6a4f" : "#888", fontWeight: 700, fontSize: "11px", cursor: "pointer" }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                (viewingMeal.ingredients || []).forEach(ing => {
+                  addFoodToMeal(mealAddTarget, {
+                    name: ing.name,
+                    calories: ing.calories,
+                    protein: ing.protein,
+                    carbs: ing.carbs,
+                    fat: ing.fat,
+                    fibre: ing.fibre || 0,
+                    amount: `${ing.amount}g`,
+                    id: Date.now() + Math.random(),
+                  });
+                });
+                setViewingMeal(null);
+              }}
+              style={{ width: "100%", backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "12px", padding: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "8px" }}
+            >
+              Add All to {mealAddTarget.charAt(0).toUpperCase() + mealAddTarget.slice(1)}
+            </button>
+            <button onClick={() => setViewingMeal(null)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer" }}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
