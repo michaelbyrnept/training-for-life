@@ -20,6 +20,7 @@ function getWeekMonday() {
 export default function NutritionGroceryList() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [meals, setMeals] = useState([]);
   const [plan, setPlan] = useState({});
   const [loading, setLoading] = useState(true);
@@ -35,6 +36,8 @@ export default function NutritionGroceryList() {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) { navigate("/login"); return; }
       setUser(u);
+      const userSnap = await getDoc(doc(db, "users", u.uid));
+      if (userSnap.exists()) setUserData(userSnap.data());
 
       const [mealsSnap, planSnap] = await Promise.all([
         getDocs(query(collection(db, "meals"), where("published", "==", true))),
@@ -107,10 +110,36 @@ export default function NutritionGroceryList() {
   const assignedMealCount = Object.keys(plan).length;
   const filteredPickerMeals = mealTypeFilter === "all" ? meals : meals.filter(m => m.type === mealTypeFilter);
 
+  const isPaid = user?.uid === "wKbgHNtTMtS01BQ4ddfAwTQaIgA3" || (userData?.subscription && userData.subscription !== "free");
+
   if (loading) return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "100px" }}>
       <PortalNav />
       <p style={{ textAlign: "center", color: "#888", padding: "3rem" }}>Loading...</p>
+    </div>
+  );
+
+  if (!isPaid) return (
+    <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "120px" }}>
+      <PortalNav />
+      <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 40px" }}>
+        <Link to="/nutrition" style={{ fontSize: "13px", color: "#9fe1cb", fontWeight: 700, textDecoration: "none" }}>← Nutrition</Link>
+        <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "20px 0 4px" }}>Grocery List</h1>
+      </div>
+      <div style={{ height: 24, background: "#f7f5f2", borderRadius: "24px 24px 0 0", marginTop: -24 }} />
+      <div style={{ padding: "16px" }}>
+        <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "24px 20px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -20, right: -20, fontSize: "100px", opacity: 0.06 }}>🛒</div>
+          <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Premium Feature</p>
+          <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 10px" }}>Meal Plans + Grocery Lists</h2>
+          <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.75)", margin: "0 0 20px", lineHeight: 1.6 }}>
+            Plan your meals for the week and get a consolidated shopping list built from your coach's recommended meals.
+          </p>
+          <Link to="/coaching" style={{ display: "inline-block", backgroundColor: "#4ade80", color: "#1a3a2a", borderRadius: "12px", padding: "13px 24px", fontSize: "15px", fontWeight: 700, textDecoration: "none" }}>
+            Upgrade to unlock →
+          </Link>
+        </div>
+      </div>
     </div>
   );
 

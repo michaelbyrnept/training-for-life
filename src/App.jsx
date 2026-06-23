@@ -44,6 +44,7 @@ import CoachingAbout from "./pages/CoachingAbout";
 import CoachingPhilosophy from "./pages/CoachingPhilosophy";
 import CoachingSupport from "./pages/CoachingSupport";
 import CoachingBook from "./pages/CoachingBook";
+import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 
 export default function App() {
   return (
@@ -93,6 +94,7 @@ export default function App() {
 <Route path="/coaching/support" element={<CoachingSupport />} />
 
 <Route path="/coaching/book" element={<CoachingBook />} />
+      <Route path="/subscription/success" element={<SubscriptionSuccess />} />
     </Routes>
   )
 }

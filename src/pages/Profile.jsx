@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { auth, db, storage } from "../firebase";
+import { auth, db, storage, functions } from "../firebase";
+import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { doc, getDoc, updateDoc, collection, getDocs, query, where, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -63,6 +64,8 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [achievements, setAchievements] = useState([]);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -114,6 +117,25 @@ export default function Profile() {
     setUserData(prev => ({ ...prev, nickname: newNickname.trim() }));
     setShowNicknameEdit(false);
     setSaving(false);
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!cancelConfirm) {
+      setCancelConfirm(true);
+      setTimeout(() => setCancelConfirm(false), 4000);
+      return;
+    }
+    setCancelLoading(true);
+    try {
+      const fn = httpsCallable(functions, "cancelSubscription");
+      await fn();
+      setUserData(prev => ({ ...prev, subscriptionCancelAtPeriodEnd: true }));
+    } catch (err) {
+      console.error(err);
+      alert("Could not cancel subscription. Please try again.");
+    }
+    setCancelLoading(false);
+    setCancelConfirm(false);
   };
 
   const handlePhotoUpload = async (e) => {
@@ -208,7 +230,13 @@ export default function Profile() {
             borderRadius: "20px", padding: "5px 14px",
             fontSize: "12px", fontWeight: 700, color: "#9fe1cb",
           }}>
-            ⭐ {userData?.subscription === "premium" ? "Premium Member" : "Free Member"}
+            ⭐ {
+              userData?.subscription === "premium" || userData?.subscription === "premium_trial" ? "Premium Member"
+              : userData?.subscription === "online" ? "Online Coaching"
+              : userData?.subscription === "hybrid" ? "Hybrid Coaching"
+              : userData?.subscription === "in-person" ? "In-Person Coaching"
+              : "Free Member"
+            }
           </div>
         </div>
       </div>
@@ -360,6 +388,60 @@ export default function Profile() {
                 <span style={{ fontSize: "13px", fontWeight: 700, color: "#aaa" }}>{s.current}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* SUBSCRIPTION */}
+      {userData?.subscription && userData.subscription !== "free" && (
+        <div style={{ padding: "16px 16px 0" }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+            Subscription
+          </p>
+          <div style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+              <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: 0 }}>
+                {userData.subscription === "premium" || userData.subscription === "premium_trial"
+                  ? "Premium Membership"
+                  : userData.subscription === "online"
+                  ? "Online Coaching"
+                  : userData.subscription === "hybrid"
+                  ? "Hybrid Coaching"
+                  : "In-Person Coaching"}
+              </p>
+              <span style={{
+                fontSize: "11px", fontWeight: 700,
+                color: userData.subscriptionCancelAtPeriodEnd ? "#dc2626" : "#2d6a4f",
+                backgroundColor: userData.subscriptionCancelAtPeriodEnd ? "#fef2f2" : "#eaf5ef",
+                padding: "4px 10px", borderRadius: "20px",
+              }}>
+                {userData.subscriptionCancelAtPeriodEnd ? "Cancelling" : "Active"}
+              </span>
+            </div>
+            {userData.subscriptionPeriodEnd && (
+              <p style={{ fontSize: "12px", color: "#888", margin: "0 0 12px" }}>
+                {userData.subscriptionCancelAtPeriodEnd
+                  ? `Access ends ${new Date(userData.subscriptionPeriodEnd).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}`
+                  : `Next billing: ${new Date(userData.subscriptionPeriodEnd).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}`}
+              </p>
+            )}
+            {!userData.subscriptionCancelAtPeriodEnd && (
+              <button
+                onClick={handleCancelSubscription}
+                disabled={cancelLoading}
+                style={{
+                  width: "100%",
+                  backgroundColor: cancelConfirm ? "#dc2626" : "#f0f0f0",
+                  color: cancelConfirm ? "#fff" : "#888",
+                  border: "none", borderRadius: "8px",
+                  padding: "10px", fontSize: "13px", fontWeight: 700,
+                  cursor: cancelLoading ? "default" : "pointer",
+                  opacity: cancelLoading ? 0.6 : 1,
+                }}
+              >
+                {cancelLoading ? "Cancelling..." : cancelConfirm ? "Tap again to confirm" : "Cancel subscription"}
+              </button>
+            )}
           </div>
         </div>
       )}

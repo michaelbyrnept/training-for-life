@@ -514,9 +514,16 @@ export default function Nutrition() {
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
           <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Nutrition</p>
-          <Link to="/nutrition/calculator" style={{ fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none", backgroundColor: "rgba(255,255,255,0.12)", padding: "6px 12px", borderRadius: "20px" }}>
-            My Targets →
-          </Link>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {(user?.uid === "wKbgHNtTMtS01BQ4ddfAwTQaIgA3" || (userData?.subscription && userData.subscription !== "free")) && (
+              <Link to="/nutrition/grocery-list" style={{ fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none", backgroundColor: "rgba(255,255,255,0.12)", padding: "6px 12px", borderRadius: "20px" }}>
+                🛒 Grocery List
+              </Link>
+            )}
+            <Link to="/nutrition/calculator" style={{ fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none", backgroundColor: "rgba(255,255,255,0.12)", padding: "6px 12px", borderRadius: "20px" }}>
+              My Targets →
+            </Link>
+          </div>
         </div>
         <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>
           {new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" })}
@@ -581,47 +588,77 @@ export default function Nutrition() {
       </div>
 
       {/* MEAL RECOMMENDATIONS */}
-      {recommendedMeals.length > 0 && (
-        <div style={{ padding: "0 16px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-            <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: 0 }}>Meal Ideas</p>
-            <Link to="/nutrition/grocery-list" style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", textDecoration: "none" }}>
-              Grocery List →
-            </Link>
+      {(() => {
+        const isPaid = user?.uid === "wKbgHNtTMtS01BQ4ddfAwTQaIgA3" || (userData?.subscription && userData.subscription !== "free");
+        if (!isPaid) {
+          return (
+            <div style={{ padding: "0 16px 16px" }}>
+              <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "20px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: -20, right: -20, fontSize: "80px", opacity: 0.08 }}>🍽️</div>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 6px" }}>Premium Feature</p>
+                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#fff", margin: "0 0 6px" }}>Meal Plans + Grocery Lists</h3>
+                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: "0 0 14px", lineHeight: 1.5 }}>
+                  Get coach-recommended meals built around your targets, and auto-generate your weekly shopping list.
+                </p>
+                <Link to="/coaching" style={{ display: "inline-block", backgroundColor: "#4ade80", color: "#1a3a2a", borderRadius: "10px", padding: "10px 18px", fontSize: "13px", fontWeight: 700, textDecoration: "none" }}>
+                  Upgrade to unlock →
+                </Link>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div style={{ padding: "0 16px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: 0 }}>Meal Ideas</p>
+              <Link to="/nutrition/grocery-list" style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", textDecoration: "none" }}>
+                Grocery List →
+              </Link>
+            </div>
+            {recommendedMeals.length === 0 ? (
+              <div style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "24px 20px", textAlign: "center" }}>
+                <p style={{ fontSize: "24px", margin: "0 0 8px" }}>🍽️</p>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Meal ideas coming soon</p>
+                <p style={{ fontSize: "13px", color: "#888", margin: 0, lineHeight: 1.5 }}>Your coach is building your meal library. Check back soon.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto", paddingBottom: "2px" }}>
+                  {["all", "breakfast", "lunch", "dinner", "snack"].map(t => (
+                    <button key={t} onClick={() => setMealTypeFilter(t)} style={{ flexShrink: 0, padding: "6px 14px", borderRadius: "20px", border: "none", backgroundColor: mealTypeFilter === t ? "#1a3a2a" : "#f0f0f0", color: mealTypeFilter === t ? "#fff" : "#555", fontSize: "12px", fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
+                      {t === "all" ? "All" : t}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {recommendedMeals
+                    .filter(m => mealTypeFilter === "all" || m.type === mealTypeFilter)
+                    .map(meal => {
+                      const t = meal.totals || {};
+                      return (
+                        <div key={meal.id} onClick={() => { setViewingMeal(meal); setMealAddTarget(meal.type === "breakfast" ? "breakfast" : meal.type === "dinner" ? "dinner" : meal.type === "snack" ? "snacks" : "lunch"); }} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                              <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{meal.name}</p>
+                              <span style={{ fontSize: "10px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "2px 7px", borderRadius: "8px", textTransform: "capitalize" }}>{meal.type}</span>
+                            </div>
+                            <div style={{ display: "flex", gap: "10px" }}>
+                              <span style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f" }}>{t.calories || 0} kcal</span>
+                              <span style={{ fontSize: "12px", color: "#3b82f6", fontWeight: 600 }}>P: {t.protein || 0}g</span>
+                              <span style={{ fontSize: "12px", color: "#888" }}>C: {t.carbs || 0}g</span>
+                              <span style={{ fontSize: "12px", color: "#888" }}>F: {t.fat || 0}g</span>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: "16px", color: "#2d6a4f" }}>→</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </>
+            )}
           </div>
-          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto", paddingBottom: "2px" }}>
-            {["all", "breakfast", "lunch", "dinner", "snack"].map(t => (
-              <button key={t} onClick={() => setMealTypeFilter(t)} style={{ flexShrink: 0, padding: "6px 14px", borderRadius: "20px", border: "none", backgroundColor: mealTypeFilter === t ? "#1a3a2a" : "#f0f0f0", color: mealTypeFilter === t ? "#fff" : "#555", fontSize: "12px", fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
-                {t === "all" ? "All" : t}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {recommendedMeals
-              .filter(m => mealTypeFilter === "all" || m.type === mealTypeFilter)
-              .map(meal => {
-                const t = meal.totals || {};
-                return (
-                  <div key={meal.id} onClick={() => { setViewingMeal(meal); setMealAddTarget(meal.type === "breakfast" ? "breakfast" : meal.type === "dinner" ? "dinner" : meal.type === "snack" ? "snacks" : "lunch"); }} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{meal.name}</p>
-                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "2px 7px", borderRadius: "8px", textTransform: "capitalize" }}>{meal.type}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f" }}>{t.calories || 0} kcal</span>
-                        <span style={{ fontSize: "12px", color: "#3b82f6", fontWeight: 600 }}>P: {t.protein || 0}g</span>
-                        <span style={{ fontSize: "12px", color: "#888" }}>C: {t.carbs || 0}g</span>
-                        <span style={{ fontSize: "12px", color: "#888" }}>F: {t.fat || 0}g</span>
-                      </div>
-                    </div>
-                    <span style={{ fontSize: "16px", color: "#2d6a4f" }}>→</span>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MEAL SECTIONS */}
       {meals.map(meal => {
