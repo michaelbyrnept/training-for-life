@@ -17,6 +17,62 @@ const TIERS = [
 
 const sections = [
   {
+    to: "/admin/calendar",
+    label: "Calendar",
+    description: "This week's sessions, classes, and check-ins in one view.",
+    icon: "🗓️",
+    highlight: true,
+  },
+  {
+    to: "/admin/progress",
+    label: "Client Progress",
+    description: "At-a-glance activity, streaks, and pending check-ins for every client.",
+    icon: "📊",
+    highlight: true,
+  },
+  {
+    to: "/admin/forecast",
+    label: "Revenue Forecast",
+    description: "Projected MRR by tier and the fastest path to €10k.",
+    icon: "📈",
+    highlight: true,
+  },
+  {
+    to: "/admin/broadcast",
+    label: "Broadcast",
+    description: "Send a message to all clients or a filtered group.",
+    icon: "📣",
+    highlight: true,
+  },
+  {
+    to: "/admin/revenue",
+    label: "Revenue",
+    description: "Monthly revenue vs €10k target, trend, and recent purchases.",
+    icon: "💰",
+    highlight: true,
+  },
+  {
+    to: "/admin/wins",
+    label: "Wins & Recognition",
+    description: "Client milestones detected. Reach out and celebrate their progress.",
+    icon: "🏆",
+    highlight: true,
+  },
+  {
+    to: "/admin/bundles",
+    label: "Session Bundles",
+    description: "Manage your session bundle catalogue and pricing.",
+    icon: "🎫",
+    highlight: true,
+  },
+  {
+    to: "/admin/sessions",
+    label: "Sessions",
+    description: "Book sessions, view upcoming schedule, mark outcomes.",
+    icon: "📅",
+    highlight: true,
+  },
+  {
     to: "/admin/check-ins",
     label: "Check-ins",
     description: "Review weekly check-ins and send video replies.",

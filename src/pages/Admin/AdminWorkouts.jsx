@@ -441,17 +441,19 @@ const handleBulkDelete = async () => {
 
           {form.exercises.length > 0 && (
             <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
-              <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                {form.exercises.length} exercise{form.exercises.length !== 1 ? "s" : ""} added
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
+                  {form.exercises.length} exercise{form.exercises.length !== 1 ? "s" : ""} added
+                </p>
                 <div style={{ display: "flex", gap: "8px" }}>
-  <button onClick={() => addRepsToAll(2)} style={{ flex: 1, backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
-    +2 Reps (all)
-  </button>
-  <button onClick={addSetToAll} style={{ flex: 1, backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
-    +1 Set (all)
-  </button>
-</div>
-              </p>
+                  <button onClick={() => addRepsToAll(2)} style={{ flex: 1, backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
+                    +2 Reps (all)
+                  </button>
+                  <button onClick={addSetToAll} style={{ flex: 1, backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
+                    +1 Set (all)
+                  </button>
+                </div>
+              </div>
 
               {form.exercises.map((ex, index) => {
                 const isCardio = ex.type === "cardio" || exerciseMap[ex.exerciseId]?.type === "cardio";
@@ -613,7 +615,7 @@ const handleBulkDelete = async () => {
   <div style={{ display: "flex", gap: "10px" }}>
     <div style={{ flex: 1 }}>
       <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Sets</label>
-      <input type="number" value={ex.sets} onChange={(e) => updateExerciseField(ex.exerciseId, "sets", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
+      <input type="number" min="1" value={ex.sets} onChange={(e) => updateExerciseField(ex.exerciseId, "sets", Math.max(1, Number(e.target.value)))} style={{ ...inputStyle, marginTop: "4px" }} />
     </div>
     <div style={{ flex: 1 }}>
       <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Hold (seconds)</label>
@@ -624,7 +626,7 @@ const handleBulkDelete = async () => {
   <div style={{ display: "flex", gap: "10px" }}>
     <div style={{ flex: 1 }}>
       <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Sets</label>
-      <input type="number" value={ex.sets} onChange={(e) => updateExerciseField(ex.exerciseId, "sets", Number(e.target.value))} style={{ ...inputStyle, marginTop: "4px" }} />
+      <input type="number" min="1" value={ex.sets} onChange={(e) => updateExerciseField(ex.exerciseId, "sets", Math.max(1, Number(e.target.value)))} style={{ ...inputStyle, marginTop: "4px" }} />
     </div>
     <div style={{ flex: 1 }}>
       <label style={{ fontSize: "11px", color: "#888", fontWeight: 600 }}>Min reps</label>

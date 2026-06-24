@@ -13,6 +13,7 @@ const emptyProgramme = {
   level: "Beginner",
   free: true,
   repeating: false,
+  onboardingRecommended: false,
   weeks: [{ weekNumber: 1, title: "Week 1", workouts: [] }],
   published: false,
 };
@@ -27,6 +28,7 @@ export default function AdminProgrammes() {
   const [form, setForm] = useState(emptyProgramme);
   const [expandedWorkouts, setExpandedWorkouts] = useState({});
   const [workoutDetails, setWorkoutDetails] = useState({});
+  const [workoutSort, setWorkoutSort] = useState("alpha");
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -193,6 +195,13 @@ const insertWeek = async (index, copyFromIndex = null) => {
     if (!form.name.trim()) return alert("Programme name is required.");
     setSaving(true);
     try {
+      // If marking as onboarding recommendation, clear it from all other programmes first
+      if (form.onboardingRecommended) {
+        const others = programmes.filter(p => p.onboardingRecommended && p.id !== editing);
+        for (const p of others) {
+          await updateDoc(doc(db, "programmes", p.id), { onboardingRecommended: false });
+        }
+      }
       if (editing) {
         await updateDoc(doc(db, "programmes", editing), { ...form });
       } else {
@@ -217,6 +226,7 @@ const insertWeek = async (index, copyFromIndex = null) => {
       level: programme.level || "Beginner",
       free: programme.free !== false,
       repeating: programme.repeating || false,
+      onboardingRecommended: programme.onboardingRecommended || false,
       weeks: programme.weeks || [],
       published: programme.published || false,
     });
@@ -301,6 +311,20 @@ const insertWeek = async (index, copyFromIndex = null) => {
             ))}
           </div>
 
+          <label style={labelStyle}>Onboarding Recommendation</label>
+          <div onClick={() => setForm({ ...form, onboardingRecommended: !form.onboardingRecommended })}
+            style={{ padding: "14px 16px", borderRadius: "12px", border: `2px solid ${form.onboardingRecommended ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: form.onboardingRecommended ? "#eaf5ef" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: "14px", color: form.onboardingRecommended ? "#2d6a4f" : "#111", margin: 0 }}>
+                {form.onboardingRecommended ? "Recommended in onboarding" : "Recommend in onboarding"}
+              </p>
+              <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>New sign-ups get directed here after setup</p>
+            </div>
+            <div style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: form.onboardingRecommended ? "#2d6a4f" : "#e5e5e5", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+              <div style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff", position: "absolute", top: 3, left: form.onboardingRecommended ? 21 : 3, transition: "left 0.2s" }} />
+            </div>
+          </div>
+
           <label style={labelStyle}>Programme Type</label>
           <div style={{ display: "flex", gap: "10px" }}>
             {[
@@ -325,17 +349,25 @@ const insertWeek = async (index, copyFromIndex = null) => {
 
           {/* Weeks */}
           <div style={{ marginTop: "20px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
               <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: 0 }}>
                 {form.repeating ? "Week Template" : `Weeks (${form.weeks.length})`}
               </p>
               {!form.repeating && (
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={addWeek} style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "6px 12px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
-                    + Add Week
-                  </button>
-                </div>
+                <button onClick={addWeek} style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "6px 12px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
+                  + Add Week
+                </button>
               )}
+            </div>
+            {/* Workout sort toggle */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "12px" }}>
+              <p style={{ fontSize: "11px", color: "#888", fontWeight: 600, margin: 0 }}>Workout picker order:</p>
+              {[{ id: "alpha", label: "A-Z" }, { id: "chrono", label: "Recent first" }].map(opt => (
+                <button key={opt.id} onClick={() => setWorkoutSort(opt.id)}
+                  style={{ backgroundColor: workoutSort === opt.id ? "#1a3a2a" : "#f0f0f0", color: workoutSort === opt.id ? "#fff" : "#555", border: "none", borderRadius: "8px", padding: "4px 10px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
             {form.weeks.map((week, weekIndex) => (
@@ -416,7 +448,11 @@ const insertWeek = async (index, copyFromIndex = null) => {
 
                 <select style={{ ...inputStyle, backgroundColor: "#fff" }} value="" onChange={(e) => addWorkoutToWeek(weekIndex, e.target.value)}>
                   <option value="">+ Add workout to this week</option>
-                  {workouts.filter((w) => !week.workouts.includes(w.id)).map((w) => (
+                  {[...workouts].sort((a, b) =>
+                    workoutSort === "alpha"
+                      ? (a.adminName || a.name || "").localeCompare(b.adminName || b.name || "")
+                      : new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+                  ).filter((w) => !week.workouts.includes(w.id)).map((w) => (
                     <option key={w.id} value={w.id}>{getWorkoutName(w.id)} ({w.exercises?.length || 0} exercises)</option>
                   ))}
                 </select>
@@ -493,6 +529,11 @@ const insertWeek = async (index, copyFromIndex = null) => {
                       {programme.repeating && (
                         <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px", backgroundColor: "#f3f4f6", color: "#666" }}>
                           🔁 Repeating
+                        </span>
+                      )}
+                      {programme.onboardingRecommended && (
+                        <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px", backgroundColor: "#fef3c7", color: "#b45309" }}>
+                          ⭐ Onboarding
                         </span>
                       )}
                     </div>

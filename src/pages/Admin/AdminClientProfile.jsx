@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { doc, getDoc, getDocs, collection, query, where, updateDoc, addDoc } from "firebase/firestore";
+import { doc, getDoc, getDocs, collection, query, where, updateDoc, addDoc, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
-import { Link, useParams } from "react-router-dom";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { Link, useParams, useNavigate } from "react-router-dom";
 
 const TIERS = [
   { id: "free", label: "Free", color: "#888", bg: "#f0f0f0" },
@@ -43,16 +44,27 @@ function getWeekRange() {
   return { monday, sunday };
 }
 
+function ActionBtn({ label, icon, onClick, primary }) {
+  return (
+    <button onClick={onClick} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", padding: "12px 8px", borderRadius: "14px", border: `1.5px solid ${primary ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: primary ? "#eaf5ef" : "#fff", cursor: "pointer", width: "100%" }}>
+      <span style={{ fontSize: "20px" }}>{icon}</span>
+      <span style={{ fontSize: "11px", fontWeight: 700, color: primary ? "#2d6a4f" : "#555", textAlign: "center", lineHeight: 1.2 }}>{label}</span>
+    </button>
+  );
+}
+
 function MiniGraph({ data, color = "#2d6a4f", height = 60 }) {
   if (!data || data.length < 2) return null;
-  const vals = data.map(d => d.value);
+  const clean = data.filter(d => d.value != null && !isNaN(d.value));
+  if (clean.length < 2) return null;
+  const vals = clean.map(d => d.value);
   const min = Math.min(...vals);
   const max = Math.max(...vals);
   const range = max - min || 1;
   const width = 280;
   const pad = 8;
-  const coords = data.map((d, i) => ({
-    x: pad + (i / (data.length - 1)) * (width - pad * 2),
+  const coords = clean.map((d, i) => ({
+    x: pad + (i / (clean.length - 1)) * (width - pad * 2),
     y: height - pad - ((d.value - min) / range) * (height - pad * 2),
   }));
   const pts = coords.map(c => `${c.x},${c.y}`).join(" ");
@@ -124,6 +136,7 @@ function MultiLineGraph({ data, keys, colors, height = 90 }) {
 
 export default function AdminClientProfile() {
   const { uid } = useParams();
+  const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [programmes, setProgrammes] = useState([]);
   const [workoutLogs, setWorkoutLogs] = useState([]);
@@ -147,11 +160,76 @@ export default function AdminClientProfile() {
   const [videoUrl, setVideoUrl] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [editingNutrition, setEditingNutrition] = useState(false);
   const [nutritionForm, setNutritionForm] = useState({ calories: "", protein: "", carbs: "", fat: "" });
   const [exercises, setExercises] = useState({});
 
+  // Wallet state
+  const [walletTransactions, setWalletTransactions] = useState([]);
+  const [bundlePurchases, setBundlePurchases] = useState([]);
+  const [sessionBundles, setSessionBundles] = useState([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [showPurchaseSheet, setShowPurchaseSheet] = useState(false);
+  const [showAdjustSheet, setShowAdjustSheet] = useState(false);
+  const [showMarkSessionSheet, setShowMarkSessionSheet] = useState(false);
+  const [purchaseForm, setPurchaseForm] = useState({ bundleId: "", paymentMethod: "cash", reference: "", note: "" });
+  const [adjustForm, setAdjustForm] = useState({ amount: "", reason: "coach_adjustment", description: "" });
+  const [markSessionForm, setMarkSessionForm] = useState({ outcome: "completed", description: "" });
+  const [walletSaving, setWalletSaving] = useState(false);
+
+  // Sessions state
+  const [clientSessions, setClientSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [showSessionBookSheet, setShowSessionBookSheet] = useState(false);
+  const [showCoachSessionSheet, setShowCoachSessionSheet] = useState(false);
+  const [timeline, setTimeline] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [showSessionOutcomeSheet, setShowSessionOutcomeSheet] = useState(false);
+  const [selectedClientSession, setSelectedClientSession] = useState(null);
+  const [sessionBookForm, setSessionBookForm] = useState({ date: "", time: "", durationMins: 60, type: "in-person", notes: "" });
+  const [sessionOutcomeForm, setSessionOutcomeForm] = useState({ outcome: "completed", notes: "", sessionRevenue: "" });
+  const [sessionsSaving, setSessionsSaving] = useState(false);
+
+  const ADMIN_UID = "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+
+  const SESSION_OUTCOME_OPTIONS = [
+    { value: "completed",      label: "Completed",             emoji: "✅", credits: -1 },
+    { value: "no_show",        label: "No Show",               emoji: "🚫", credits: -1 },
+    { value: "late_cancelled", label: "Late Cancelled",        emoji: "⚠️", credits: -1 },
+    { value: "cancelled",      label: "Cancelled with Notice", emoji: "❌", credits: 0  },
+  ];
+
+  const SESSION_STATUS_STYLES = {
+    scheduled:      { color: "#0369a1", bg: "#e0f2fe", label: "Scheduled" },
+    completed:      { color: "#166534", bg: "#dcfce7", label: "Completed" },
+    no_show:        { color: "#9a3412", bg: "#fee2e2", label: "No Show" },
+    late_cancelled: { color: "#92400e", bg: "#fef3c7", label: "Late Cancel" },
+    cancelled:      { color: "#6b7280", bg: "#f3f4f6", label: "Cancelled" },
+  };
+
+  function getClientSessionRate() {
+    const sorted = [...bundlePurchases]
+      .filter(p => p.sessionCredits > 0 && p.pricePaid > 0)
+      .sort((a, b) => new Date(b.purchasedAt) - new Date(a.purchasedAt));
+    if (!sorted.length) return 60;
+    return Math.round((sorted[0].pricePaid / sorted[0].sessionCredits) * 100) / 100;
+  }
+
+  function formatSessionDateTime(ts) {
+    if (!ts) return "";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })
+      + " at "
+      + d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
+  }
+
   useEffect(() => { loadAll(); }, [uid]);
+  useEffect(() => { if (activeTab === "wallet") loadWallet(); }, [activeTab, uid]);
+  useEffect(() => { if (activeTab === "sessions") loadClientSessions(); }, [activeTab, uid]);
+  useEffect(() => { if (activeTab === "timeline") loadTimeline(); }, [activeTab, uid]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -288,17 +366,292 @@ export default function AdminClientProfile() {
     setSendingReply(false);
   };
 
-  const resendSetupEmail = async () => {
+  const sendWelcomeEmail = async () => {
     if (!client.email) return;
     setResendStatus("sending");
     try {
       await sendPasswordResetEmail(getAuth(), client.email);
+      await updateDoc(doc(db, "users", uid), { welcomeSent: true, welcomeSentAt: new Date().toISOString() });
+      setClient(prev => ({ ...prev, welcomeSent: true, welcomeSentAt: new Date().toISOString() }));
       setResendStatus("sent");
       setTimeout(() => setResendStatus(""), 3000);
     } catch (e) {
       setResendStatus("error");
       setTimeout(() => setResendStatus(""), 3000);
     }
+  };
+
+  const deleteClient = async () => {
+    setDeleteLoading(true);
+    setDeleteError("");
+    try {
+      const fn = httpsCallable(getFunctions(undefined, "europe-west2"), "adminDeleteClient");
+      await fn({ uid });
+      navigate("/admin/clients");
+    } catch (e) {
+      setDeleteError(e.message || "Delete failed. Try again.");
+      setDeleteLoading(false);
+    }
+  };
+
+  // ── WALLET ──────────────────────────────────────────────────────────────
+  const loadWallet = async () => {
+    setWalletLoading(true);
+    try {
+      const [txSnap, purchaseSnap, bundleSnap] = await Promise.all([
+        getDocs(query(collection(db, "walletTransactions"), where("clientId", "==", uid))),
+        getDocs(query(collection(db, "bundlePurchases"), where("clientId", "==", uid))),
+        getDocs(collection(db, "sessionBundles")),
+      ]);
+      const txs = txSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setWalletTransactions(txs);
+      setBundlePurchases(purchaseSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(b.purchasedAt) - new Date(a.purchasedAt)));
+      setSessionBundles(bundleSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(b => b.isActive !== false)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)));
+    } catch (e) { console.error(e); }
+    setWalletLoading(false);
+  };
+
+  const computeBalance = () => walletTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+  const addBundlePurchase = async () => {
+    if (!purchaseForm.bundleId) return;
+    const bundle = sessionBundles.find(b => b.id === purchaseForm.bundleId);
+    if (!bundle) return;
+    setWalletSaving(true);
+    try {
+      const now = new Date().toISOString();
+      const expiresAt = bundle.expiryDays
+        ? new Date(Date.now() + bundle.expiryDays * 86400000).toISOString()
+        : null;
+      const gracePeriodEndsAt = expiresAt && bundle.gracePeriodDays
+        ? new Date(new Date(expiresAt).getTime() + (bundle.gracePeriodDays || 7) * 86400000).toISOString()
+        : null;
+
+      // Compute current balance before adding
+      const currentBalance = computeBalance();
+      const balanceAfter = currentBalance + bundle.sessionCredits;
+
+      // Create wallet transaction first
+      const txData = {
+        clientId: uid,
+        amount: bundle.sessionCredits,
+        reason: "bundle_purchase",
+        description: `+${bundle.sessionCredits} credits — ${bundle.name} (€${bundle.price})`,
+        performedByUserId: "admin",
+        balanceAfter,
+        bundlePurchaseId: null,
+        sessionId: null,
+        isAutomatic: false,
+        createdAt: now,
+      };
+      const txRef = await addDoc(collection(db, "walletTransactions"), txData);
+
+      // Create bundle purchase record
+      const purchaseData = {
+        clientId: uid,
+        bundleId: purchaseForm.bundleId,
+        bundleName: bundle.name,
+        sessionCredits: bundle.sessionCredits,
+        pricePaid: bundle.price,
+        paymentMethod: purchaseForm.paymentMethod,
+        paymentReference: purchaseForm.reference.trim() || null,
+        purchasedAt: now,
+        expiresAt,
+        gracePeriodEndsAt,
+        status: "active",
+        walletTransactionId: txRef.id,
+        notes: purchaseForm.note.trim() || null,
+        createdAt: now,
+      };
+      const purchaseRef = await addDoc(collection(db, "bundlePurchases"), purchaseData);
+
+      // Update tx with bundlePurchaseId
+      await updateDoc(doc(db, "walletTransactions", txRef.id), { bundlePurchaseId: purchaseRef.id });
+
+      // Update local state
+      const newTx = { id: txRef.id, ...txData, bundlePurchaseId: purchaseRef.id };
+      setWalletTransactions(prev => [newTx, ...prev]);
+      setBundlePurchases(prev => [{ id: purchaseRef.id, ...purchaseData }, ...prev]);
+      setPurchaseForm({ bundleId: "", paymentMethod: "cash", reference: "", note: "" });
+      setShowPurchaseSheet(false);
+    } catch (e) { console.error(e); }
+    setWalletSaving(false);
+  };
+
+  const addManualAdjustment = async () => {
+    if (!adjustForm.amount || !adjustForm.description.trim()) return;
+    setWalletSaving(true);
+    try {
+      const currentBalance = computeBalance();
+      const delta = Number(adjustForm.amount);
+      const balanceAfter = currentBalance + delta;
+      const now = new Date().toISOString();
+      const txData = {
+        clientId: uid,
+        amount: delta,
+        reason: adjustForm.reason,
+        description: adjustForm.description.trim(),
+        performedByUserId: "admin",
+        balanceAfter,
+        bundlePurchaseId: null,
+        sessionId: null,
+        isAutomatic: false,
+        createdAt: now,
+      };
+      const ref = await addDoc(collection(db, "walletTransactions"), txData);
+      setWalletTransactions(prev => [{ id: ref.id, ...txData }, ...prev]);
+      setAdjustForm({ amount: "", reason: "coach_adjustment", description: "" });
+      setShowAdjustSheet(false);
+    } catch (e) { console.error(e); }
+    setWalletSaving(false);
+  };
+
+  const markSession = async () => {
+    if (!markSessionForm.description.trim()) return;
+    setWalletSaving(true);
+    try {
+      const DEDUCT_OUTCOMES = ["completed", "no_show", "late_cancelled"];
+      const deduct = DEDUCT_OUTCOMES.includes(markSessionForm.outcome);
+      const currentBalance = computeBalance();
+      if (deduct && currentBalance < 1) {
+        alert("Cannot deduct: client has 0 credits. Add a bundle first.");
+        setWalletSaving(false);
+        return;
+      }
+      const delta = deduct ? -1 : 0;
+      const REASON_MAP = {
+        completed: "session_completed",
+        no_show: "no_show",
+        late_cancelled: "late_cancellation",
+        cancelled: "cancelled",
+      };
+      const LABEL_MAP = {
+        completed: "Session completed",
+        no_show: "No show",
+        late_cancelled: "Late cancellation",
+        cancelled: "Cancelled (no charge)",
+      };
+      const balanceAfter = currentBalance + delta;
+      const now = new Date().toISOString();
+      const txData = {
+        clientId: uid,
+        amount: delta,
+        reason: REASON_MAP[markSessionForm.outcome] || "session_completed",
+        description: `${LABEL_MAP[markSessionForm.outcome] || "Session"} — ${markSessionForm.description.trim()}`,
+        performedByUserId: "admin",
+        balanceAfter,
+        bundlePurchaseId: null,
+        sessionId: null,
+        isAutomatic: false,
+        creditDeducted: deduct,
+        createdAt: now,
+      };
+      if (deduct) {
+        const ref = await addDoc(collection(db, "walletTransactions"), txData);
+        setWalletTransactions(prev => [{ id: ref.id, ...txData }, ...prev]);
+      }
+      setMarkSessionForm({ outcome: "completed", description: "" });
+      setShowMarkSessionSheet(false);
+    } catch (e) { console.error(e); }
+    setWalletSaving(false);
+  };
+
+  // ── TIMELINE ─────────────────────────────────────────────────────────────
+  const loadTimeline = async () => {
+    setTimelineLoading(true);
+    try {
+      const snap = await getDocs(query(
+        collection(db, "clientTimeline"),
+        where("clientId", "==", uid),
+        orderBy("detectedAt", "desc")
+      ));
+      setTimeline(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error(e); }
+    setTimelineLoading(false);
+  };
+
+  // ── SESSIONS ────────────────────────────────────────────────────────────
+  const loadClientSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      const snap = await getDocs(query(collection(db, "sessions"), where("clientId", "==", uid)));
+      setClientSessions(
+        snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => {
+            const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+            const db2 = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+            return db2 - da;
+          })
+      );
+    } catch (e) { console.error(e); }
+    setSessionsLoading(false);
+  };
+
+  const bookClientSession = async () => {
+    if (!sessionBookForm.date || !sessionBookForm.time) return;
+    setSessionsSaving(true);
+    try {
+      const dateTime = new Date(`${sessionBookForm.date}T${sessionBookForm.time}`);
+      await addDoc(collection(db, "sessions"), {
+        clientId: uid,
+        clientName: client?.nickname || client?.firstName || client?.email || uid,
+        date: FBTimestamp.fromDate(dateTime),
+        durationMins: Number(sessionBookForm.durationMins),
+        type: sessionBookForm.type,
+        status: "scheduled",
+        notes: sessionBookForm.notes.trim() || null,
+        walletTxId: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      setShowSessionBookSheet(false);
+      setSessionBookForm({ date: "", time: "", durationMins: 60, type: "in-person", notes: "" });
+      await loadClientSessions();
+    } catch (e) { console.error(e); }
+    setSessionsSaving(false);
+  };
+
+  const markClientSessionOutcome = async () => {
+    if (!selectedClientSession) return;
+    setSessionsSaving(true);
+    try {
+      const opt = SESSION_OUTCOME_OPTIONS.find(o => o.value === sessionOutcomeForm.outcome);
+      const credits = opt?.credits ?? 0;
+      let walletTxId = null;
+      if (credits !== 0) {
+        const REASON_MAP = { completed: "session_completed", no_show: "no_show", late_cancelled: "late_cancellation" };
+        const txRef = await addDoc(collection(db, "walletTransactions"), {
+          clientId: uid,
+          amount: credits,
+          reason: REASON_MAP[sessionOutcomeForm.outcome] || "session_completed",
+          description: sessionOutcomeForm.notes.trim() ||
+            `${opt?.label} — ${formatSessionDateTime(selectedClientSession.date)}`,
+          performedByUserId: ADMIN_UID,
+          sessionId: selectedClientSession.id,
+          bundlePurchaseId: null,
+          isAutomatic: false,
+          creditDeducted: true,
+          createdAt: new Date().toISOString(),
+        });
+        walletTxId = txRef.id;
+      }
+      await updateDoc(doc(db, "sessions", selectedClientSession.id), {
+        status: sessionOutcomeForm.outcome,
+        walletTxId,
+        outcomeNotes: sessionOutcomeForm.notes.trim() || null,
+        sessionRevenue: credits !== 0 ? Number(sessionOutcomeForm.sessionRevenue) || 0 : 0,
+        updatedAt: new Date().toISOString(),
+      });
+      setShowSessionOutcomeSheet(false);
+      setSelectedClientSession(null);
+      setSessionOutcomeForm({ outcome: "completed", notes: "" });
+      await loadClientSessions();
+    } catch (e) { console.error(e); }
+    setSessionsSaving(false);
   };
 
   if (loading) return (
@@ -344,7 +697,7 @@ export default function AdminClientProfile() {
       }, 0) / recentNutrition.length)
     : 0;
 
-  const TABS = ["weekly-review", "overview", "training", "nutrition", "metrics", "check-ins", "notes"];
+  const TABS = ["weekly-review", "sessions", "timeline", "wallet", "overview", "training", "nutrition", "metrics", "check-ins", "notes"];
 
   // ── Weekly review computed values ──
   const getWM = (d) => { const dt = new Date(d); const day = dt.getDay(); dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1)); dt.setHours(0,0,0,0); return dt.toISOString().split("T")[0]; };
@@ -390,9 +743,9 @@ export default function AdminClientProfile() {
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>{displayName}</h1>
             <p style={{ fontSize: "13px", color: "#9fe1cb", margin: "0 0 6px" }}>{client.email}</p>
-            {client.createdByAdmin && (
-              <button onClick={resendSetupEmail} disabled={resendStatus === "sending"} style={{ background: "none", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 700, color: resendStatus === "sent" ? "#4ade80" : resendStatus === "error" ? "#f87171" : "#9fe1cb", cursor: "pointer" }}>
-                {resendStatus === "sending" ? "Sending..." : resendStatus === "sent" ? "✓ Email sent" : resendStatus === "error" ? "Failed" : "Resend setup email"}
+            {(client.adminCreated || client.createdByAdmin) && (
+              <button onClick={sendWelcomeEmail} disabled={resendStatus === "sending"} style={{ background: "none", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "20px", padding: "4px 10px", fontSize: "11px", fontWeight: 700, color: resendStatus === "sent" ? "#4ade80" : resendStatus === "error" ? "#f87171" : client.welcomeSent ? "#9fe1cb" : "#f7c948", cursor: "pointer" }}>
+                {resendStatus === "sending" ? "Sending..." : resendStatus === "sent" ? "✓ Welcome sent" : resendStatus === "error" ? "Failed" : client.welcomeSent ? "Resend welcome email" : "Send welcome email"}
               </button>
             )}
           </div>
@@ -421,7 +774,7 @@ export default function AdminClientProfile() {
       <div style={{ display: "flex", backgroundColor: "#fff", borderBottom: "0.5px solid #e5e5e5", overflowX: "auto" }}>
         {TABS.map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} style={{ flexShrink: 0, padding: "12px 14px", border: "none", backgroundColor: "transparent", fontSize: "13px", fontWeight: 700, color: activeTab === tab ? "#2d6a4f" : "#aaa", cursor: "pointer", borderBottom: activeTab === tab ? "2px solid #2d6a4f" : "2px solid transparent", textTransform: "capitalize" }}>
-            {tab === "weekly-review" ? "Weekly Review" : tab}
+            {tab === "weekly-review" ? "Weekly Review" : tab === "check-ins" ? "Check-ins" : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -1069,6 +1422,615 @@ export default function AdminClientProfile() {
           </>
         )}
 
+        {/* ── SESSIONS TAB ── */}
+        {activeTab === "sessions" && (
+          <>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+              <button
+                onClick={() => setShowSessionBookSheet(true)}
+                style={{ flex: 1, backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "12px", padding: "13px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+              >
+                + Book Session
+              </button>
+              <button
+                onClick={() => setShowCoachSessionSheet(true)}
+                style={{ flex: 1, backgroundColor: "#1a3a2a", color: "#9fe1cb", border: "none", borderRadius: "12px", padding: "13px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Start Session
+              </button>
+            </div>
+
+            {sessionsLoading ? (
+              <p style={{ textAlign: "center", color: "#888", padding: "40px" }}>Loading sessions...</p>
+            ) : clientSessions.length === 0 ? (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "32px", textAlign: "center" }}>
+                <p style={{ fontSize: "28px", margin: "0 0 10px" }}>📅</p>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 6px" }}>No sessions yet</p>
+                <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>Book the first session for this client.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {clientSessions.map(session => {
+                  const st = SESSION_STATUS_STYLES[session.status] || SESSION_STATUS_STYLES.scheduled;
+                  return (
+                    <div key={session.id} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "6px" }}>
+                        <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>
+                          {formatSessionDateTime(session.date)}
+                        </p>
+                        <span style={{ backgroundColor: st.bg, color: st.color, fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "20px", marginLeft: "8px", whiteSpace: "nowrap" }}>
+                          {st.label}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: "12px", color: "#888", margin: "0 0 10px" }}>
+                        {session.durationMins} min · {session.type}
+                        {session.notes ? ` · ${session.notes}` : ""}
+                      </p>
+                      {session.status === "scheduled" && (
+                        <button
+                          onClick={() => { setSelectedClientSession(session); setSessionOutcomeForm({ outcome: "completed", notes: "", sessionRevenue: getClientSessionRate() }); setShowSessionOutcomeSheet(true); }}
+                          style={{ width: "100%", padding: "9px", borderRadius: "10px", border: "none", background: "#1a3a2a", fontSize: "13px", color: "#fff", cursor: "pointer", fontWeight: 700 }}
+                        >
+                          Mark Outcome
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* BOOK SESSION SHEET */}
+            {showSessionBookSheet && (
+              <div onClick={e => { if (e.target === e.currentTarget) setShowSessionBookSheet(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+                <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "90vh", overflowY: "auto" }}>
+                  <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+                  <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Book Session</h2>
+                  <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>{client?.nickname || client?.firstName || client?.email}</p>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Date</label>
+                      <input type="date" value={sessionBookForm.date} onChange={e => setSessionBookForm(f => ({ ...f, date: e.target.value }))} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "15px", boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Time</label>
+                      <input type="time" value={sessionBookForm.time} onChange={e => setSessionBookForm(f => ({ ...f, time: e.target.value }))} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "15px", boxSizing: "border-box" }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Duration</label>
+                      <select value={sessionBookForm.durationMins} onChange={e => setSessionBookForm(f => ({ ...f, durationMins: Number(e.target.value) }))} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "15px", backgroundColor: "#fff" }}>
+                        <option value={30}>30 min</option>
+                        <option value={45}>45 min</option>
+                        <option value={60}>60 min</option>
+                        <option value={90}>90 min</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Type</label>
+                      <select value={sessionBookForm.type} onChange={e => setSessionBookForm(f => ({ ...f, type: e.target.value }))} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "15px", backgroundColor: "#fff" }}>
+                        <option value="in-person">In Person</option>
+                        <option value="online">Online</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Notes (optional)</label>
+                  <textarea value={sessionBookForm.notes} onChange={e => setSessionBookForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any notes..." rows={2} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "15px", resize: "none", marginBottom: "20px", boxSizing: "border-box" }} />
+
+                  <button onClick={bookClientSession} disabled={sessionsSaving || !sessionBookForm.date || !sessionBookForm.time} style={{ width: "100%", padding: "14px", borderRadius: "14px", border: "none", backgroundColor: (!sessionBookForm.date || !sessionBookForm.time) ? "#ccc" : "#1a3a2a", color: "#fff", fontSize: "16px", fontWeight: 700, cursor: "pointer" }}>
+                    {sessionsSaving ? "Booking..." : "Book Session"}
+                  </button>
+                  <button onClick={() => setShowSessionBookSheet(false)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "12px", padding: "6px" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* MARK OUTCOME SHEET */}
+            {showSessionOutcomeSheet && selectedClientSession && (
+              <div onClick={e => { if (e.target === e.currentTarget) { setShowSessionOutcomeSheet(false); setSelectedClientSession(null); } }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+                <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px" }}>
+                  <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+                  <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Mark Outcome</h2>
+                  <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>{formatSessionDateTime(selectedClientSession.date)}</p>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
+                    {SESSION_OUTCOME_OPTIONS.map(opt => {
+                      const selected = sessionOutcomeForm.outcome === opt.value;
+                      return (
+                        <div key={opt.value} onClick={() => setSessionOutcomeForm(f => ({ ...f, outcome: opt.value }))} style={{ padding: "14px 16px", borderRadius: "14px", cursor: "pointer", border: `1.5px solid ${selected ? "#1a3a2a" : "#e5e5e5"}`, backgroundColor: selected ? "#eaf5ef" : "#fff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span style={{ fontSize: "18px" }}>{opt.emoji}</span>
+                            <div>
+                              <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{opt.label}</p>
+                              <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>{opt.credits === 0 ? "No credit deducted" : "1 credit deducted"}</p>
+                            </div>
+                          </div>
+                          {selected && <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#1a3a2a", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: "#fff", fontSize: "12px" }}>✓</span></div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {SESSION_OUTCOME_OPTIONS.find(o => o.value === sessionOutcomeForm.outcome)?.credits !== 0 && (
+                    <div style={{ marginBottom: "16px" }}>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Session Rate (€)</label>
+                      <div style={{ position: "relative" }}>
+                        <span style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "15px", color: "#555", fontWeight: 700 }}>€</span>
+                        <input type="number" value={sessionOutcomeForm.sessionRevenue} onChange={e => setSessionOutcomeForm(f => ({ ...f, sessionRevenue: e.target.value }))} style={{ width: "100%", padding: "12px 12px 12px 28px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "15px", boxSizing: "border-box" }} />
+                      </div>
+                      <p style={{ fontSize: "11px", color: "#aaa", margin: "4px 0 0" }}>Auto-set from client's bundle. Change for grandfathered rates.</p>
+                    </div>
+                  )}
+
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Notes (optional)</label>
+                  <textarea value={sessionOutcomeForm.notes} onChange={e => setSessionOutcomeForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add a note..." rows={2} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "15px", resize: "none", marginBottom: "20px", boxSizing: "border-box" }} />
+
+                  <button onClick={markClientSessionOutcome} disabled={sessionsSaving} style={{ width: "100%", padding: "14px", borderRadius: "14px", border: "none", backgroundColor: "#1a3a2a", color: "#fff", fontSize: "16px", fontWeight: 700, cursor: "pointer" }}>
+                    {sessionsSaving ? "Saving..." : "Confirm Outcome"}
+                  </button>
+                  <button onClick={() => { setShowSessionOutcomeSheet(false); setSelectedClientSession(null); }} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "12px", padding: "6px" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* COACH SESSION PICKER SHEET */}
+            {showCoachSessionSheet && (() => {
+              const assignedProgrammes = [
+                client.strengthProgrammeId && programmes.find(p => p.id === client.strengthProgrammeId),
+                client.cardioProgrammeId && programmes.find(p => p.id === client.cardioProgrammeId),
+              ].filter(Boolean);
+
+              return (
+                <div onClick={e => { if (e.target === e.currentTarget) setShowCoachSessionSheet(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+                  <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "90vh", overflowY: "auto" }}>
+                    <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+                    <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Start Coach Session</h2>
+                    <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>Pick a workout for {client?.nickname || client?.firstName}</p>
+
+                    {assignedProgrammes.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "24px 0" }}>
+                        <p style={{ fontSize: "14px", color: "#888" }}>No programme assigned to this client yet.</p>
+                        <p style={{ fontSize: "13px", color: "#aaa" }}>Assign a strength or cardio programme from the Training tab first.</p>
+                      </div>
+                    ) : (
+                      assignedProgrammes.map(prog => {
+                        const workoutIds = [...new Set((prog.weeks || []).flatMap(w => w.workouts || []).filter(Boolean))];
+                        return (
+                          <div key={prog.id} style={{ marginBottom: "20px" }}>
+                            <p style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#2d6a4f", margin: "0 0 8px" }}>
+                              {prog.name}
+                            </p>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              {workoutIds.map(wid => {
+                                const wData = workouts[wid];
+                                if (!wData) return null;
+                                return (
+                                  <button
+                                    key={wid}
+                                    onClick={() => {
+                                      setShowCoachSessionSheet(false);
+                                      navigate(`/admin/session/${uid}/${prog.id}/${wid}`);
+                                    }}
+                                    style={{
+                                      width: "100%", padding: "14px 16px", borderRadius: "14px",
+                                      border: "0.5px solid #e5e5e5", backgroundColor: "#f7f5f2",
+                                      textAlign: "left", cursor: "pointer",
+                                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                                    }}
+                                  >
+                                    <div>
+                                      <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: 0 }}>
+                                        {wData.displayName || wData.name || wid}
+                                      </p>
+                                      {wData.exercises?.length > 0 && (
+                                        <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>
+                                          {wData.exercises.length} exercises
+                                        </p>
+                                      )}
+                                    </div>
+                                    <span style={{ color: "#2d6a4f", fontSize: "16px" }}>→</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+
+                    <button onClick={() => setShowCoachSessionSheet(false)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "8px", padding: "6px" }}>Cancel</button>
+                  </div>
+                </div>
+              );
+            })()}
+          </>
+        )}
+
+        {/* ── TIMELINE TAB ── */}
+        {activeTab === "timeline" && (() => {
+          const CATEGORY_META = {
+            workout:     { icon: "🏋️", color: "#2d6a4f", bg: "#eaf5ef" },
+            session:     { icon: "📅", color: "#0369a1", bg: "#e0f2fe" },
+            weight:      { icon: "⚖️", color: "#7c3aed", bg: "#f5f3ff" },
+            strength:    { icon: "💪", color: "#dc2626", bg: "#fef2f2" },
+            habit:       { icon: "🔥", color: "#f59e0b", bg: "#fffbeb" },
+            anniversary: { icon: "🎯", color: "#e11d48", bg: "#fff1f2" },
+            coaching:    { icon: "🏆", color: "#059669", bg: "#ecfdf5" },
+            custom:      { icon: "⭐", color: "#6366f1", bg: "#eef2ff" },
+          };
+
+          function fmtDate(ts) {
+            if (!ts) return "";
+            const d = ts.toDate ? ts.toDate() : new Date(ts);
+            return d.toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" });
+          }
+
+          if (timelineLoading) return (
+            <p style={{ textAlign: "center", color: "#888", padding: "40px 0", fontSize: "14px" }}>Loading timeline...</p>
+          );
+
+          if (timeline.length === 0) return (
+            <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "40px 20px", textAlign: "center" }}>
+              <p style={{ fontSize: "32px", margin: "0 0 12px" }}>🏁</p>
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 6px" }}>No milestones yet</p>
+              <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>Milestones will appear here as {displayName} logs workouts and makes progress.</p>
+            </div>
+          );
+
+          return (
+            <div style={{ position: "relative", paddingLeft: "32px" }}>
+              {/* Vertical line */}
+              <div style={{ position: "absolute", left: "13px", top: "8px", bottom: "8px", width: "2px", backgroundColor: "#e5e5e5", borderRadius: "2px" }} />
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {timeline.map((entry, i) => {
+                  const cat = entry.category || entry.type || "custom";
+                  const meta = CATEGORY_META[cat] || CATEGORY_META.custom;
+                  const isFirst = i === 0;
+                  return (
+                    <div key={entry.id} style={{ position: "relative" }}>
+                      {/* Dot on the line */}
+                      <div style={{
+                        position: "absolute", left: "-26px", top: "14px",
+                        width: "12px", height: "12px", borderRadius: "50%",
+                        backgroundColor: isFirst ? meta.color : "#e5e5e5",
+                        border: `2px solid ${isFirst ? meta.color : "#d0d0d0"}`,
+                        zIndex: 1,
+                      }} />
+
+                      <div style={{
+                        backgroundColor: "#fff",
+                        borderRadius: "14px",
+                        border: isFirst ? `1.5px solid ${meta.color}` : "0.5px solid #e5e5e5",
+                        padding: "14px 16px",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: "10px",
+                            backgroundColor: meta.bg, display: "flex",
+                            alignItems: "center", justifyContent: "center",
+                            fontSize: "18px", flexShrink: 0,
+                          }}>
+                            {meta.icon}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginBottom: "2px" }}>
+                              <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>
+                                {entry.title}
+                              </p>
+                              {entry.priority === "high" && (
+                                <span style={{ fontSize: "10px", fontWeight: 700, color: "#dc2626", backgroundColor: "#fef2f2", padding: "2px 7px", borderRadius: "10px" }}>
+                                  High priority
+                                </span>
+                              )}
+                            </div>
+                            {entry.description && (
+                              <p style={{ fontSize: "13px", color: "#555", margin: "2px 0 4px", lineHeight: 1.5 }}>
+                                {entry.description}
+                              </p>
+                            )}
+                            <p style={{ fontSize: "11px", color: "#bbb", margin: 0 }}>
+                              {fmtDate(entry.detectedAt)}
+                              {entry.category && (
+                                <span style={{ marginLeft: "8px", color: meta.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "10px" }}>
+                                  {cat}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── WALLET TAB ── */}
+        {activeTab === "wallet" && (
+          <>
+            {walletLoading ? (
+              <p style={{ textAlign: "center", color: "#888", padding: "40px" }}>Loading wallet...</p>
+            ) : (() => {
+              const balance = walletTransactions.reduce((s, tx) => s + (tx.amount || 0), 0);
+              const activePurchases = bundlePurchases.filter(p => p.status === "active");
+              const soonestExpiry = activePurchases
+                .filter(p => p.expiresAt)
+                .sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt))[0];
+
+              return (
+                <>
+                  {/* Balance Card */}
+                  <div style={{ backgroundColor: "#1a3a2a", borderRadius: "20px", padding: "24px 20px", marginBottom: "12px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>Session Credits</p>
+                    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                      <div>
+                        <p style={{ fontSize: "64px", fontWeight: 700, color: balance > 0 ? "#4ade80" : "#f87171", margin: 0, lineHeight: 1 }}>{balance}</p>
+                        <p style={{ fontSize: "14px", color: "#9fe1cb", margin: "6px 0 0" }}>credits remaining</p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        {soonestExpiry && (
+                          <>
+                            <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>Expires</p>
+                            <p style={{ fontSize: "14px", fontWeight: 700, color: (() => {
+                              const days = Math.ceil((new Date(soonestExpiry.expiresAt) - Date.now()) / 86400000);
+                              return days < 7 ? "#f87171" : days < 14 ? "#fcd34d" : "#4ade80";
+                            })(), margin: "2px 0 0" }}>
+                              {new Date(soonestExpiry.expiresAt).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}
+                            </p>
+                            <p style={{ fontSize: "11px", color: "#9fe1cb", margin: "2px 0 0" }}>
+                              {(() => {
+                                const days = Math.ceil((new Date(soonestExpiry.expiresAt) - Date.now()) / 86400000);
+                                return days <= 0 ? "Expired" : `${days} day${days !== 1 ? "s" : ""} left`;
+                              })()}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Credit dots */}
+                    {balance > 0 && balance <= 20 && (
+                      <div style={{ display: "flex", gap: "6px", marginTop: "16px", flexWrap: "wrap" }}>
+                        {Array.from({ length: Math.min(balance, 20) }).map((_, i) => (
+                          <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", backgroundColor: "#4ade80" }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Action Buttons */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "16px" }}>
+                    <ActionBtn label="Add Bundle" icon="📦" onClick={() => setShowPurchaseSheet(true)} primary />
+                    <ActionBtn label="Mark Session" icon="✓" onClick={() => setShowMarkSessionSheet(true)} />
+                    <ActionBtn label="Adjust Credits" icon="±" onClick={() => setShowAdjustSheet(true)} />
+                  </div>
+
+                  {/* Active Bundle Purchases */}
+                  {bundlePurchases.length > 0 && (
+                    <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "12px" }}>
+                      <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>
+                        Bundle Purchases
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
+                        {bundlePurchases.map(purchase => {
+                          const expired = purchase.expiresAt && new Date(purchase.expiresAt) < new Date();
+                          const daysLeft = purchase.expiresAt
+                            ? Math.ceil((new Date(purchase.expiresAt) - Date.now()) / 86400000)
+                            : null;
+                          return (
+                            <div key={purchase.id} style={{ padding: "12px 0", borderBottom: "0.5px solid #f5f5f5" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                <div style={{ flex: 1 }}>
+                                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{purchase.bundleName}</p>
+                                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>
+                                    {new Date(purchase.purchasedAt).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}
+                                    {" · "}{purchase.paymentMethod?.replace("_", " ")}
+                                    {purchase.paymentReference ? ` · ${purchase.paymentReference}` : ""}
+                                  </p>
+                                  {purchase.expiresAt && (
+                                    <p style={{ fontSize: "11px", color: expired ? "#dc2626" : daysLeft < 7 ? "#b45309" : "#888", margin: "3px 0 0", fontWeight: expired || daysLeft < 7 ? 700 : 400 }}>
+                                      {expired ? "Expired" : `Expires ${new Date(purchase.expiresAt).toLocaleDateString("en-IE", { day: "numeric", month: "short" })} (${daysLeft}d left)`}
+                                    </p>
+                                  )}
+                                </div>
+                                <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "12px" }}>
+                                  <p style={{ fontSize: "16px", fontWeight: 700, color: "#2d6a4f", margin: 0 }}>€{purchase.pricePaid}</p>
+                                  <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>{purchase.sessionCredits} sessions</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ledger */}
+                  <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>
+                      Transaction Ledger ({walletTransactions.length})
+                    </p>
+                    {walletTransactions.length === 0 ? (
+                      <p style={{ fontSize: "13px", color: "#aaa", textAlign: "center", padding: "20px 0" }}>No transactions yet. Add a bundle purchase to start.</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
+                        {walletTransactions.map(tx => {
+                          const isCredit = tx.amount > 0;
+                          return (
+                            <div key={tx.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 0", borderBottom: "0.5px solid #f5f5f5" }}>
+                              <div style={{ flex: 1, marginRight: "12px" }}>
+                                <p style={{ fontSize: "13px", color: "#111", margin: 0, lineHeight: 1.4 }}>{tx.description}</p>
+                                <p style={{ fontSize: "11px", color: "#aaa", margin: "3px 0 0" }}>
+                                  {new Date(tx.createdAt).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+                                <span style={{ fontSize: "16px", fontWeight: 700, color: isCredit ? "#2d6a4f" : "#dc2626" }}>
+                                  {isCredit ? "+" : ""}{tx.amount}
+                                </span>
+                                <span style={{ fontSize: "12px", color: "#888", minWidth: "24px", textAlign: "right" }}>{tx.balanceAfter ?? "—"}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "10px", gap: "10px" }}>
+                          <span style={{ fontSize: "11px", color: "#aaa" }}>Balance</span>
+                          <span style={{ fontSize: "13px", fontWeight: 700, color: "#111" }}>{balance}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ADD BUNDLE PURCHASE SHEET */}
+                  {showPurchaseSheet && (
+                    <div onClick={e => { if (e.target === e.currentTarget) setShowPurchaseSheet(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+                      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "85vh", overflowY: "auto" }}>
+                        <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+                        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 20px" }}>Add Bundle Purchase</h2>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                          <div>
+                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 8px" }}>Select Bundle *</p>
+                            {sessionBundles.length === 0 ? (
+                              <div style={{ padding: "14px", backgroundColor: "#fffbeb", borderRadius: "10px", border: "1px solid #fcd34d" }}>
+                                <p style={{ fontSize: "13px", color: "#b45309", margin: 0 }}>No bundles configured. <Link to="/admin/bundles" style={{ color: "#2d6a4f", fontWeight: 700 }}>Create bundles first →</Link></p>
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                {sessionBundles.map(b => (
+                                  <div key={b.id} onClick={() => setPurchaseForm(p => ({ ...p, bundleId: b.id }))} style={{ padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${purchaseForm.bundleId === b.id ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: purchaseForm.bundleId === b.id ? "#eaf5ef" : "#fff", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <div>
+                                      <p style={{ fontSize: "14px", fontWeight: 700, color: purchaseForm.bundleId === b.id ? "#2d6a4f" : "#111", margin: 0 }}>{b.name}</p>
+                                      <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>{b.sessionCredits} sessions · {b.expiryDays ? `${b.expiryDays}d expiry` : "No expiry"}</p>
+                                    </div>
+                                    <p style={{ fontSize: "18px", fontWeight: 700, color: "#2d6a4f", margin: 0 }}>€{b.price}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 8px" }}>Payment Method *</p>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                              {[
+                                { id: "cash", label: "Cash" },
+                                { id: "revolut", label: "Revolut" },
+                                { id: "bank_transfer", label: "Bank Transfer" },
+                                { id: "stripe", label: "Stripe" },
+                                { id: "complimentary", label: "Complimentary" },
+                              ].map(m => (
+                                <div key={m.id} onClick={() => setPurchaseForm(p => ({ ...p, paymentMethod: m.id }))} style={{ padding: "10px 14px", borderRadius: "10px", border: `1.5px solid ${purchaseForm.paymentMethod === m.id ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: purchaseForm.paymentMethod === m.id ? "#eaf5ef" : "#fff", cursor: "pointer", textAlign: "center" }}>
+                                  <p style={{ fontSize: "13px", fontWeight: 700, color: purchaseForm.paymentMethod === m.id ? "#2d6a4f" : "#111", margin: 0 }}>{m.label}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Reference (optional)</p>
+                            <input type="text" value={purchaseForm.reference} onChange={e => setPurchaseForm(p => ({ ...p, reference: e.target.value }))} placeholder="Revolut ref, receipt no., etc." style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: "14px", color: "#111", outline: "none", boxSizing: "border-box" }} />
+                          </div>
+
+                          <div>
+                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Note (optional)</p>
+                            <input type="text" value={purchaseForm.note} onChange={e => setPurchaseForm(p => ({ ...p, note: e.target.value }))} placeholder="Any additional notes..." style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: "14px", color: "#111", outline: "none", boxSizing: "border-box" }} />
+                          </div>
+                        </div>
+
+                        <button onClick={addBundlePurchase} disabled={walletSaving || !purchaseForm.bundleId} style={{ width: "100%", backgroundColor: walletSaving || !purchaseForm.bundleId ? "#e5e5e5" : "#2d6a4f", color: walletSaving || !purchaseForm.bundleId ? "#aaa" : "#fff", border: "none", borderRadius: "12px", padding: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginTop: "20px", marginBottom: "10px" }}>
+                          {walletSaving ? "Adding..." : "Add Bundle & Credit Wallet"}
+                        </button>
+                        <button onClick={() => setShowPurchaseSheet(false)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", padding: "6px" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MARK SESSION SHEET */}
+                  {showMarkSessionSheet && (
+                    <div onClick={e => { if (e.target === e.currentTarget) setShowMarkSessionSheet(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+                      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px" }}>
+                        <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+                        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 6px" }}>Mark Session</h2>
+                        <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>Current balance: <strong style={{ color: "#2d6a4f" }}>{balance} credits</strong></p>
+
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 8px" }}>Outcome *</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                          {[
+                            { id: "completed", label: "Completed", desc: "Deducts 1 credit", deducts: true },
+                            { id: "no_show", label: "No Show", desc: "Deducts 1 credit", deducts: true },
+                            { id: "late_cancelled", label: "Late Cancellation", desc: "Deducts 1 credit (< 24hr notice)", deducts: true },
+                            { id: "cancelled", label: "Cancelled", desc: "No credit deducted (sufficient notice)", deducts: false },
+                          ].map(o => (
+                            <div key={o.id} onClick={() => setMarkSessionForm(p => ({ ...p, outcome: o.id }))} style={{ padding: "12px 14px", borderRadius: "12px", border: `1.5px solid ${markSessionForm.outcome === o.id ? (o.deducts ? "#2d6a4f" : "#0369a1") : "#e5e5e5"}`, backgroundColor: markSessionForm.outcome === o.id ? (o.deducts ? "#eaf5ef" : "#e0f2fe") : "#fff", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div>
+                                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{o.label}</p>
+                                <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>{o.desc}</p>
+                              </div>
+                              {o.deducts && <span style={{ fontSize: "12px", fontWeight: 700, color: "#dc2626", backgroundColor: "#fef2f2", padding: "3px 8px", borderRadius: "10px" }}>-1</span>}
+                            </div>
+                          ))}
+                        </div>
+
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Description * <span style={{ fontWeight: 400, color: "#aaa" }}>(e.g. Mon 23 Jun 6am)</span></p>
+                        <input type="text" value={markSessionForm.description} onChange={e => setMarkSessionForm(p => ({ ...p, description: e.target.value }))} placeholder="Mon 23 Jun 6am" style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: "14px", color: "#111", outline: "none", boxSizing: "border-box", marginBottom: "16px" }} />
+
+                        <button onClick={markSession} disabled={walletSaving || !markSessionForm.description.trim()} style={{ width: "100%", backgroundColor: walletSaving || !markSessionForm.description.trim() ? "#e5e5e5" : "#2d6a4f", color: walletSaving || !markSessionForm.description.trim() ? "#aaa" : "#fff", border: "none", borderRadius: "12px", padding: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "10px" }}>
+                          {walletSaving ? "Saving..." : "Record Session"}
+                        </button>
+                        <button onClick={() => setShowMarkSessionSheet(false)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", padding: "6px" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MANUAL ADJUSTMENT SHEET */}
+                  {showAdjustSheet && (
+                    <div onClick={e => { if (e.target === e.currentTarget) setShowAdjustSheet(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+                      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px" }}>
+                        <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+                        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 6px" }}>Manual Adjustment</h2>
+                        <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>Current balance: <strong style={{ color: "#2d6a4f" }}>{balance} credits</strong></p>
+
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Amount * <span style={{ fontWeight: 400, color: "#aaa" }}>(use negative to deduct, e.g. -2)</span></p>
+                        <input type="number" value={adjustForm.amount} onChange={e => setAdjustForm(p => ({ ...p, amount: e.target.value }))} placeholder="+1 or -1" style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: "14px", color: "#111", outline: "none", boxSizing: "border-box", marginBottom: "12px" }} />
+
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 8px" }}>Reason *</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
+                          {[
+                            { id: "complimentary", label: "Complimentary" },
+                            { id: "coach_adjustment", label: "Correction" },
+                            { id: "refund", label: "Refund" },
+                            { id: "expiry_deduction", label: "Expiry Deduction" },
+                          ].map(r => (
+                            <div key={r.id} onClick={() => setAdjustForm(p => ({ ...p, reason: r.id }))} style={{ padding: "10px 12px", borderRadius: "10px", border: `1.5px solid ${adjustForm.reason === r.id ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: adjustForm.reason === r.id ? "#eaf5ef" : "#fff", cursor: "pointer", textAlign: "center" }}>
+                              <p style={{ fontSize: "13px", fontWeight: 700, color: adjustForm.reason === r.id ? "#2d6a4f" : "#111", margin: 0 }}>{r.label}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Description *</p>
+                        <input type="text" value={adjustForm.description} onChange={e => setAdjustForm(p => ({ ...p, description: e.target.value }))} placeholder="Reason for this adjustment..." style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: "14px", color: "#111", outline: "none", boxSizing: "border-box", marginBottom: "16px" }} />
+
+                        <button onClick={addManualAdjustment} disabled={walletSaving || !adjustForm.amount || !adjustForm.description.trim()} style={{ width: "100%", backgroundColor: walletSaving || !adjustForm.amount || !adjustForm.description.trim() ? "#e5e5e5" : "#2d6a4f", color: walletSaving || !adjustForm.amount || !adjustForm.description.trim() ? "#aaa" : "#fff", border: "none", borderRadius: "12px", padding: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "10px" }}>
+                          {walletSaving ? "Saving..." : "Apply Adjustment"}
+                        </button>
+                        <button onClick={() => setShowAdjustSheet(false)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", padding: "6px" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </>
+        )}
+
         {/* ── NOTES TAB ── */}
         {activeTab === "notes" && (
           <>
@@ -1095,7 +2057,32 @@ export default function AdminClientProfile() {
             )}
           </>
         )}
+
+        {/* ── DANGER ZONE ── */}
+        <div style={{ margin: "24px 0 0", padding: "16px", borderRadius: "14px", border: "1.5px solid #fecaca", backgroundColor: "#fff" }}>
+          <p style={{ fontSize: "12px", fontWeight: 700, color: "#dc2626", margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Danger zone</p>
+          <button onClick={() => setShowDeleteConfirm(true)} style={{ width: "100%", backgroundColor: "#fef2f2", color: "#dc2626", border: "1.5px solid #fecaca", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
+            Delete account
+          </button>
+        </div>
       </div>
+
+      {/* DELETE CONFIRM SHEET */}
+      {showDeleteConfirm && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) { setShowDeleteConfirm(false); setDeleteError(""); } }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px" }}>
+            <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+            <p style={{ fontSize: "20px", textAlign: "center", margin: "0 0 8px" }}>🗑️</p>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 8px", textAlign: "center" }}>Delete {client.firstName}?</h2>
+            <p style={{ fontSize: "13px", color: "#666", textAlign: "center", margin: "0 0 20px", lineHeight: 1.5 }}>This removes their Firebase Auth account and profile. It cannot be undone.</p>
+            {deleteError && <p style={{ fontSize: "13px", color: "#dc2626", textAlign: "center", margin: "0 0 12px" }}>{deleteError}</p>}
+            <button onClick={deleteClient} disabled={deleteLoading} style={{ width: "100%", backgroundColor: deleteLoading ? "#aaa" : "#dc2626", color: "#fff", border: "none", borderRadius: "12px", padding: "15px", fontSize: "15px", fontWeight: 700, cursor: deleteLoading ? "not-allowed" : "pointer", marginBottom: "10px" }}>
+              {deleteLoading ? "Deleting..." : "Yes, delete account"}
+            </button>
+            <button onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }} style={{ width: "100%", background: "none", border: "none", fontSize: "14px", color: "#888", cursor: "pointer", padding: "8px" }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* TIER SHEET */}
       {showTierSheet && (

@@ -28,6 +28,18 @@ Claude's job is to keep the user moving through that loop. If there's no goal ye
 01 Daily Logs/                          — session logs so Claude remembers what we worked on
 02 Projects/                            — one folder per project
   └── Revenue to €10k Roadmap/         — path from ~€4k to €10k/month
+src/                                    — React/Vite frontend (trainingforlife.ie)
+  └── pages/
+        Bundles.jsx                     — client-facing session bundle purchase page (/bundles)
+        BundleSuccess.jsx               — post-purchase success page (/bundles/success)
+        SubscriptionSuccess.jsx         — post-subscription success page
+        Admin/
+          AdminCoachSession.jsx         — coach-led workout logging (/admin/session/:clientUid/...)
+          AdminWins.jsx                 — Wins & Recognition queue + custom milestone creator
+functions/                              — Firebase Cloud Functions (Node 24)
+  index.js                             — all functions incl. Stripe (createCheckoutSession,
+                                         stripeWebhook, createPortalSession) + Meaningful Moments Engine
+firestore.rules                         — Firestore security rules
 ```
 
 ---

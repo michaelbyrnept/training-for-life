@@ -206,11 +206,11 @@ export default function CapabilitySession() {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(() => {
-    try { return parseInt(sessionStorage.getItem(`${storageKey}_index`) || "0"); }
+    try { return parseInt(localStorage.getItem(`${storageKey}_index`) || "0"); }
     catch { return 0; }
   });
   const [logs, setLogs] = useState(() => {
-    try { const s = sessionStorage.getItem(storageKey); return s ? JSON.parse(s) : {}; }
+    try { const s = localStorage.getItem(storageKey); return s ? JSON.parse(s) : {}; }
     catch { return {}; }
   });
   const [sheet, setSheet] = useState(null);
@@ -223,12 +223,12 @@ export default function CapabilitySession() {
 
   useEffect(() => {
     logsRef.current = logs;
-    try { sessionStorage.setItem(storageKey, JSON.stringify(logs)); }
+    try { localStorage.setItem(storageKey, JSON.stringify(logs)); }
     catch {}
   }, [logs, storageKey]);
 
   useEffect(() => {
-    try { sessionStorage.setItem(`${storageKey}_index`, String(currentIndex)); }
+    try { localStorage.setItem(`${storageKey}_index`, String(currentIndex)); }
     catch {}
   }, [currentIndex, storageKey]);
 
@@ -429,8 +429,8 @@ export default function CapabilitySession() {
         completedAt: Timestamp.now(),
         createdAt: Timestamp.now(),
       });
-      sessionStorage.removeItem(storageKey);
-      sessionStorage.removeItem(`${storageKey}_index`);
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(`${storageKey}_index`);
       setSaved(true);
       setTimeout(() => navigate("/programme/capability-programme"), 1500);
     } catch (e) { console.error(e); }

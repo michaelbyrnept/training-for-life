@@ -53,16 +53,46 @@ export default function Dashboard() {
   const [weeklyDone, setWeeklyDone] = useState({ strength: 0, cardio: 0, mobility: 0 });
   const [weeklyLogs, setWeeklyLogs] = useState([]);
   const [streakWeeks, setStreakWeeks] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [nextSession, setNextSession] = useState(null);
+  const [nextClass, setNextClass] = useState(null);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
 
-  const resumeKey = Object.keys(sessionStorage).find(
+  // PWA install prompt
+  useEffect(() => {
+    if (localStorage.getItem("tfl_install_dismissed")) return;
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setShowInstallBanner(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === "accepted") setShowInstallBanner(false);
+    setInstallPrompt(null);
+  };
+
+  const dismissInstall = () => {
+    setShowInstallBanner(false);
+    localStorage.setItem("tfl_install_dismissed", "1");
+  };
+
+  const resumeKey = Object.keys(localStorage).find(
     k => k.startsWith("tfl_workout_") &&
     !k.endsWith("_index") &&
     !k.endsWith("_programme") &&
     !k.endsWith("_week")
   );
   const resumeWorkoutId = resumeKey?.replace("tfl_workout_", "");
-  const resumeProgrammeId = resumeWorkoutId ? sessionStorage.getItem(`tfl_workout_${resumeWorkoutId}_programme`) : null;
-  const resumeWeekId = resumeWorkoutId ? sessionStorage.getItem(`tfl_workout_${resumeWorkoutId}_week`) : null;
+  const resumeProgrammeId = resumeWorkoutId ? localStorage.getItem(`tfl_workout_${resumeWorkoutId}_programme`) : null;
+  const resumeWeekId = resumeWorkoutId ? localStorage.getItem(`tfl_workout_${resumeWorkoutId}_week`) : null;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -98,10 +128,10 @@ export default function Dashboard() {
       }
 
       const { monday, sunday } = getWeekRange();
-      const logsSnap = await getDocs(collection(db, "workoutLogs"));
+      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", user.uid)));
       const allMyLogs = logsSnap.docs
         .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
-        .filter(l => l.userId === user.uid && l.completedAt);
+        .filter(l => l.completedAt);
 
       const thisWeekLogs = allMyLogs.filter(l => {
         const d = new Date(l.completedAt);
@@ -154,6 +184,43 @@ export default function Dashboard() {
         setUnreadReply(unread || null);
       }
 
+      // Load wallet balance + next session for in-person/hybrid clients
+      if (uData.subscription === "in-person" || uData.subscription === "hybrid") {
+        const [txSnap, sessSnap] = await Promise.all([
+          getDocs(query(collection(db, "walletTransactions"), where("clientId", "==", user.uid))),
+          getDocs(query(collection(db, "sessions"), where("clientId", "==", user.uid))),
+        ]);
+        const balance = txSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+        setWalletBalance(balance);
+        const now = new Date();
+        const upcoming = sessSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(s => {
+            const sd = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+            return s.status === "scheduled" && sd >= now;
+          })
+          .sort((a, b) => {
+            const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+            const db2 = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+            return da - db2;
+          });
+        setNextSession(upcoming[0] || null);
+      }
+
+      // Load next upcoming class — filter by end time so finished classes disappear
+      const now = new Date();
+      const classSnap = await getDocs(collection(db, "classes"));
+      const upcomingClasses = classSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(c => {
+          if (c.published === false || !c.date || !c.time) return false;
+          const start = new Date(`${c.date}T${c.time}:00`);
+          const end = new Date(start.getTime() + (c.duration || 0) * 60000);
+          return end > now;
+        })
+        .sort((a, b) => new Date(`${a.date}T${a.time}:00`) - new Date(`${b.date}T${b.time}:00`));
+      setNextClass(upcomingClasses[0] || null);
+
       setLoading(false);
     });
     return () => unsubscribe();
@@ -180,15 +247,16 @@ export default function Dashboard() {
         .filter(l => l.programmeId === programmeId)
         .map(l => l.workoutId);
 
-      const allWorkouts = (programme.weeks || []).flatMap(w => w.workouts || []);
-      const nextWorkout = allWorkouts.find(w => !doneWorkoutIds.includes(w.workoutId)) || allWorkouts[0];
+      // week.workouts is an array of plain ID strings
+      const allWorkoutIds = (programme.weeks || []).flatMap(w => w.workouts || []).filter(Boolean);
+      const nextWorkoutId = allWorkoutIds.find(id => !doneWorkoutIds.includes(id)) || allWorkoutIds[0];
 
-      if (nextWorkout) {
-        const workoutSnap = await getDoc(doc(db, "workouts", nextWorkout.workoutId));
+      if (nextWorkoutId) {
+        const workoutSnap = await getDoc(doc(db, "workouts", nextWorkoutId));
         if (workoutSnap.exists()) {
           const workoutData = { id: workoutSnap.id, ...workoutSnap.data() };
           const weekObj = (programme.weeks || []).find(w =>
-            (w.workouts || []).some(wk => wk.workoutId === nextWorkout.workoutId)
+            (w.workouts || []).includes(nextWorkoutId)
           );
           setTodayWorkout({ ...workoutData, weekId: weekObj?.id || programme.weeks?.[0]?.id });
         }
@@ -234,6 +302,29 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px", position: "relative" }}>
       <PortalNav />
+
+      {/* PWA INSTALL BANNER */}
+      {showInstallBanner && (
+        <div style={{ padding: "10px 16px 0", position: "relative", zIndex: 10 }}>
+          <div style={{ background: "#1a3a2a", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ width: 40, height: 40, borderRadius: "10px", background: "#2d6a4f", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flexShrink: 0 }}>
+              📲
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>Add to your home screen</p>
+              <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>One tap away, like any app</p>
+            </div>
+            <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+              <button onClick={dismissInstall} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "8px", padding: "7px 10px", fontSize: "12px", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontWeight: 600 }}>
+                Not now
+              </button>
+              <button onClick={handleInstall} style={{ background: "#9fe1cb", border: "none", borderRadius: "8px", padding: "7px 12px", fontSize: "12px", color: "#1a3a2a", cursor: "pointer", fontWeight: 700 }}>
+                Install
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HEADER */}
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px", position: "relative", overflow: "hidden" }}>
@@ -342,6 +433,90 @@ export default function Dashboard() {
           </Link>
         </div>
       )}
+
+      {/* SESSION CREDITS + NEXT SESSION */}
+      {walletBalance !== null && (
+        <div style={{ padding: "0 16px", marginBottom: "12px" }}>
+          <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "16px" }}>
+            {/* Credit balance */}
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Session Credits</p>
+              <p style={{ fontSize: "32px", fontWeight: 700, color: walletBalance <= 2 ? "#f87171" : "#fff", lineHeight: 1, margin: "0 0 4px" }}>
+                {walletBalance}
+              </p>
+              <p style={{ fontSize: "12px", color: walletBalance <= 2 ? "#f87171" : "#9fe1cb", margin: 0 }}>
+                {walletBalance === 0 ? "No credits remaining" : walletBalance === 1 ? "1 credit remaining" : `${walletBalance} credits remaining`}
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: "1px", height: "60px", backgroundColor: "rgba(255,255,255,0.1)" }} />
+
+            {/* Next session */}
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Next Session</p>
+              {nextSession ? (
+                <>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px", lineHeight: 1.2 }}>
+                    {(() => {
+                      const d = nextSession.date?.toDate ? nextSession.date.toDate() : new Date(nextSession.date);
+                      return d.toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" });
+                    })()}
+                  </p>
+                  <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>
+                    {(() => {
+                      const d = nextSession.date?.toDate ? nextSession.date.toDate() : new Date(nextSession.date);
+                      return d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
+                    })()}
+                    {" "}&middot;{" "}{nextSession.type}
+                  </p>
+                </>
+              ) : (
+                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.3 }}>None booked yet</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEXT CLASS CARD / DAY-OF BANNER */}
+      {nextClass && (() => {
+        const isToday = nextClass.date === new Date().toISOString().split("T")[0];
+        const typeColors = {
+          strength:     { icon: "🏋️", color: "#2d6a4f", bg: "#eaf5ef" },
+          conditioning: { icon: "🔥", color: "#b45309", bg: "#fffbeb" },
+          spin:         { icon: "🚴", color: "#0369a1", bg: "#e0f2fe" },
+        };
+        const t = typeColors[nextClass.type] || typeColors.strength;
+        const dateLabel = isToday ? `Today · ${nextClass.time}` : new Date(nextClass.date + "T12:00:00").toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" }) + ` · ${nextClass.time}`;
+        const inner = (
+          <div style={{ padding: "0 16px", marginBottom: "12px" }}>
+            {isToday ? (
+              <div style={{ background: `linear-gradient(135deg, ${t.color} 0%, #1a3a2a 100%)`, borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>{t.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>{nextClass.title}</p>
+                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)", margin: 0 }}>Today · {nextClass.time} · {nextClass.duration} min</p>
+                </div>
+                <div style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff", fontSize: "12px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px", flexShrink: 0 }}>Go →</div>
+              </div>
+            ) : (
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: t.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>{t.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Next Class</p>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{nextClass.title}</p>
+                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>{dateLabel} · {nextClass.duration} min</p>
+                </div>
+                <Link to="/classes" style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", fontSize: "12px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px", textDecoration: "none", flexShrink: 0 }}>All →</Link>
+              </div>
+            )}
+          </div>
+        );
+        return nextClass.type === "strength" && isToday
+          ? <Link key="next-class" to={`/class/${nextClass.id}`} style={{ textDecoration: "none", display: "block" }}>{inner}</Link>
+          : <Link key="next-class" to="/classes" style={{ textDecoration: "none", display: "block" }}>{inner}</Link>;
+      })()}
 
       {/* TODAY'S PLAN */}
       <div style={{ padding: "0 16px", marginTop: 4 }}>

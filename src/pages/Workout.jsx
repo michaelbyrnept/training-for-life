@@ -569,17 +569,17 @@ export default function Workout() {
   const { programmeId, weekId, workoutId } = useParams();
   const navigate = useNavigate();
   const storageKey = `tfl_workout_${workoutId}`;
-  sessionStorage.setItem(`tfl_workout_${workoutId}_programme`, programmeId);
-  sessionStorage.setItem(`tfl_workout_${workoutId}_week`, weekId);
+  localStorage.setItem(`tfl_workout_${workoutId}_programme`, programmeId);
+  localStorage.setItem(`tfl_workout_${workoutId}_week`, weekId);
 
   const [workout, setWorkout] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(() => {
-    try { return parseInt(sessionStorage.getItem(`${storageKey}_index`) || "0"); } catch { return 0; }
+    try { return parseInt(localStorage.getItem(`${storageKey}_index`) || "0"); } catch { return 0; }
   });
   const [logs, setLogs] = useState(() => {
-    try { const saved = sessionStorage.getItem(storageKey); return saved ? JSON.parse(saved) : {}; } catch { return {}; }
+    try { const saved = localStorage.getItem(storageKey); return saved ? JSON.parse(saved) : {}; } catch { return {}; }
   });
   const [sheet, setSheet] = useState(null);
   const [swapSheet, setSwapSheet] = useState(null);
@@ -613,8 +613,8 @@ export default function Workout() {
   })();
 
   const logsRef = useRef(logs);
-  useEffect(() => { logsRef.current = logs; try { sessionStorage.setItem(storageKey, JSON.stringify(logs)); } catch {} }, [logs, storageKey]);
-  useEffect(() => { try { sessionStorage.setItem(`${storageKey}_index`, String(currentIndex)); } catch {} }, [currentIndex, storageKey]);
+  useEffect(() => { logsRef.current = logs; try { localStorage.setItem(storageKey, JSON.stringify(logs)); } catch {} }, [logs, storageKey]);
+  useEffect(() => { try { localStorage.setItem(`${storageKey}_index`, String(currentIndex)); } catch {} }, [currentIndex, storageKey]);
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged ? auth.onAuthStateChanged(async (u) => {
@@ -814,8 +814,8 @@ export default function Workout() {
     setSaving(true);
     try {
       await addDoc(collection(db, "workoutLogs"), { userId: user.uid, workoutId, programmeId, weekId, logs, completedAt: new Date().toISOString() });
-      sessionStorage.removeItem(storageKey);
-      sessionStorage.removeItem(`${storageKey}_index`);
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(`${storageKey}_index`);
       const summary = await buildSummary(logs);
       setSummaryData(summary);
       setShowSummary(true);

@@ -95,6 +95,7 @@ export default function Progress() {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [workoutLogs, setWorkoutLogs] = useState([]);
+  const [classLogs, setClassLogs] = useState([]);
   const [exercises, setExercises] = useState({});
   const [workouts, setWorkouts] = useState({});
   const [capabilityScores, setCapabilityScores] = useState([]);
@@ -125,6 +126,9 @@ export default function Progress() {
         .filter(l => l.userId === u.uid && l.completedAt)
         .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
       setWorkoutLogs(myLogs);
+
+      const clSnap = await getDocs(query(collection(db, "classLogs"), where("userId", "==", u.uid)));
+      setClassLogs(clSnap.docs.map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) })).filter(l => l.completedAt));
 
       const exSnap = await getDocs(collection(db, "exercises"));
       const exMap = {};
@@ -161,14 +165,22 @@ export default function Progress() {
 
   const getExerciseHistory = (exerciseId) => {
     const history = [];
+    // Solo workout logs (array of sets per exercise)
     workoutLogs.forEach(log => {
       const sets = log.logs?.[exerciseId];
       if (sets && Array.isArray(sets)) {
         const doneSets = sets.filter(s => s.weight && s.reps);
         if (doneSets.length > 0) {
           const maxWeight = Math.max(...doneSets.map(s => parseFloat(s.weight) || 0));
-          history.push({ date: log.completedAt?.split("T")[0], value: maxWeight, sets: doneSets.length });
+          history.push({ date: log.completedAt?.split("T")[0], value: maxWeight, sets: doneSets.length, source: "solo" });
         }
+      }
+    });
+    // Class logs (single { weight, reps } object per exercise)
+    classLogs.forEach(log => {
+      const entry = log.logs?.[exerciseId];
+      if (entry?.weight && entry?.reps) {
+        history.push({ date: log.completedAt?.split("T")[0], value: parseFloat(entry.weight) || 0, sets: 1, source: "class" });
       }
     });
     return history.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -182,8 +194,21 @@ export default function Progress() {
         if (Array.isArray(sets) && sets.some(s => s.done && s.weight)) exerciseIds.add(id);
       });
     });
+    classLogs.forEach(log => {
+      Object.keys(log.logs || {}).forEach(id => {
+        const entry = log.logs[id];
+        if (entry?.weight && entry?.reps) exerciseIds.add(id);
+      });
+    });
     return Array.from(exerciseIds).map(id => ({ id, name: exercises[id]?.name || id, history: getExerciseHistory(id) })).filter(e => e.history.length > 0);
   };
+
+  const totalClasses = classLogs.length;
+  const now = new Date();
+  const classesThisMonth = classLogs.filter(l => {
+    const d = new Date(l.completedAt);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
 
   const totalSessions = workoutLogs.length;
   const totalVolume = workoutLogs.reduce((total, log) => {
@@ -301,6 +326,8 @@ export default function Progress() {
             <StatCard icon="🔥" label="Streak" value={`${currentStreak}d`} sub="current streak" color="#ef4444" />
             <StatCard icon="⚡" label="Volume" value={`${Math.round(totalVolume / 1000)}t`} sub="total lifted" color="#f59e0b" />
             <StatCard icon="🏆" label="Best lift" value={pb.weight > 0 ? `${pb.weight}kg` : "—"} sub={pb.name || "no lifts yet"} color="#7c3aed" />
+            <StatCard icon="🏛️" label="Classes" value={totalClasses} sub="total attended" color="#0369a1" />
+            <StatCard icon="📅" label="This month" value={classesThisMonth} sub="classes attended" color="#0369a1" />
           </div>
 
           {capabilityScore && (

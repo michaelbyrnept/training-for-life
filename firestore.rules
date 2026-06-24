@@ -3,10 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow read, write: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
     }
     match /assessmentResults/{doc} {
-      allow read: if request.auth != null && resource.data.email == request.auth.token.email;
+      allow read: if request.auth != null && (resource.data.email == request.auth.token.email || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
       allow create: if true;
     }
     match /exercises/{doc} {
@@ -79,6 +79,54 @@ service cloud.firestore {
     match /mealPlans/{doc} {
       allow read, write: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
       allow create: if request.auth != null;
+    }
+    // Sessions
+    match /sessions/{doc} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.clientId || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
+      allow create, update: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow delete: if false;
+    }
+    // Session Wallet
+    match /sessionBundles/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+    }
+    match /bundlePurchases/{doc} {
+      allow read, write: if request.auth != null && (request.auth.uid == resource.data.clientId || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
+      allow create: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+    }
+    match /walletTransactions/{doc} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.clientId || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
+      allow create, update: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow delete: if false;
+    }
+    // Meaningful Moments Engine
+    match /milestones/{doc} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.clientId || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
+      allow update: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow create: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow delete: if false;
+    }
+    match /coachNotifications/{doc} {
+      allow read, update: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow create: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow delete: if false;
+    }
+    match /clientTimeline/{doc} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.clientId || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
+      allow create: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow update: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow delete: if false;
+    }
+    match /customMilestones/{doc} {
+      allow read: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow write: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+    }
+    // Exercise metrics for PB detection (written by Cloud Functions + coach sessions)
+    match /exerciseMetricLogs/{doc} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.clientId || request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3");
+      allow create: if request.auth != null && request.auth.uid == "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
+      allow delete: if false;
     }
   }
 }

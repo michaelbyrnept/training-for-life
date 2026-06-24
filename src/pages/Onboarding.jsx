@@ -163,7 +163,7 @@ export default function Onboarding() {
     if (isInPerson) {
       setStep(9);
     } else {
-      navigate("/dashboard");
+      navigate("/onboarding/programme");
     }
   };
 

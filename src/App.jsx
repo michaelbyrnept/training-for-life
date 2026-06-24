@@ -30,8 +30,18 @@ import AdminOutreach from "./pages/Admin/AdminOutreach";
 import AdminWaitlist from "./pages/Admin/AdminWaitlist";
 import AdminCheckIns from "./pages/Admin/AdminCheckIns";
 import AdminMeals from "./pages/Admin/AdminMeals";
+import AdminBundles from "./pages/Admin/AdminBundles";
+import AdminSessions from "./pages/Admin/AdminSessions";
+import AdminRevenue from "./pages/Admin/AdminRevenue";
+import AdminWins from "./pages/Admin/AdminWins";
+import AdminCoachSession from "./pages/Admin/AdminCoachSession";
+import AdminCalendar from "./pages/Admin/AdminCalendar";
+import AdminProgressOverview from "./pages/Admin/AdminProgressOverview";
+import AdminBroadcast from "./pages/Admin/AdminBroadcast";
+import AdminForecast from "./pages/Admin/AdminForecast";
 import NutritionGroceryList from "./pages/NutritionGroceryList";
 import ClassLog from "./pages/ClassLog";
+import Classes from "./pages/Classes";
 import CheckIn from "./pages/CheckIn";
 import Consultation from "./pages/Consultation";
 import AIRunningPlan from "./pages/AIRunningPlan";
@@ -45,6 +55,9 @@ import CoachingPhilosophy from "./pages/CoachingPhilosophy";
 import CoachingSupport from "./pages/CoachingSupport";
 import CoachingBook from "./pages/CoachingBook";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
+import Bundles from "./pages/Bundles";
+import BundleSuccess from "./pages/BundleSuccess";
+import OnboardingProgramme from "./pages/OnboardingProgramme";
 
 export default function App() {
   return (
@@ -64,6 +77,7 @@ export default function App() {
 <Route path="/programme/:programmeId/:weekId" element={<Week />} />
 <Route path="/programme/:programmeId/:weekId/:workoutId" element={<Workout />} />
       <Route path="/exercise/:exerciseId" element={<Exercise />} />
+      <Route path="/classes" element={<Classes />} />
       <Route path="/class/:classId" element={<ClassLog />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/admin/exercises" element={<AdminRoute><AdminExercises /></AdminRoute>} />
@@ -71,6 +85,7 @@ export default function App() {
       <Route path="/admin/programmes" element={<AdminRoute><AdminProgrammes /></AdminRoute>} />
       <Route path="/admin/classes" element={<AdminRoute><AdminClasses /></AdminRoute>} />
       <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/onboarding/programme" element={<OnboardingProgramme />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/nutrition/calculator" element={<NutritionCalculator />} />
       <Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
@@ -81,6 +96,15 @@ export default function App() {
       <Route path="/admin/waitlist" element={<AdminRoute><AdminWaitlist /></AdminRoute>} />
       <Route path="/admin/check-ins" element={<AdminRoute><AdminCheckIns /></AdminRoute>} />
       <Route path="/admin/meals" element={<AdminRoute><AdminMeals /></AdminRoute>} />
+      <Route path="/admin/bundles" element={<AdminRoute><AdminBundles /></AdminRoute>} />
+      <Route path="/admin/sessions" element={<AdminRoute><AdminSessions /></AdminRoute>} />
+      <Route path="/admin/revenue" element={<AdminRoute><AdminRevenue /></AdminRoute>} />
+      <Route path="/admin/wins" element={<AdminRoute><AdminWins /></AdminRoute>} />
+      <Route path="/admin/session/:clientUid/:programmeId/:workoutId" element={<AdminRoute><AdminCoachSession /></AdminRoute>} />
+      <Route path="/admin/calendar" element={<AdminRoute><AdminCalendar /></AdminRoute>} />
+      <Route path="/admin/progress" element={<AdminRoute><AdminProgressOverview /></AdminRoute>} />
+      <Route path="/admin/broadcast" element={<AdminRoute><AdminBroadcast /></AdminRoute>} />
+      <Route path="/admin/forecast" element={<AdminRoute><AdminForecast /></AdminRoute>} />
       <Route path="/nutrition/grocery-list" element={<NutritionGroceryList />} />
       <Route path="/check-in" element={<CheckIn />} />
       <Route path="/consultation" element={<Consultation />} />
@@ -95,6 +119,8 @@ export default function App() {
 
 <Route path="/coaching/book" element={<CoachingBook />} />
       <Route path="/subscription/success" element={<SubscriptionSuccess />} />
+      <Route path="/bundles" element={<Bundles />} />
+      <Route path="/bundles/success" element={<BundleSuccess />} />
     </Routes>
   )
 }

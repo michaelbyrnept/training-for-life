@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, updateDoc, setDoc, query, where } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
@@ -32,6 +32,7 @@ export default function Training() {
   const [userData, setUserData] = useState(null);
   const [user, setUser] = useState(null);
   const [weeklyLogs, setWeeklyLogs] = useState({ strength: 0, cardio: 0, mobility: 0 });
+  const [weeklyClassCount, setWeeklyClassCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectingType, setSelectingType] = useState(null);
   const [classes, setClasses] = useState([]);
@@ -73,6 +74,18 @@ const classData = classSnap.docs
   .sort((a, b) => new Date(a.date) - new Date(b.date))
   .slice(0, 10);
 setClasses(classData);
+
+      // Count classes attended this week (reuse monday/sunday from above)
+      const classLogSnap = await getDocs(query(collection(db, "classLogs"), where("userId", "==", u.uid)));
+      const classesThisWeek = classLogSnap.docs
+        .map(d => d.data())
+        .filter(l => {
+          if (!l.completedAt) return false;
+          const d = new Date(l.completedAt);
+          return d >= monday && d <= sunday;
+        }).length;
+      setWeeklyClassCount(classesThisWeek);
+
       setLoading(false);
     });
     return () => unsub();
@@ -96,10 +109,11 @@ setClasses(classData);
     { type: "strength", icon: "🏋️", label: "Strength", done: weeklyLogs.strength, target: WEEKLY_TARGETS.strength, programme: strengthProgramme },
     { type: "cardio", icon: "🏃", label: "Cardio", done: weeklyLogs.cardio, target: WEEKLY_TARGETS.cardio, programme: cardioProgramme },
     { type: "mobility", icon: "🧘", label: "Mobility", done: weeklyLogs.mobility, target: WEEKLY_TARGETS.mobility, programme: null, comingSoon: true },
+    { type: "classes", icon: "🏛️", label: "Classes", done: weeklyClassCount, target: 2, programme: null, isClasses: true },
   ];
 
-  const totalDone = weeklyLogs.strength + weeklyLogs.cardio + weeklyLogs.mobility;
-  const totalTarget = WEEKLY_TARGETS.strength + WEEKLY_TARGETS.cardio + WEEKLY_TARGETS.mobility;
+  const totalDone = weeklyLogs.strength + weeklyLogs.cardio + weeklyLogs.mobility + weeklyClassCount;
+  const totalTarget = WEEKLY_TARGETS.strength + WEEKLY_TARGETS.cardio + WEEKLY_TARGETS.mobility + 2;
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px" }}>
@@ -142,7 +156,12 @@ setClasses(classData);
                     </div>
                   </div>
                   {!item.comingSoon && (
-                    item.programme ? (
+                    item.isClasses ? (
+                      <Link to="/classes" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "10px 12px", textDecoration: "none" }}>
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#111", margin: 0 }}>View full timetable</p>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f" }}>→</span>
+                      </Link>
+                    ) : item.programme ? (
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "10px 12px" }}>
                         <div>
                           <p style={{ fontSize: "12px", fontWeight: 700, color: "#111", margin: 0 }}>{item.programme.name}</p>

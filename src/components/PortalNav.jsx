@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 const tabs = [
   { to: "/dashboard", label: "Home", icon: "🏠" },
   { to: "/training", label: "Training", icon: "💪" },
-  { to: "/coaching", label: "Coaching", icon: "🤝" },
+  { to: "/classes", label: "Classes", icon: "🏛️" },
   { to: "/nutrition", label: "Nutrition", icon: "🥗" },
   { to: "/habits", label: "Habits", icon: "✅" },
   { to: "/progress", label: "Progress", icon: "📈" },
@@ -14,7 +14,7 @@ export default function PortalNav() {
   const location = useLocation();
   const [discardConfirm, setDiscardConfirm] = useState(false);
 
-  const resumeKey = Object.keys(sessionStorage).find(
+  const resumeKey = Object.keys(localStorage).find(
     k => k.startsWith("tfl_workout_") &&
     !k.endsWith("_index") &&
     !k.endsWith("_programme") &&
@@ -22,10 +22,10 @@ export default function PortalNav() {
   );
   const resumeWorkoutId = resumeKey?.replace("tfl_workout_", "");
   const resumeProgrammeId = resumeWorkoutId
-    ? sessionStorage.getItem(`tfl_workout_${resumeWorkoutId}_programme`)
+    ? localStorage.getItem(`tfl_workout_${resumeWorkoutId}_programme`)
     : null;
   const resumeWeekId = resumeWorkoutId
-    ? sessionStorage.getItem(`tfl_workout_${resumeWorkoutId}_week`)
+    ? localStorage.getItem(`tfl_workout_${resumeWorkoutId}_week`)
     : null;
 
   const isOnWorkout = location.pathname.includes(resumeWorkoutId || "____");
@@ -39,10 +39,10 @@ export default function PortalNav() {
       return;
     }
     if (resumeWorkoutId) {
-      sessionStorage.removeItem(`tfl_workout_${resumeWorkoutId}`);
-      sessionStorage.removeItem(`tfl_workout_${resumeWorkoutId}_index`);
-      sessionStorage.removeItem(`tfl_workout_${resumeWorkoutId}_programme`);
-      sessionStorage.removeItem(`tfl_workout_${resumeWorkoutId}_week`);
+      localStorage.removeItem(`tfl_workout_${resumeWorkoutId}`);
+      localStorage.removeItem(`tfl_workout_${resumeWorkoutId}_index`);
+      localStorage.removeItem(`tfl_workout_${resumeWorkoutId}_programme`);
+      localStorage.removeItem(`tfl_workout_${resumeWorkoutId}_week`);
       window.location.reload();
     }
   };
