@@ -222,12 +222,20 @@ export default function AdminClients() {
         <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "8px 0 4px" }}>Clients</h1>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <p style={{ fontSize: "13px", color: "#9fe1cb", margin: 0 }}>{clients.length} total accounts</p>
-          <button
-            onClick={() => { setShowCreateSheet(true); setCreateError(""); setCreateSuccess(""); }}
-            style={{ backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
-          >
-            + Create Client
-          </button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <Link
+              to="/admin/groups"
+              style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "#9fe1cb", border: "none", borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: 700, textDecoration: "none" }}
+            >
+              Groups
+            </Link>
+            <button
+              onClick={() => { setShowCreateSheet(true); setCreateError(""); setCreateSuccess(""); }}
+              style={{ backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
+            >
+              + Create Client
+            </button>
+          </div>
         </div>
       </div>
 

@@ -58,6 +58,9 @@ import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import Bundles from "./pages/Bundles";
 import BundleSuccess from "./pages/BundleSuccess";
 import OnboardingProgramme from "./pages/OnboardingProgramme";
+import AdminGroups from "./pages/Admin/AdminGroups";
+import AdminGroupProfile from "./pages/Admin/AdminGroupProfile";
+import AdminGroupCoachSession from "./pages/Admin/AdminGroupCoachSession";
 
 export default function App() {
   return (
@@ -91,6 +94,9 @@ export default function App() {
       <Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
       <Route path="/admin/clients" element={<AdminRoute><AdminClients /></AdminRoute>} />
       <Route path="/admin/clients/:uid" element={<AdminRoute><AdminClientProfile /></AdminRoute>} />
+      <Route path="/admin/groups" element={<AdminRoute><AdminGroups /></AdminRoute>} />
+      <Route path="/admin/groups/:groupId" element={<AdminRoute><AdminGroupProfile /></AdminRoute>} />
+      <Route path="/admin/groups/:groupId/session/:workoutId" element={<AdminRoute><AdminGroupCoachSession /></AdminRoute>} />
       <Route path="/admin/consultations" element={<AdminRoute><AdminConsultations /></AdminRoute>} />
       <Route path="/admin/outreach" element={<AdminRoute><AdminOutreach /></AdminRoute>} />
       <Route path="/admin/waitlist" element={<AdminRoute><AdminWaitlist /></AdminRoute>} />
