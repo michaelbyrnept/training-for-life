@@ -599,7 +599,7 @@ export default function AdminClientProfile() {
       await addDoc(collection(db, "sessions"), {
         clientId: uid,
         clientName: client?.nickname || client?.firstName || client?.email || uid,
-        date: FBTimestamp.fromDate(dateTime),
+        date: Timestamp.fromDate(dateTime),
         durationMins: Number(sessionBookForm.durationMins),
         type: sessionBookForm.type,
         status: "scheduled",
