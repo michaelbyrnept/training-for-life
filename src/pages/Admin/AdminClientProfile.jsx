@@ -385,7 +385,7 @@ export default function AdminClientProfile() {
     setDeleteLoading(true);
     setDeleteError("");
     try {
-      const fn = httpsCallable(getFunctions(undefined, "europe-west2"), "adminDeleteClient");
+      const fn = httpsCallable(getFunctions(undefined, "us-central1"), "adminDeleteClient");
       await fn({ uid });
       navigate("/admin/clients");
     } catch (e) {

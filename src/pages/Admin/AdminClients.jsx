@@ -158,7 +158,7 @@ export default function AdminClients() {
     setCreating(true);
     setCreateError("");
     try {
-      const functions = getFunctions(undefined, "europe-west2");
+      const functions = getFunctions(undefined, "us-central1");
       const adminCreateClient = httpsCallable(functions, "adminCreateClient");
       const { data } = await adminCreateClient({
         firstName: createForm.firstName.trim(),

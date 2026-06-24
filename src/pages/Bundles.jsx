@@ -48,7 +48,7 @@ export default function Bundles() {
   async function handleBuy(bundle) {
     setBuying(bundle.id);
     try {
-      const functions = getFunctions(undefined, "europe-west2");
+      const functions = getFunctions(undefined, "us-central1");
       const createCheckoutSession = httpsCallable(functions, "createCheckoutSession");
       const origin = window.location.origin;
       const { data } = await createCheckoutSession({
