@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { auth, db, storage, functions } from "../firebase";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, addDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, addDoc, orderBy } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useNavigate, Link } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
@@ -66,6 +66,8 @@ export default function Profile() {
   const [achievements, setAchievements] = useState([]);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [myGroups, setMyGroups] = useState([]);
+  const [groupSessions, setGroupSessions] = useState([]);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -99,6 +101,36 @@ export default function Profile() {
       });
       Object.keys(grouped).forEach(angle => grouped[angle].sort((a, b) => new Date(b.date) - new Date(a.date)));
       setPhotos(grouped);
+
+      // Load groups this user belongs to
+      const groupsSnap = await getDocs(collection(db, "groups"));
+      const userGroups = groupsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(g => (g.memberIds || []).includes(u.uid));
+      setMyGroups(userGroups);
+
+      // Load upcoming group sessions for this user
+      if (userGroups.length > 0) {
+        const sessSnap = await getDocs(query(
+          collection(db, "sessions"),
+          where("clientId", "==", u.uid),
+          where("isGroupSession", "==", true)
+        ));
+        const now = new Date();
+        const upcoming = sessSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(s => {
+            const d = s.date?.toDate ? s.date.toDate() : s.date ? new Date(s.date) : null;
+            return d && d >= now && s.status === "scheduled";
+          })
+          .sort((a, b) => {
+            const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+            const db2 = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+            return da - db2;
+          })
+          .slice(0, 5);
+        setGroupSessions(upcoming);
+      }
 
       setLoading(false);
     });
@@ -442,6 +474,56 @@ export default function Profile() {
                 {cancelLoading ? "Cancelling..." : cancelConfirm ? "Tap again to confirm" : "Cancel subscription"}
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* GROUP MEMBERSHIP */}
+      {myGroups.length > 0 && (
+        <div style={{ padding: "16px 16px 0" }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+            My Groups
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {myGroups.map(group => (
+              <div key={group.id} style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", overflow: "hidden" }}>
+                <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "#eaf5ef", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flexShrink: 0 }}>
+                    👥
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>{group.name}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: (group.credits || 0) <= 2 ? "#dc2626" : "#2d6a4f", backgroundColor: (group.credits || 0) <= 2 ? "#fee2e2" : "#eaf5ef", padding: "2px 10px", borderRadius: "10px" }}>
+                        {group.credits || 0} credit{(group.credits || 0) !== 1 ? "s" : ""}
+                      </span>
+                      <span style={{ fontSize: "11px", color: "#aaa" }}>
+                        {(group.memberIds || []).length} member{(group.memberIds || []).length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {/* Upcoming group sessions for this group */}
+                {groupSessions.filter(s => s.groupId === group.id).length > 0 && (
+                  <div style={{ borderTop: "0.5px solid #f0f0f0" }}>
+                    {groupSessions.filter(s => s.groupId === group.id).map((s, i, arr) => {
+                      const d = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+                      return (
+                        <div key={s.id} style={{ padding: "10px 16px", borderBottom: i < arr.length - 1 ? "0.5px solid #f0f0f0" : "none", display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ width: 36, height: 36, borderRadius: "8px", backgroundColor: "#e0f2fe", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "#0369a1", margin: 0 }}>{d.toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: "0 0 1px" }}>{s.type || "Group Session"}</p>
+                            <p style={{ fontSize: "11px", color: "#888", margin: 0 }}>{d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" })} — {s.durationMins || 60} min</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
