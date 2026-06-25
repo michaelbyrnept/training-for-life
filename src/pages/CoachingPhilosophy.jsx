@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
+import SEO from "../components/SEO";
 
 const principles = [
   {
@@ -64,6 +65,11 @@ function PrincipleCard({ item }) {
 export default function CoachingPhilosophy() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px" }}>
+      <SEO
+        title="Our Personal Training Philosophy | Training for Life Dublin"
+        description="Discover the Training for Life approach to personal training. Sustainable strength, mobility and consistency over extreme short-term goals. Based in South Dublin, coaching clients across Ireland."
+        canonical="https://trainingforlife.ie/coaching/philosophy"
+      />
       <PortalNav />
 
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px" }}>
@@ -71,10 +77,10 @@ export default function CoachingPhilosophy() {
           ← Coaching
         </Link>
         <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "16px 0 16px" }}>
-          Our Philosophy
+          Our Approach to Training
         </p>
         <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.25 }}>
-          What Training For Life stands for.
+          Sustainable personal training that actually lasts.
         </h1>
       </div>
 

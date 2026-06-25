@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import PortalNav from "../components/PortalNav";
+import SEO from "../components/SEO";
 import { auth, db, functions } from "../firebase";
 
 const TIERS = [
@@ -203,20 +204,25 @@ export default function CoachingSupport() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px" }}>
+      <SEO
+        title="Personal Training Packages and Online Coaching Ireland | Training for Life"
+        description="Compare personal training options from Training for Life. Online coaching from €149/month, hybrid coaching from €199/month, and in-person sessions in South Dublin from €55. Find the right fit."
+        canonical="https://trainingforlife.ie/coaching/support"
+      />
       <PortalNav />
 
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px" }}>
         <Link to="/coaching" style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none" }}>
-          Coaching
+          ← Coaching
         </Link>
         <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "16px 0 16px" }}>
-          Ways I Can Help
+          Coaching Options &amp; Pricing
         </p>
         <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.25 }}>
-          Find the right level of support.
+          Personal training and online coaching options.
         </h1>
         <p style={{ fontSize: "13px", color: "#9fe1cb", margin: 0 }}>
-          No pressure. Start free, go further whenever you're ready.
+          In-person in South Dublin or online anywhere in Ireland. Start free and go further whenever you're ready.
         </p>
       </div>
 

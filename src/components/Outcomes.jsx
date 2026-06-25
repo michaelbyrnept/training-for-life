@@ -35,7 +35,7 @@ export default function Outcomes() {
 
             <img
   src={CoupleWalk}
-  alt="Older adult training confidently"
+  alt="Couple walking together after personal training in South Dublin"
   className="h-64 w-full object-cover object-[center_35%]"
 />
 
@@ -59,7 +59,7 @@ export default function Outcomes() {
 
             <img
              src={Hike}
-              alt="Active older adults outdoors"
+              alt="Active adults hiking outdoors after strength training programme"
               className="h-64 w-full object-cover"
             />
 
@@ -82,9 +82,8 @@ export default function Outcomes() {
           <div className="overflow-hidden rounded-[3rem] border border-zinc-200 bg-white shadow-xl transition duration-300 hover:-translate-y-1">
 
             <img
-              
             src={Football}
-              alt="Older adult enjoying an active lifestyle"
+              alt="Adult staying active and enjoying sport after personal training"
               className="h-64 w-full object-cover"
             />
 

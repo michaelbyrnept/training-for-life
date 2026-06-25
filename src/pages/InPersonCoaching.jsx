@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import SEO from "../components/SEO";
 
 const COLORS = {
   parchment: "#FAFAF9",
@@ -245,13 +246,19 @@ function TierCard({ tier }) {
 
 export default function InPersonCoaching() {
   return (
+    <>
+    <SEO
+      title="In-Person Personal Training in South Dublin | Training for Life"
+      description="Private 1:1, 1:2 and small group personal training sessions in South Dublin with Michael Byrne. Starter packages from €349. Serving Rathmines, Ranelagh, Dundrum, Sandyford and surrounding areas. Book a free consultation."
+      canonical="https://trainingforlife.ie/coaching/in-person"
+    />
     <section className="px-6 py-16 md:py-24" style={{ backgroundColor: COLORS.parchment }}>
       <div className="mx-auto" style={{ maxWidth: "1080px" }}>
         <Link
-          to="/#services"
+          to="/"
           style={{ fontSize: "13px", fontWeight: 600, color: COLORS.accent, textDecoration: "none" }}
         >
-          ← Back to all options
+          ← Back to home
         </Link>
 
         <p
@@ -264,19 +271,26 @@ export default function InPersonCoaching() {
             margin: "24px 0 16px",
           }}
         >
-          In-Person Coaching, South Dublin
+          Personal Training · South Dublin
         </p>
         <h1
           className="text-3xl sm:text-4xl md:text-5xl"
-          style={{ fontWeight: 600, lineHeight: 1.15, maxWidth: "600px", margin: "0 0 20px", color: COLORS.textDark }}
+          style={{ fontWeight: 600, lineHeight: 1.15, maxWidth: "640px", margin: "0 0 20px", color: COLORS.textDark }}
         >
-          Private coaching, built around you.
+          In-Person Personal Training in South Dublin
         </h1>
         <p
           className="text-base sm:text-lg"
-          style={{ lineHeight: 1.6, color: COLORS.textMuted, maxWidth: "540px", margin: "0 0 40px sm:0 0 48px" }}
+          style={{ lineHeight: 1.6, color: COLORS.textMuted, maxWidth: "580px", margin: "0 0 12px" }}
         >
-          1:1 sessions are fully yours. Group sessions share the cost of the same hour. Book 10 or more sessions for a lower rate.
+          Private, in-person coaching from Michael Byrne in South Dublin.
+          Choose from 1:1, 1:2 or small group sessions. Buy 10 or more sessions for a lower per-session rate.
+        </p>
+        <p
+          className="text-base"
+          style={{ lineHeight: 1.6, color: COLORS.textMuted, maxWidth: "580px", margin: "0 0 40px" }}
+        >
+          Serving clients in Rathmines, Ranelagh, Dundrum, Sandyford, Stillorgan, Ballsbridge, Donnybrook and surrounding South Dublin areas.
         </p>
 
         <div
@@ -338,7 +352,35 @@ export default function InPersonCoaching() {
             <TierCard key={tier.id} tier={tier} />
           ))}
         </div>
+
+        {/* WHY IN-PERSON */}
+        <div style={{ marginTop: "48px", padding: "32px", backgroundColor: COLORS.accentLight, borderRadius: "8px" }}>
+          <h2 style={{ fontSize: "22px", fontWeight: 600, color: COLORS.textDark, margin: "0 0 12px" }}>
+            Why choose in-person personal training?
+          </h2>
+          <p style={{ fontSize: "15px", lineHeight: 1.7, color: COLORS.textMuted, margin: "0 0 12px" }}>
+            In-person training with Michael means every session is fully supervised, adapted to how you feel on the day, and built around your specific goals. There's no guesswork and no wasted time.
+          </p>
+          <p style={{ fontSize: "15px", lineHeight: 1.7, color: COLORS.textMuted, margin: 0 }}>
+            Whether you're a complete beginner, returning after a break, or an experienced gym-goer looking to level up, Michael personalises every programme to your starting point, your goals, and your lifestyle.
+          </p>
+        </div>
+
+        {/* ONLINE COACHING LINK */}
+        <div style={{ marginTop: "24px", textAlign: "center" }}>
+          <p style={{ fontSize: "14px", color: COLORS.textMuted, marginBottom: "8px" }}>
+            Not based in South Dublin?
+          </p>
+          <Link
+            to="/coaching/support"
+            style={{ fontSize: "14px", fontWeight: 600, color: COLORS.accent, textDecoration: "none" }}
+          >
+            Explore online coaching options for clients anywhere in Ireland →
+          </Link>
+        </div>
+
       </div>
     </section>
+    </>
   );
 }

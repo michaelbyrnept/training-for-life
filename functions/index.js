@@ -528,6 +528,26 @@ exports.onExerciseMetricLogged = onDocumentCreated("exerciseMetricLogs/{docId}",
 
 // ─── END MEANINGFUL MOMENTS ENGINE ─────────────────────────────────────────
 
+// ─── ADMIN: GENERATE PASSWORD RESET LINK ──────────────────────────────────
+exports.adminGenerateResetLink = onCall(
+  async (request) => {
+    if (!request.auth || request.auth.uid !== ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { email } = request.data;
+    if (!email) throw new HttpsError("invalid-argument", "email is required.");
+
+    const { getAuth: getAdminAuth } = require("firebase-admin/auth");
+    try {
+      const link = await getAdminAuth().generatePasswordResetLink(email);
+      return { link };
+    } catch (err) {
+      throw new HttpsError("internal", err.message);
+    }
+  }
+);
+
 // ─── ADMIN: CREATE CLIENT ACCOUNT ─────────────────────────────────────────
 // Creates a Firebase Auth user + Firestore profile without sending any email.
 // Admin then sets up their programme; sends welcome separately via the profile.

@@ -1,4 +1,5 @@
 import Hero from "../assets/Hero.png";
+import { Link } from "react-router-dom";
 export default function About() {
   return (
 
@@ -13,7 +14,7 @@ export default function About() {
 
             <img
   src={Hero}
-  alt="Capability coaching"
+  alt="Michael Byrne, personal trainer and capability coach based in South Dublin, Ireland"
   className="h-full w-full object-cover object-center"
 />
 
@@ -25,11 +26,11 @@ export default function About() {
         <div>
 
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.25em] text-emerald-700">
-            About Michael
+            About Your Trainer
           </p>
 
           <h2 className="text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
-            Patient. Clear. Empowering.
+            Michael Byrne — Personal Trainer, South Dublin
           </h2>
 
           <div className="mt-10 space-y-8 text-lg leading-8 text-zinc-700">
@@ -61,8 +62,20 @@ export default function About() {
 
             <p>
               This is not about extreme fitness.
-              It’s about building a body and a future —
+              It’s about building a body and a future
               that you feel confident living in.
+            </p>
+
+            <p>
+              Based in South Dublin, Michael offers{" "}
+              <Link to="/coaching/in-person" className="text-emerald-700 underline underline-offset-2 hover:opacity-80">
+                in-person personal training
+              </Link>{" "}
+              and{" "}
+              <Link to="/coaching/support" className="text-emerald-700 underline underline-offset-2 hover:opacity-80">
+                online coaching across Ireland
+              </Link>
+              .
             </p>
 
           </div>

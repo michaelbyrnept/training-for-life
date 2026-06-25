@@ -2,6 +2,7 @@ import { useState } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { Link } from "react-router-dom";
+import SEO from "../components/SEO";
 
 export default function Consultation() {
   const [step, setStep] = useState(0);
@@ -164,6 +165,11 @@ export default function Consultation() {
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #0d2b1f 0%, #1a3a2a 60%, #2d6a4f 100%)", display: "flex", flexDirection: "column" }}>
+      <SEO
+        title="Book a Free Personal Training Consultation | Training for Life Dublin"
+        description="Book a free personal training consultation with Michael Byrne in Dublin. Tell us about your goals and we'll be in touch within 24 hours to discuss the best coaching option for you."
+        canonical="https://trainingforlife.ie/consultation"
+      />
 
       {/* Header */}
       <div style={{ padding: "20px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -194,7 +200,7 @@ export default function Consultation() {
               Training for Life
             </p>
             <h1 style={{ fontSize: "30px", fontWeight: 700, color: "#fff", margin: "0 0 16px", lineHeight: 1.2 }}>
-              Capability Consultation
+              Book Your Free Personal Training Consultation
             </h1>
             <p style={{ fontSize: "15px", color: "#9fe1cb", margin: "0 0 12px", lineHeight: 1.6 }}>
               A calm, structured first step toward rebuilding confidence in your body, movement, and long-term physical capability.

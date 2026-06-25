@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import SEO from "../components/SEO";
 
 import ResultsHero from "../components/capability/ResultsHero";
 import ResultsProfile from "../components/capability/ResultsProfile";
@@ -232,6 +233,11 @@ export default function CapabilityScore() {
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #0d2b1f 0%, #1a3a2a 60%, #2d6a4f 100%)", display: "flex", flexDirection: "column" }}>
+      <SEO
+        title="Free Fitness Capability Assessment | Training for Life Dublin"
+        description="Take the free Capability Assessment from Dublin personal trainer Michael Byrne. Discover your strength, mobility, energy and consistency scores in minutes. No equipment needed."
+        canonical="https://trainingforlife.ie/capability-score"
+      />
 
       {/* Header */}
       <div style={{ padding: "20px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

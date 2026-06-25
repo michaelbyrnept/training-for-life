@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
+import SEO from "../components/SEO";
 
 const blocks = [
   {
@@ -22,6 +23,11 @@ const blocks = [
 export default function CoachingBook() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px" }}>
+      <SEO
+        title="Book a Free Personal Training Consultation in Dublin | Training for Life"
+        description="Book a free, no-obligation consultation with Dublin personal trainer Michael Byrne. Discuss your goals and find out whether in-person or online coaching is right for you."
+        canonical="https://trainingforlife.ie/coaching/book"
+      />
       <PortalNav />
 
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px" }}>
@@ -29,13 +35,13 @@ export default function CoachingBook() {
           ← Coaching
         </Link>
         <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "16px 0 16px" }}>
-          Book a Consultation
+          Free Consultation
         </p>
         <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.25 }}>
-          Let's have a conversation.
+          Book a free personal training consultation.
         </h1>
         <p style={{ fontSize: "13px", color: "#9fe1cb", margin: 0 }}>
-          No pressure, no obligation, just a chance to talk things through.
+          No pressure, no obligation. Just a chance to talk through your goals.
         </p>
       </div>
 

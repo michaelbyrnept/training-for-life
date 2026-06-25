@@ -1,9 +1,15 @@
 import { Link } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
+import SEO from "../components/SEO";
 
 export default function CoachingAbout() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px" }}>
+      <SEO
+        title="About Michael Byrne — Personal Trainer in Dublin | Training for Life"
+        description="Michael Byrne is a personal trainer and coach based in South Dublin, Ireland. Learn about his approach to helping adults build strength, confidence and long-term physical capability."
+        canonical="https://trainingforlife.ie/coaching/about"
+      />
       <PortalNav />
 
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px" }}>
@@ -11,10 +17,10 @@ export default function CoachingAbout() {
           ← Coaching
         </Link>
         <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "16px 0 16px" }}>
-          About Michael
+          About Your Trainer
         </p>
         <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.25 }}>
-          Helping people remain strong, independent, capable, and confident throughout life.
+          Michael Byrne — Personal Trainer in South Dublin
         </h1>
       </div>
 

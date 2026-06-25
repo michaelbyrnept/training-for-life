@@ -10,19 +10,19 @@ export default function Footer() {
         <div>
 
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">
+            <p className="text-2xl font-semibold tracking-tight">
               Michael Byrne
-            </h2>
+            </p>
 
             <p className="mt-1 text-zinc-500">
-              Training for Life
+              Personal Trainer · South Dublin
             </p>
           </div>
 
           <p className="mt-6 leading-7 text-zinc-600">
-            Premium capability coaching designed to help successful
-            adults stay strong, active, independent, and physically
-            confident for the decades ahead.
+            Personal training and online coaching in South Dublin.
+            Helping adults build strength, confidence and long-term
+            physical capability.
           </p>
 
         </div>
@@ -31,37 +31,37 @@ export default function Footer() {
         <div>
 
           <h3 className="text-lg font-semibold">
-            Navigation
+            Services
           </h3>
 
           <div className="mt-6 flex flex-col gap-4 text-zinc-600">
 
             <a
-              href="#philosophy"
+              href="/coaching/in-person"
               className="transition hover:text-emerald-700"
             >
-              Philosophy
+              In-Person Personal Training
             </a>
 
             <a
-              href="#process"
+              href="/coaching/support"
               className="transition hover:text-emerald-700"
             >
-              Process
+              Online Coaching
             </a>
 
             <a
-              href="#stories"
+              href="/capability-score"
               className="transition hover:text-emerald-700"
             >
-              Client Stories
+              Free Capability Assessment
             </a>
 
             <a
-              href="#contact"
+              href="/consultation"
               className="transition hover:text-emerald-700"
             >
-              Consultation
+              Book a Consultation
             </a>
 
           </div>
@@ -135,12 +135,13 @@ export default function Footer() {
       <div className="mx-auto mt-16 flex max-w-7xl flex-col gap-4 border-t border-zinc-200 pt-8 text-sm text-zinc-500 md:flex-row md:items-center md:justify-between">
 
         <p>
-          © 2026 Michael Byrne. All rights reserved.
+          © 2026 Michael Byrne · Personal Trainer South Dublin · All rights reserved.
         </p>
 
-        <p>
-          Capability Coaching • Training For Life
-        </p>
+        <div className="flex gap-6">
+          <a href="/privacy-policy" className="transition hover:text-emerald-700">Privacy Policy</a>
+          <a href="/consultation" className="transition hover:text-emerald-700">Book a Consultation</a>
+        </div>
 
       </div>
     </footer>

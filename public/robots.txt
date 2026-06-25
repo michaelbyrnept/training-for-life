@@ -1,0 +1,27 @@
+User-agent: *
+Allow: /
+
+# Block app/portal pages — no SEO value, behind auth
+Disallow: /admin
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /training
+Disallow: /nutrition
+Disallow: /habits
+Disallow: /progress
+Disallow: /programme
+Disallow: /exercise
+Disallow: /classes
+Disallow: /class/
+Disallow: /check-in
+Disallow: /profile
+Disallow: /onboarding
+Disallow: /nutrition/calculator
+Disallow: /nutrition/grocery-list
+Disallow: /bundles
+Disallow: /bundles/success
+Disallow: /subscription/success
+Disallow: /register
+Disallow: /login
+
+Sitemap: https://trainingforlife.ie/sitemap.xml

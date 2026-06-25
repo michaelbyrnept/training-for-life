@@ -26,9 +26,9 @@ const [menuOpen, setMenuOpen] = useState(false);
           {/* BRAND */}
           <div>
 
-            <h1 className="text-lg font-semibold tracking-tight text-zinc-900">
+            <p className="text-lg font-semibold tracking-tight text-zinc-900">
               Michael Byrne
-            </h1>
+            </p>
 
             <p className="text-sm text-zinc-500">
               Training For Life
@@ -41,33 +41,34 @@ const [menuOpen, setMenuOpen] = useState(false);
         {/* NAVIGATION */}
         <div className="hidden items-center gap-10 text-sm font-medium text-zinc-600 md:flex">
 
-          <a
-            href="#philosophy"
+          <Link
+            to="/coaching/in-person"
             className="transition hover:text-emerald-700"
           >
-            Philosophy
-          </a>
+            In-Person Training
+          </Link>
 
-          <a
-            href="#process"
+          <Link
+            to="/coaching/support"
             className="transition hover:text-emerald-700"
           >
-            Process
-          </a>
+            Online Coaching
+          </Link>
 
           <a
             href="#stories"
             className="transition hover:text-emerald-700"
           >
-            Stories
+            Client Stories
           </a>
 
-          <a
-            href="#contact"
+          <Link
+            to="/capability-score"
             className="transition hover:text-emerald-700"
           >
-            Contact
-          </a>
+            Free Assessment
+          </Link>
+
           <Link
   to="/login"
   className="transition hover:text-emerald-700"
@@ -87,8 +88,6 @@ const [menuOpen, setMenuOpen] = useState(false);
 
           <a
   href="/consultation"
-  target="_blank"
-  rel="noopener noreferrer"
   className="inline-block rounded-2xl bg-emerald-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
 >
   Book Consultation
@@ -101,33 +100,33 @@ const [menuOpen, setMenuOpen] = useState(false);
   <div className="md:hidden border-t border-zinc-200 bg-stone-50">
     <div className="flex flex-col px-6 py-4 text-sm font-medium text-zinc-600">
 
-      <a
-        href="#philosophy"
+      <Link
+        to="/coaching/in-person"
         className="py-3 hover:text-emerald-700"
       >
-        Philosophy
-      </a>
+        In-Person Training
+      </Link>
 
-      <a
-        href="#process"
+      <Link
+        to="/coaching/support"
         className="py-3 hover:text-emerald-700"
       >
-        Process
-      </a>
+        Online Coaching
+      </Link>
 
       <a
         href="#stories"
         className="py-3 hover:text-emerald-700"
       >
-        Stories
+        Client Stories
       </a>
 
-      <a
-        href="#contact"
+      <Link
+        to="/capability-score"
         className="py-3 hover:text-emerald-700"
       >
-        Contact
-      </a>
+        Free Assessment
+      </Link>
 
       <Link
         to="/login"
@@ -138,8 +137,6 @@ const [menuOpen, setMenuOpen] = useState(false);
 
       <a
         href="/consultation"
-        target="_blank"
-        rel="noopener noreferrer"
         className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-center text-white"
       >
         Book Consultation

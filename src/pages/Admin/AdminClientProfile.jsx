@@ -160,6 +160,8 @@ export default function AdminClientProfile() {
   const [videoUrl, setVideoUrl] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
+  const [resetEmailStatus, setResetEmailStatus] = useState("");
+  const [copyLinkStatus, setCopyLinkStatus] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -378,6 +380,34 @@ export default function AdminClientProfile() {
     } catch (e) {
       setResendStatus("error");
       setTimeout(() => setResendStatus(""), 3000);
+    }
+  };
+
+  const sendResetEmail = async () => {
+    if (!client.email) return;
+    setResetEmailStatus("sending");
+    try {
+      await sendPasswordResetEmail(getAuth(), client.email);
+      setResetEmailStatus("sent");
+      setTimeout(() => setResetEmailStatus(""), 3000);
+    } catch (e) {
+      setResetEmailStatus("error");
+      setTimeout(() => setResetEmailStatus(""), 3000);
+    }
+  };
+
+  const copyResetLink = async () => {
+    if (!client.email) return;
+    setCopyLinkStatus("loading");
+    try {
+      const fn = httpsCallable(getFunctions(undefined, "us-central1"), "adminGenerateResetLink");
+      const result = await fn({ email: client.email });
+      await navigator.clipboard.writeText(result.data.link);
+      setCopyLinkStatus("copied");
+      setTimeout(() => setCopyLinkStatus(""), 3000);
+    } catch (e) {
+      setCopyLinkStatus("error");
+      setTimeout(() => setCopyLinkStatus(""), 3000);
     }
   };
 
@@ -767,6 +797,46 @@ export default function AdminClientProfile() {
               <p style={{ fontSize: "10px", color: "#9fe1cb", margin: "3px 0 0", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Password reset actions */}
+        <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+          <button
+            onClick={sendResetEmail}
+            disabled={resetEmailStatus === "sending"}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              borderRadius: "12px",
+              border: "1.5px solid rgba(159,225,203,0.4)",
+              backgroundColor: resetEmailStatus === "sent" ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.08)",
+              color: resetEmailStatus === "sent" ? "#4ade80" : resetEmailStatus === "error" ? "#f87171" : "#9fe1cb",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: resetEmailStatus === "sending" ? "default" : "pointer",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {resetEmailStatus === "sending" ? "Sending..." : resetEmailStatus === "sent" ? "Reset sent" : resetEmailStatus === "error" ? "Failed" : "Send Reset Email"}
+          </button>
+          <button
+            onClick={copyResetLink}
+            disabled={copyLinkStatus === "loading"}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              borderRadius: "12px",
+              border: "1.5px solid rgba(159,225,203,0.4)",
+              backgroundColor: copyLinkStatus === "copied" ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.08)",
+              color: copyLinkStatus === "copied" ? "#4ade80" : copyLinkStatus === "error" ? "#f87171" : "#9fe1cb",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: copyLinkStatus === "loading" ? "default" : "pointer",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {copyLinkStatus === "loading" ? "Generating..." : copyLinkStatus === "copied" ? "Copied!" : copyLinkStatus === "error" ? "Failed" : "Copy Reset Link"}
+          </button>
         </div>
       </div>
 

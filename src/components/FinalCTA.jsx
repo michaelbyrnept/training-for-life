@@ -16,17 +16,27 @@ export default function FinalCTA() {
         </h2>
 
         <p className="mx-auto mt-8 max-w-2xl text-lg leading-8 text-zinc-300">
-          Capability coaching designed to help you stay strong, active, independent, and physically confident for the decades ahead.
+          Personal training in South Dublin and online coaching across Ireland — designed to help you stay strong, active, independent, and physically confident for the decades ahead.
         </p>
 
-       <a
-  href="/consultation"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="inline-block rounded-2xl bg-emerald-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
->
-  Book Consultation
-</a>
+        <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+          <a
+            href="/consultation"
+            className="inline-block rounded-2xl bg-emerald-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
+          >
+            Book a Free Consultation
+          </a>
+          <a
+            href="/coaching/in-person"
+            className="inline-block rounded-2xl border border-white/20 px-8 py-4 text-base font-medium text-white transition hover:bg-white/10"
+          >
+            View In-Person Options
+          </a>
+        </div>
+
+        <p className="mt-8 text-sm text-zinc-500">
+          Serving South Dublin — Rathmines, Ranelagh, Dundrum, Sandyford, Stillorgan and surrounding areas
+        </p>
 
       </div>
 

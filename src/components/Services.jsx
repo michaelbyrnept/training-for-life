@@ -110,13 +110,13 @@ export default function Services() {
         {/* Header */}
         <div className="mb-16 max-w-2xl">
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.25em] text-emerald-700">
-            How We Work Together
+            Personal Training &amp; Online Coaching Options
           </p>
           <h2 className="text-4xl font-semibold leading-tight tracking-tight text-zinc-900 md:text-5xl">
-            Five ways to build your capability.
+            In-person training, online coaching and more.
           </h2>
           <p className="mt-6 text-lg leading-8 text-zinc-600">
-           Whether you want hands-on coaching, flexible online support, or a free way to start, there's a path that fits your life.
+            Whether you want hands-on personal training in South Dublin, fully remote online coaching from anywhere in Ireland, or a free way to start, there's an option that fits your life.
           </p>
         </div>
 

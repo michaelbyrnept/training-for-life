@@ -9,10 +9,17 @@ import About from '../components/About'
 import FinalCTA from '../components/FinalCTA'
 import Footer from '../components/Footer'
 import Services from '../components/Services'
+import SEO from '../components/SEO'
+import FAQ from '../components/FAQ'
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-stone-50 text-zinc-900">
+      <SEO
+        title="Personal Trainer in Dublin | Training for Life — Michael Byrne"
+        description="1:1 personal training and online coaching in South Dublin with Michael Byrne. Strength training, weight loss and capability coaching for adults. Book a free consultation today."
+        canonical="https://trainingforlife.ie"
+      />
       <Navbar />
       <Hero />
       <Problem />
@@ -22,6 +29,7 @@ export default function Home() {
       <Process />
       <Testimonials />
       <About />
+      <FAQ />
       <FinalCTA />
       <Footer />
     </div>

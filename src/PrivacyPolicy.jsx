@@ -1,6 +1,13 @@
+import SEO from "./components/SEO";
+
 export default function PrivacyPolicy() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2" }}>
+      <SEO
+        title="Privacy Policy | Training for Life"
+        description="Privacy policy for Training for Life, operated by personal trainer Michael Byrne in Dublin, Ireland. Learn how we collect and handle your data in line with GDPR."
+        canonical="https://trainingforlife.ie/privacy-policy"
+      />
 
       {/* Header */}
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "48px 24px 56px", textAlign: "center" }}>

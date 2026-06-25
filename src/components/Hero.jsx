@@ -15,11 +15,11 @@ export default function Hero() {
         {/* TEXT SIDE */}
         <div>
           <p className="mb-6 text-sm font-medium uppercase tracking-[0.25em] text-emerald-700">
-            Capability Coaching For Successful Adults
+            Personal Training · South Dublin &amp; Online Ireland
           </p>
 
           <h1 className="max-w-3xl text-5xl font-semibold leading-tight tracking-tight text-zinc-900 md:text-7xl">
-            Stay capable for the life you still want to live.
+            Personal Training in Dublin That Fits Your Lifestyle
           </h1>
 
           <p className="mt-10 max-w-2xl text-xl leading-9 text-zinc-600">
@@ -67,7 +67,7 @@ export default function Hero() {
           <div className="overflow-hidden rounded-[3rem] border border-zinc-200 bg-white shadow-2xl">
             <img
               src={HeroImage}
-              alt="Capability coaching"
+              alt="Michael Byrne personal trainer working with a client in South Dublin"
               className="h-[750px] w-full object-cover"
             />
           </div>
