@@ -120,8 +120,8 @@ export default function OnboardingProgramme() {
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           {[
-            weekCount > 0 && `${weekCount} weeks`,
-            workoutCount > 0 && `${workoutCount} sessions`,
+            weekCount > 0 && `${weekCount} ${weekCount === 1 ? "week" : "weeks"}`,
+            workoutCount > 0 && `${workoutCount} ${workoutCount === 1 ? "session" : "sessions"}`,
             programme.level,
           ].filter(Boolean).map(stat => (
             <div key={stat} style={{ backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "8px", padding: "5px 10px" }}>

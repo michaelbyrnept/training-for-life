@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   doc, getDoc, getDocs, collection, addDoc, updateDoc,
   serverTimestamp
@@ -8,6 +8,67 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 
 const REP_QUICK = ["1","2","3","4","5","6","8","10","12","15","20","25","30"];
 const WEIGHT_QUICK = ["BW","2.5","5","7.5","10","12.5","15","17.5","20","25","30","35","40","45","50","55","60","70","80","100","120","140"];
+
+function RestTimer({ defaultSeconds = 120, onDismiss }) {
+  const [seconds, setSeconds] = useState(defaultSeconds);
+  const [running, setRunning] = useState(true);
+  const intervalRef = useRef(null);
+  useEffect(() => {
+    if (running && seconds > 0) {
+      intervalRef.current = setInterval(() => {
+        setSeconds(s => {
+          if (s <= 1) { clearInterval(intervalRef.current); setRunning(false); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); return 0; }
+          return s - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running]);
+  const adjust = (delta) => { setSeconds(s => Math.max(0, s + delta)); if (!running) setRunning(true); };
+  const restart = (secs) => { clearInterval(intervalRef.current); setSeconds(secs); setRunning(true); };
+  const mins = Math.floor(seconds / 60), secs = seconds % 60;
+  const isDone = seconds === 0;
+  const r = 54, circ = 2 * Math.PI * r, dash = circ * (seconds / defaultSeconds);
+  return (
+    <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+      <div style={{ backgroundColor: "#1a3a2a", borderRadius: "24px 24px 0 0", width: "100%", padding: "24px 24px 48px" }}>
+        <div style={{ width: 36, height: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2, margin: "0 auto 24px" }} />
+        <p style={{ fontSize: 11, fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.12em", textAlign: "center", margin: "0 0 20px" }}>{isDone ? "Rest complete" : "Rest timer"}</p>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+          <div style={{ position: "relative", width: 140, height: 140 }}>
+            <svg width="140" height="140" style={{ transform: "rotate(-90deg)" }}>
+              <circle cx="70" cy="70" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
+              <circle cx="70" cy="70" r={r} fill="none" stroke="#4ade80" strokeWidth="8" strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" style={{ transition: "stroke-dasharray 0.5s ease" }} />
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              {isDone ? <span style={{ fontSize: 36, fontWeight: 800, color: "#4ade80" }}>Go!</span> : (
+                <><span style={{ fontSize: 38, fontWeight: 800, color: "#fff", lineHeight: 1 }}>{mins}:{String(secs).padStart(2, "0")}</span><span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>remaining</span></>
+              )}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16 }}>
+          {[-30, -10, +10, +30].map(delta => (
+            <button key={delta} onClick={() => adjust(delta)} style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "none", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, color: delta < 0 ? "#fca5a5" : "#86efac", cursor: "pointer" }}>
+              {delta > 0 ? `+${delta}s` : `${delta}s`}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 20 }}>
+          {[60, 90, 120, 180, 240].map(s => (
+            <button key={s} onClick={() => restart(s)} style={{ backgroundColor: seconds === s && running ? "#2d6a4f" : "rgba(255,255,255,0.08)", border: "none", borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+              {s < 60 ? `${s}s` : `${s / 60}m`}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onDismiss} style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.1)", border: "none", borderRadius: 14, padding: 14, fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer" }}>Dismiss</button>
+          <button onClick={onDismiss} style={{ flex: 2, backgroundColor: isDone ? "#4ade80" : "#2d6a4f", border: "none", borderRadius: 14, padding: 14, fontSize: 15, fontWeight: 700, color: isDone ? "#1a3a2a" : "#fff", cursor: "pointer" }}>{isDone ? "Next set 💪" : "Skip rest"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminCoachSession() {
   const { clientUid, programmeId, workoutId } = useParams();
@@ -20,6 +81,7 @@ export default function AdminCoachSession() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [restTimer, setRestTimer] = useState(null);
 
   // Tap-to-log sheet
   const [logSheet, setLogSheet] = useState(null); // { exerciseId, setIndex, field }
@@ -200,7 +262,9 @@ export default function AdminCoachSession() {
   function toggleDone(exerciseId, setIndex) {
     setLogs(prev => {
       const sets = [...(prev[exerciseId] || [])];
-      sets[setIndex] = { ...sets[setIndex], done: !sets[setIndex]?.done };
+      const wasDone = sets[setIndex]?.done;
+      sets[setIndex] = { ...sets[setIndex], done: !wasDone };
+      if (!wasDone) setTimeout(() => setRestTimer({ defaultSeconds: 120 }), 300);
       return { ...prev, [exerciseId]: sets };
     });
   }
@@ -597,6 +661,8 @@ export default function AdminCoachSession() {
           {saving ? "Saving..." : `Finish Session for ${clientName}`}
         </button>
       </div>
+
+      {restTimer && <RestTimer defaultSeconds={restTimer.defaultSeconds} onDismiss={() => setRestTimer(null)} />}
 
       {/* ─── LOG VALUE SHEET ────────────────────────────────────────────────── */}
       {logSheet && (

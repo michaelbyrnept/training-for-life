@@ -50,9 +50,8 @@ export default function Training() {
       setProgrammes(allProgrammes);
 
       const { monday, sunday } = getWeekRange();
-      const logsSnap = await getDocs(collection(db, "workoutLogs"));
+      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", u.uid)));
       const myLogs = logsSnap.docs.map(d => d.data()).filter(l => {
-        if (l.userId !== u.uid) return false;
         const d = new Date(l.completedAt);
         return d >= monday && d <= sunday;
       });

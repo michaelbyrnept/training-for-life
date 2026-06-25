@@ -589,6 +589,7 @@ export default function Workout() {
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [userPreferences, setUserPreferences] = useState({});
   const [allWorkoutLogs, setAllWorkoutLogs] = useState([]);
@@ -813,7 +814,10 @@ export default function Workout() {
     if (!user || saving) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, "workoutLogs"), { userId: user.uid, workoutId, programmeId, weekId, logs, completedAt: new Date().toISOString() });
+      const now = new Date();
+      const dayName = now.toLocaleDateString("en-IE", { weekday: "long", month: "long", day: "numeric" });
+      const sessionLabel = `${workout?.name || "Workout"} — ${dayName}`;
+      await addDoc(collection(db, "workoutLogs"), { userId: user.uid, workoutId, programmeId, weekId, logs, workoutName: workout?.name || "Workout", sessionLabel, completedAt: now.toISOString() });
       localStorage.removeItem(storageKey);
       localStorage.removeItem(`${storageKey}_index`);
       const summary = await buildSummary(logs);
@@ -835,6 +839,11 @@ export default function Workout() {
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "80px", position: "relative" }}>
       {!sheet && !progressionModal && !swapSheet && !restTimer && !historyExercise && <PortalNav />}
 
+      {Object.keys(logs).length > 0 && currentIndex > 0 && (
+        <div style={{ backgroundColor: "#fef9c3", borderBottom: "1px solid #fde047", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: "#854d0e", fontWeight: 600 }}>↩ Resuming where you left off</span>
+        </div>
+      )}
       <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Link to={`/programme/${programmeId}/${weekId}`} style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 700, textDecoration: "none" }}>← Back</Link>
         <span style={{ fontSize: "13px", color: "#888", fontWeight: 500 }}>{workout.displayName || workout.name}</span>
@@ -899,7 +908,7 @@ export default function Workout() {
         {!isLast ? (
           <button onClick={() => setCurrentIndex(i => i + 1)} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "none", backgroundColor: "#2d6a4f", fontSize: "15px", fontWeight: 700, cursor: "pointer", color: "#fff" }}>Next →</button>
         ) : (
-          <button onClick={finishWorkout} disabled={saving} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "none", backgroundColor: saving ? "#aaa" : "#2d6a4f", fontSize: "15px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", color: "#fff" }}>
+          <button onClick={() => setShowFinishConfirm(true)} disabled={saving} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "none", backgroundColor: saving ? "#aaa" : "#2d6a4f", fontSize: "15px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", color: "#fff" }}>
             {saving ? "Saving..." : "Finish Workout ✓"}
           </button>
         )}
@@ -910,6 +919,22 @@ export default function Workout() {
       {restTimer && <RestTimer defaultSeconds={restTimer.defaultSeconds} onDismiss={() => setRestTimer(null)} />}
       {progressionModal && <ProgressionModal exerciseName={progressionModal.exerciseName} currentWeight={progressionModal.currentWeight} repsMax={progressionModal.repsMax} targetSets={progressionModal.targetSets} nextWeight={nextWeight} setNextWeight={setNextWeight} onClose={() => setProgressionModal(null)} />}
       {historyExercise && <HistorySheet exerciseName={historyExercise.name} history={buildHistory(historyExercise.id)} onClose={() => setHistoryExercise(null)} />}
+
+      {showFinishConfirm && (
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ backgroundColor: "#fff", borderRadius: "24px 24px 0 0", width: "100%", padding: "28px 24px 48px" }}>
+            <div style={{ width: 36, height: 4, backgroundColor: "#e5e5e5", borderRadius: 2, margin: "0 auto 24px" }} />
+            <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#111", margin: "0 0 8px", textAlign: "center" }}>Finish workout?</h2>
+            <p style={{ fontSize: "14px", color: "#666", textAlign: "center", margin: "0 0 28px" }}>Your session will be saved and your progress logged.</p>
+            <button onClick={() => { setShowFinishConfirm(false); finishWorkout(); }} style={{ width: "100%", padding: "15px", borderRadius: "12px", border: "none", backgroundColor: "#2d6a4f", fontSize: "15px", fontWeight: 700, color: "#fff", cursor: "pointer", marginBottom: "10px" }}>
+              Yes, finish session
+            </button>
+            <button onClick={() => setShowFinishConfirm(false)} style={{ width: "100%", padding: "15px", borderRadius: "12px", border: "0.5px solid #e5e5e5", backgroundColor: "#fff", fontSize: "15px", fontWeight: 700, color: "#111", cursor: "pointer" }}>
+              Keep going
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -31,7 +31,7 @@ export default function Bundles() {
     async function loadBundles() {
       try {
         const snap = await getDocs(
-          query(collection(db, "sessionBundles"), where("active", "!=", false), orderBy("price"))
+          query(collection(db, "sessionBundles"), where("isActive", "!=", false), orderBy("price"))
         );
         setBundles(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch {
@@ -98,8 +98,9 @@ export default function Bundles() {
           </p>
         )}
         {bundles.map((bundle) => {
-          const perSession = bundle.sessions && bundle.price
-            ? (bundle.price / bundle.sessions).toFixed(0)
+          const sessionCount = bundle.sessionCredits || bundle.sessions || null;
+          const perSession = sessionCount && bundle.price
+            ? (bundle.price / sessionCount).toFixed(0)
             : null;
           const isBuying = buying === bundle.id;
           return (
@@ -143,9 +144,9 @@ export default function Bundles() {
                     </p>
                   )}
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                    {bundle.sessions && (
+                    {sessionCount && (
                       <span style={{ fontSize: "13px", color: THEME.dark, fontWeight: 600 }}>
-                        {bundle.sessions} session{bundle.sessions !== 1 ? "s" : ""}
+                        {sessionCount} session{sessionCount !== 1 ? "s" : ""}
                       </span>
                     )}
                     {perSession && (
