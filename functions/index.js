@@ -622,7 +622,7 @@ exports.createCheckoutSession = onCall(
         quantity: 1,
       }];
       sessionParams.metadata.bundleName = bundle.name || "Session Bundle";
-      sessionParams.metadata.sessionCredits = String(bundle.sessions || bundle.credits || 0);
+      sessionParams.metadata.sessionCredits = String(bundle.sessionCredits || bundle.sessions || bundle.credits || 0);
     } else if (type === "subscription" && priceId) {
       sessionParams.line_items = [{ price: priceId, quantity: 1 }];
       sessionParams.metadata.priceId = priceId;
