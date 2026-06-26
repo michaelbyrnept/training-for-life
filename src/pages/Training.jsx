@@ -4,6 +4,7 @@ import { db, auth } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import PortalNav from "../components/PortalNav";
+import { useFeatures } from "../hooks/useFeatures";
 
 const FALLBACKS = [
   "linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 100%)",
@@ -28,6 +29,7 @@ function getWeekRange() {
 
 export default function Training() {
   const navigate = useNavigate();
+  const features = useFeatures();
   const [programmes, setProgrammes] = useState([]);
   const [userData, setUserData] = useState(null);
   const [user, setUser] = useState(null);
@@ -125,6 +127,40 @@ setClasses(classData);
       </div>
 
       <div style={{ height: 24, background: "#f7f5f2", borderRadius: "24px 24px 0 0", marginTop: -24 }} />
+
+      {/* MY WORKOUTS */}
+      <div style={{ padding: "0 16px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: 0 }}>My Workouts</p>
+          <Link to="/my-workouts" style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", textDecoration: "none" }}>View all →</Link>
+        </div>
+        <Link
+          to="/my-workouts"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            backgroundColor: "#fff",
+            borderRadius: "16px",
+            border: "0.5px solid #e5e5e5",
+            padding: "16px",
+            textDecoration: "none",
+          }}
+        >
+          <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "#eaf5ef", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
+            🏋️
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "#111", margin: "0 0 2px" }}>Custom Workouts</p>
+            <p style={{ fontSize: 12, color: "#888", margin: 0 }}>
+              {features.isPremium ? "Build workouts around your life" : "Free: 1 workout. Upgrade for unlimited."}
+            </p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M6 4l4 4-4 4" stroke="#2d6a4f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
+      </div>
 
       {/* MY WEEK */}
       <div style={{ padding: "0 16px 16px" }}>

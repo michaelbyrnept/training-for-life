@@ -98,17 +98,19 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", display: "flex", flexDirection: "column" }}>
 
       {/* Header */}
-      <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "48px 24px 64px", position: "relative" }}>
-        <div style={{ textAlign: "center" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.15em", textTransform: "uppercase", margin: "0 0 10px" }}>
-            Training for Life
-          </p>
-          <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#fff", margin: "0 0 8px", lineHeight: 1.2 }}>
-            Create your account
-          </h1>
-          <p style={{ fontSize: "14px", color: "#9fe1cb", margin: 0 }}>
-            Start building capability today
-          </p>
+      <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "28px 24px 52px" }}>
+        <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.15em", textTransform: "uppercase", margin: "0 0 10px", textAlign: "center" }}>
+          Training for Life
+        </p>
+        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2, textAlign: "center" }}>
+          Build a body that keeps<br />working for decades.
+        </h1>
+        <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "16px", flexWrap: "wrap" }}>
+          {["Free 3-Day Programme", "Capability Score", "No credit card"].map(tag => (
+            <span key={tag} style={{ background: "rgba(255,255,255,0.12)", color: "#9fe1cb", fontSize: "11px", fontWeight: 600, borderRadius: "20px", padding: "4px 10px", border: "1px solid rgba(159,225,203,0.25)" }}>
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
 

@@ -1,6 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 
@@ -15,8 +19,15 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// Offline persistence — workouts and exercise library available without signal.
+// persistentMultipleTabManager handles multiple browser tabs gracefully.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
+
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
 export default app;

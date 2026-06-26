@@ -27,19 +27,29 @@ Claude's job is to keep the user moving through that loop. If there's no goal ye
 ```
 01 Daily Logs/                          — session logs so Claude remembers what we worked on
 02 Projects/                            — one folder per project
-  └── Revenue to €10k Roadmap/         — path from ~€4k to €10k/month
+  ├── Revenue to €10k Roadmap/         — path from ~€4k to €10k/month
+  └── Product Vision/
+        [C] TFL Product Vision & Architecture.md  — CTO strategy doc, Firebase schema, phased roadmap
 src/                                    — React/Vite frontend (trainingforlife.ie)
+  ├── hooks/
+  │     useUserProfile.js              — real-time Firestore profile listener
+  │     useFeatures.js                 — centralised Premium feature flags
+  ├── components/
+  │     PremiumGate.jsx                — upgrade prompt (shown when free user hits limits)
   └── pages/
-        Bundles.jsx                     — client-facing session bundle purchase page (/bundles)
-        BundleSuccess.jsx               — post-purchase success page (/bundles/success)
-        SubscriptionSuccess.jsx         — post-subscription success page
+        MyWorkouts.jsx                 — custom workout library (/my-workouts)
+        WorkoutBuilder.jsx             — create/edit custom workouts (/my-workouts/new, /edit)
+        MyWorkoutSession.jsx           — active workout logging session (/my-workouts/:id)
+        Bundles.jsx                    — client-facing session bundle purchase page (/bundles)
+        BundleSuccess.jsx              — post-purchase success page (/bundles/success)
+        SubscriptionSuccess.jsx        — post-subscription success page
         Admin/
-          AdminCoachSession.jsx         — coach-led workout logging (/admin/session/:clientUid/...)
-          AdminWins.jsx                 — Wins & Recognition queue + custom milestone creator
+          AdminCoachSession.jsx        — coach-led workout logging (/admin/session/:clientUid/...)
+          AdminWins.jsx                — Wins & Recognition queue + custom milestone creator
 functions/                              — Firebase Cloud Functions (Node 24)
-  index.js                             — all functions incl. Stripe (createCheckoutSession,
-                                         stripeWebhook, createPortalSession) + Meaningful Moments Engine
-firestore.rules                         — Firestore security rules
+  index.js                             — Stripe, Meaningful Moments Engine,
+                                         checkWorkoutSaveEntitlement, onCustomWorkoutCompleted
+firestore.rules                         — Firestore security rules (uses isAdmin/isOwner helpers)
 ```
 
 ---

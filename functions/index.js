@@ -733,6 +733,9 @@ exports.stripeWebhook = onRequest(
           stripeSubscriptionId: session.subscription || null,
           stripeCustomerId: session.customer || null,
           subscriptionActivatedAt: now,
+          // Premium app tier fields
+          subscriptionTier: "premium",
+          subscriptionStatus: session.subscription ? "active" : "trialing",
         });
         logger.info(`Subscription activated: ${clientId}`);
 
@@ -761,8 +764,28 @@ exports.stripeWebhook = onRequest(
           subscription: "free",
           stripeSubscriptionId: null,
           subscriptionCancelledAt: Timestamp.now(),
+          subscriptionTier: "free",
+          subscriptionStatus: "cancelled",
         });
         logger.info(`Subscription cancelled: customer ${sub.customer}`);
+      }
+    }
+
+    // Handle subscription status changes (past_due, trialing, etc.)
+    if (event.type === "customer.subscription.updated") {
+      const sub = event.data.object;
+      const usersSnap = await db.collection("users")
+        .where("stripeCustomerId", "==", sub.customer)
+        .limit(1)
+        .get();
+      if (!usersSnap.empty) {
+        const status = sub.status; // active | trialing | past_due | canceled | etc.
+        const isPremium = status === "active" || status === "trialing";
+        await usersSnap.docs[0].ref.update({
+          subscriptionStatus: status,
+          subscriptionTier: isPremium ? "premium" : "free",
+        });
+        logger.info(`Subscription updated: customer ${sub.customer} -> ${status}`);
       }
     }
 
@@ -822,6 +845,518 @@ exports.adminDeleteClient = onCall(
     return { success: true };
   }
 );
+
+// ─── PAST CLIENT IMPORT SYSTEM ────────────────────────────────────────────
+
+const crypto = require("crypto");
+
+const SITE_URL = "https://trainingforlife.ie";
+const TOKEN_TTL_DAYS = 30;
+
+/**
+ * importPastClients — admin only callable
+ * data: { rows: [{ firstName, lastName, email, ...extras }], filename: string }
+ * Returns a full import report including activation URLs.
+ */
+exports.importPastClients = onCall(
+  async (request) => {
+    if (!request.auth || request.auth.uid !== ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { rows, filename } = request.data;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new HttpsError("invalid-argument", "rows array is required and must not be empty.");
+    }
+
+    const { getAuth: getAdminAuth } = require("firebase-admin/auth");
+    const adminAuth = getAdminAuth();
+
+    const now = Timestamp.now();
+    const adminUid = request.auth.uid;
+    const batchId = db.collection("importBatches").doc().id;
+    const expiresAt = Timestamp.fromDate(new Date(Date.now() + TOKEN_TTL_DAYS * 86400000));
+
+    const report = [];
+
+    for (const row of rows) {
+      const email = (row.email || "").trim().toLowerCase();
+      const firstName = (row.firstName || "").trim();
+      const lastName = (row.lastName || "").trim();
+
+      // Basic validation
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        report.push({ email, firstName, lastName, status: "invalid", reason: "Invalid email format" });
+        continue;
+      }
+      if (!firstName) {
+        report.push({ email, firstName, lastName, status: "invalid", reason: "First name is required" });
+        continue;
+      }
+
+      // Check for existing account
+      let existingUser = null;
+      try {
+        existingUser = await adminAuth.getUserByEmail(email);
+      } catch (err) {
+        if (err.code !== "auth/user-not-found") {
+          report.push({ email, firstName, lastName, status: "failed", reason: `Auth lookup error: ${err.message}` });
+          continue;
+        }
+      }
+
+      if (existingUser) {
+        report.push({ email, firstName, lastName, uid: existingUser.uid, status: "skipped", reason: "Account already exists" });
+        continue;
+      }
+
+      // Create Firebase Auth user (no password — must activate via link)
+      let userRecord;
+      try {
+        userRecord = await adminAuth.createUser({
+          email,
+          displayName: [firstName, lastName].filter(Boolean).join(" "),
+          emailVerified: false,
+        });
+      } catch (err) {
+        report.push({ email, firstName, lastName, status: "failed", reason: `Auth create error: ${err.message}` });
+        continue;
+      }
+
+      // Build extra fields from CSV (phone, notes, previousCoach, etc.)
+      const { firstName: _f, lastName: _l, email: _e, ...csvExtras } = row;
+      const extraFields = {};
+      for (const [k, v] of Object.entries(csvExtras)) {
+        if (v !== undefined && v !== null && v !== "") {
+          extraFields[k] = String(v).trim();
+        }
+      }
+
+      // Create Firestore user doc
+      try {
+        await db.collection("users").doc(userRecord.uid).set({
+          firstName,
+          lastName,
+          email,
+          subscription: "free",
+          tags: ["past_client", "imported", "free_plan"],
+          pastClient: true,
+          imported: true,
+          importedAt: now,
+          importedBy: adminUid,
+          importBatchId: batchId,
+          activated: false,
+          activatedAt: null,
+          adminCreated: true,
+          welcomeSent: false,
+          createdAt: now.toDate().toISOString(),
+          ...extraFields,
+        });
+      } catch (err) {
+        // Clean up Auth user if Firestore write fails
+        await adminAuth.deleteUser(userRecord.uid).catch(() => {});
+        report.push({ email, firstName, lastName, status: "failed", reason: `Firestore error: ${err.message}` });
+        continue;
+      }
+
+      // Generate activation token
+      const token = crypto.randomBytes(32).toString("hex");
+      try {
+        await db.collection("activationTokens").doc(token).set({
+          uid: userRecord.uid,
+          email,
+          firstName,
+          expiresAt,
+          used: false,
+          usedAt: null,
+          importBatchId: batchId,
+          createdAt: now,
+        });
+      } catch (err) {
+        report.push({ email, firstName, lastName, uid: userRecord.uid, status: "failed", reason: `Token creation error: ${err.message}` });
+        continue;
+      }
+
+      const activationUrl = `${SITE_URL}/activate/${token}`;
+      report.push({
+        email,
+        firstName,
+        lastName,
+        uid: userRecord.uid,
+        status: "created",
+        activationUrl,
+        importedAt: now.toDate().toISOString(),
+      });
+    }
+
+    // Tally report
+    const counts = report.reduce((acc, r) => {
+      acc[r.status] = (acc[r.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Persist the batch log
+    await db.collection("importBatches").doc(batchId).set({
+      batchId,
+      adminUid,
+      filename: filename || "unknown.csv",
+      importedAt: now,
+      totalProcessed: rows.length,
+      created: counts.created || 0,
+      skipped: counts.skipped || 0,
+      failed: counts.failed || 0,
+      invalid: counts.invalid || 0,
+      report,
+    });
+
+    logger.info(`Import batch ${batchId}: ${counts.created || 0} created, ${counts.skipped || 0} skipped, ${counts.failed || 0} failed, ${counts.invalid || 0} invalid`);
+
+    return {
+      batchId,
+      totalProcessed: rows.length,
+      created: counts.created || 0,
+      skipped: counts.skipped || 0,
+      failed: counts.failed || 0,
+      invalid: counts.invalid || 0,
+      report,
+    };
+  }
+);
+
+/**
+ * activateAccount — public callable (token is the credential)
+ * data: { token: string, password: string }
+ * Returns: { customToken } for immediate client-side sign-in
+ */
+exports.activateAccount = onCall(
+  { invoker: "public" }, // Requires manual IAM: Cloud Run > activateaccount > Permissions > allUsers > Cloud Run Invoker
+  async (request) => {
+    const { token, password } = request.data || {};
+
+    if (!token || typeof token !== "string" || token.length !== 64) {
+      throw new HttpsError("invalid-argument", "Invalid activation token.");
+    }
+    if (!password || typeof password !== "string" || password.length < 8) {
+      throw new HttpsError("invalid-argument", "Password must be at least 8 characters.");
+    }
+
+    const tokenRef = db.collection("activationTokens").doc(token);
+    const tokenSnap = await tokenRef.get();
+
+    if (!tokenSnap.exists) {
+      throw new HttpsError("not-found", "Activation link is invalid.");
+    }
+
+    const tokenData = tokenSnap.data();
+
+    if (tokenData.used) {
+      throw new HttpsError("failed-precondition", "This activation link has already been used. Please log in or contact your coach to request a new link.");
+    }
+
+    const now = Timestamp.now();
+    if (tokenData.expiresAt && tokenData.expiresAt.toMillis() < now.toMillis()) {
+      throw new HttpsError("deadline-exceeded", "This activation link has expired. Please contact your coach to request a new link.");
+    }
+
+    const { getAuth: getAdminAuth } = require("firebase-admin/auth");
+    const adminAuth = getAdminAuth();
+    const uid = tokenData.uid;
+
+    // Set the user's password
+    try {
+      await adminAuth.updateUser(uid, { password });
+    } catch (err) {
+      logger.error("activateAccount: updateUser failed", { uid, err: err.message });
+      throw new HttpsError("internal", "Failed to set password. Please try again.");
+    }
+
+    // Mark token as used and mark user as activated in a batch
+    const userRef = db.collection("users").doc(uid);
+    const batch = db.batch();
+    batch.update(tokenRef, { used: true, usedAt: now });
+    batch.update(userRef, { activated: true, activatedAt: now });
+    await batch.commit();
+
+    // Create a custom token so the client can sign in immediately
+    let customToken;
+    try {
+      customToken = await adminAuth.createCustomToken(uid);
+    } catch (err) {
+      logger.error("activateAccount: createCustomToken failed", { uid, err: err.message });
+      throw new HttpsError("internal", "Account activated but sign-in token failed. Please log in manually.");
+    }
+
+    logger.info(`Account activated: ${uid} (${tokenData.email})`);
+    return { customToken, email: tokenData.email, firstName: tokenData.firstName };
+  }
+);
+
+/**
+ * resendActivationToken — admin only callable
+ * data: { uid: string }
+ * Supersedes all existing tokens for the user and generates a fresh one.
+ * Returns: { activationUrl }
+ */
+exports.resendActivationToken = onCall(
+  async (request) => {
+    if (!request.auth || request.auth.uid !== ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { uid } = request.data;
+    if (!uid || typeof uid !== "string") {
+      throw new HttpsError("invalid-argument", "uid is required.");
+    }
+
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+
+    const userData = userSnap.data();
+    if (userData.activated) {
+      throw new HttpsError("failed-precondition", "This account is already activated.");
+    }
+
+    // Supersede existing unused tokens for this user
+    const existingTokensSnap = await db.collection("activationTokens")
+      .where("uid", "==", uid)
+      .where("used", "==", false)
+      .get();
+
+    const now = Timestamp.now();
+    const expiresAt = Timestamp.fromDate(new Date(Date.now() + TOKEN_TTL_DAYS * 86400000));
+    const batch = db.batch();
+
+    existingTokensSnap.docs.forEach(d => {
+      batch.update(d.ref, { used: true, usedAt: now, superseded: true });
+    });
+
+    const newToken = crypto.randomBytes(32).toString("hex");
+    const tokenRef = db.collection("activationTokens").doc(newToken);
+    batch.set(tokenRef, {
+      uid,
+      email: userData.email,
+      firstName: userData.firstName,
+      expiresAt,
+      used: false,
+      usedAt: null,
+      importBatchId: userData.importBatchId || null,
+      createdAt: now,
+      resent: true,
+    });
+
+    await batch.commit();
+
+    const activationUrl = `${SITE_URL}/activate/${newToken}`;
+    logger.info(`Activation token resent for ${uid} (${userData.email})`);
+    return { activationUrl, email: userData.email };
+  }
+);
+
+// ─── END PAST CLIENT IMPORT SYSTEM ─────────────────────────────────────────
+
+// ─── PREMIUM WORKOUT BUILDER ───────────────────────────────────────────────
+
+/**
+ * checkWorkoutSaveEntitlement — callable
+ * Called before saving a new custom workout. Enforces the free tier limit (1 workout).
+ * Never trust the client to enforce this — always verify server-side.
+ *
+ * Returns: { allowed: boolean, currentCount: number, limit: number }
+ */
+exports.checkWorkoutSaveEntitlement = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Login required.");
+    }
+
+    const uid = request.auth.uid;
+    const userSnap = await db.collection("users").doc(uid).get();
+    const userData = userSnap.data() || {};
+
+    const tier = userData.subscriptionTier || "free";
+    const status = userData.subscriptionStatus || null;
+    const isPremium = tier === "premium" && (status === "active" || status === "trialing");
+
+    if (isPremium) {
+      return { allowed: true, currentCount: null, limit: null };
+    }
+
+    // Free tier: count existing custom workouts
+    const workoutsSnap = await db.collection("users").doc(uid).collection("workouts").get();
+    const currentCount = workoutsSnap.size;
+    const FREE_LIMIT = 1;
+
+    return {
+      allowed: currentCount < FREE_LIMIT,
+      currentCount,
+      limit: FREE_LIMIT,
+    };
+  }
+);
+
+/**
+ * onCustomWorkoutCompleted — Firestore trigger
+ * Fires when any document is created in /workoutLogs.
+ * Only processes documents with logType === "custom" to avoid duplicating
+ * the existing onWorkoutLogged milestone logic.
+ *
+ * Responsibilities:
+ *   1. Detect and record personal bests per exercise in /users/{userId}/personalBests
+ *   2. Recalculate Capability Score v1 (consistency + streak)
+ */
+exports.onCustomWorkoutCompleted = onDocumentCreated("workoutLogs/{docId}", async (event) => {
+  const log = event.data.data();
+  if (!log || log.logType !== "custom") return; // only custom workout logs
+
+  const userId = log.userId;
+  if (!userId || userId === ADMIN_UID) return;
+
+  const logId = event.params.docId;
+
+  await Promise.all([
+    updatePersonalBests(userId, log, logId),
+    recalculateCapabilityScore(userId),
+  ]);
+});
+
+/**
+ * Scans each exercise in a completed custom workout log and updates
+ * /users/{userId}/personalBests/{exerciseId} if a new best was achieved.
+ */
+async function updatePersonalBests(userId, log, logId) {
+  const exercises = log.exercises || [];
+  if (exercises.length === 0) return;
+
+  for (const ex of exercises) {
+    const { exerciseId, exerciseName, sets = [] } = ex;
+    if (!exerciseId) continue;
+
+    // Find the best weight lifted in completed sets for this exercise
+    const completedSets = sets.filter((s) => s.completed !== false);
+    if (completedSets.length === 0) continue;
+
+    const maxWeight = Math.max(
+      ...completedSets.map((s) => parseFloat(s.weight) || 0)
+    );
+    const maxReps = Math.max(
+      ...completedSets.map((s) => parseInt(s.reps) || 0)
+    );
+    // Best volume = highest single-set weight * reps (useful for AI coaching later)
+    const bestVolume = Math.max(
+      ...completedSets.map((s) => (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0))
+    );
+
+    const pbRef = db.collection("users").doc(userId).collection("personalBests").doc(exerciseId);
+    const pbSnap = await pbRef.get();
+    const existing = pbSnap.exists ? pbSnap.data() : null;
+
+    const isNewWeightPB = maxWeight > 0 && (!existing || maxWeight > (existing.bestWeight || 0));
+    const isNewRepsPB = maxReps > 0 && (!existing || maxReps > (existing.bestReps || 0));
+
+    if (isNewWeightPB || isNewRepsPB || !existing) {
+      await pbRef.set(
+        {
+          exerciseId,
+          exerciseName: exerciseName || exerciseId,
+          bestWeight: isNewWeightPB ? maxWeight : (existing?.bestWeight || 0),
+          bestReps: isNewRepsPB ? maxReps : (existing?.bestReps || 0),
+          bestVolume: Math.max(bestVolume, existing?.bestVolume || 0),
+          achievedAt: Timestamp.now(),
+          logId: logId || null,
+          updatedAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
+
+      logger.info(`New PB for user ${userId} on exercise ${exerciseId}: weight=${maxWeight}kg reps=${maxReps}`);
+    }
+  }
+}
+
+/**
+ * Recalculates the user's Capability Score v1.
+ *
+ * Inputs (Phase 1 — no wearable required):
+ *   Consistency Score: sessions in last 28 days. Target = 12 (3/week * 4 weeks). Max 100.
+ *   Streak Score:      consecutive weeks with 2+ sessions. 1w=25, 2w=50, 3w=75, 4w+=100.
+ *   Overall Score:     (consistency * 0.6) + (streak * 0.4). Rounded to nearest integer.
+ *
+ * Writes to /users/{userId}.capabilityScore
+ */
+async function recalculateCapabilityScore(userId) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 28);
+
+  const logsSnap = await db.collection("workoutLogs")
+    .where("userId", "==", userId)
+    .where("completedAt", ">=", Timestamp.fromDate(cutoff))
+    .orderBy("completedAt", "desc")
+    .limit(200)
+    .get();
+
+  const sessionDates = logsSnap.docs
+    .map((d) => {
+      const ts = d.data().completedAt;
+      if (!ts) return null;
+      return ts.toDate ? ts.toDate() : new Date(ts);
+    })
+    .filter(Boolean);
+
+  // Consistency Score (0-100)
+  const WEEKLY_TARGET = 3;
+  const WEEKS = 4;
+  const TOTAL_TARGET = WEEKLY_TARGET * WEEKS;
+  const consistencyScore = Math.min(100, Math.round((sessionDates.length / TOTAL_TARGET) * 100));
+
+  // Streak Score — count consecutive weeks (Mon-Sun) with 2+ sessions
+  function getWeekKey(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split("T")[0];
+  }
+
+  const weekCounts = {};
+  sessionDates.forEach((d) => {
+    const key = getWeekKey(d);
+    weekCounts[key] = (weekCounts[key] || 0) + 1;
+  });
+
+  // Count consecutive qualifying weeks from most recent
+  let streakWeeks = 0;
+  const currentWeekKey = getWeekKey(new Date());
+  const allWeekKeys = Object.keys(weekCounts).sort().reverse();
+
+  for (let i = 0; i < allWeekKeys.length; i++) {
+    if (weekCounts[allWeekKeys[i]] >= 2) {
+      streakWeeks++;
+    } else {
+      break;
+    }
+  }
+
+  const streakScore = Math.min(100, streakWeeks * 25); // 4+ weeks = 100
+
+  // Overall Capability Score
+  const overall = Math.round(consistencyScore * 0.6 + streakScore * 0.4);
+
+  await db.collection("users").doc(userId).update({
+    "capabilityScore.overall": overall,
+    "capabilityScore.lastCalculatedAt": Timestamp.now(),
+    "capabilityScore.breakdown.consistency": consistencyScore,
+    "capabilityScore.breakdown.streak": streakScore,
+    "capabilityScore.version": 1,
+  });
+
+  logger.info(`Capability Score updated for ${userId}: overall=${overall} (consistency=${consistencyScore}, streak=${streakScore})`);
+}
+
+// ─── END PREMIUM WORKOUT BUILDER ────────────────────────────────────────────
 
 exports.zapierLeadWebhook = onRequest(
   { secrets: [zapierWebhookSecret] },
