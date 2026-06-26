@@ -11,9 +11,22 @@ import PortalNav from "../components/PortalNav";
 import PremiumGate from "../components/PremiumGate";
 import { useFeatures } from "../hooks/useFeatures";
 
-const MUSCLE_GROUPS = ["All", "Legs", "Chest", "Back", "Shoulders", "Arms", "Core", "Full Body", "Cardio"];
+const MUSCLE_HIERARCHY = {
+  Legs: ["Quads", "Hamstrings", "Calves", "Glutes", "Adductors"],
+  Arms: ["Biceps", "Triceps"],
+  Core: ["Abs", "Obliques"],
+};
+const TOP_LEVEL_GROUPS = ["All", "Back", "Chest", "Shoulders", "Legs", "Arms", "Core", "Full Body", "Cardio"];
 
 const DEFAULT_EXERCISE_CONFIG = { sets: 3, reps: "10", weight: "", restSeconds: 90, notes: "" };
+
+// Handles both old schema (muscleGroup: string) and new (muscleGroups: array)
+function getExerciseMuscles(ex) {
+  if (ex.muscleGroups?.length) return ex.muscleGroups;
+  if (ex.muscleGroup) return [ex.muscleGroup];
+  if (ex.category) return [ex.category];
+  return [];
+}
 
 function hasVideo(ex) {
   return !!(ex.videoUrl?.trim() || ex.media?.demoUrl?.trim() || ex.media?.demoThumbnailUrl?.trim());
@@ -23,8 +36,14 @@ function ExercisePicker({ onSelect, onClose }) {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
+  const [subFilter, setSubFilter] = useState(null);
   const [search, setSearch] = useState("");
   const [videoOnly, setVideoOnly] = useState(true);
+
+  const handleSetFilter = (g) => {
+    setFilter(g);
+    setSubFilter(null);
+  };
 
   useEffect(() => {
     getDocs(collection(db, "exercises")).then((snap) => {
@@ -38,7 +57,16 @@ function ExercisePicker({ onSelect, onClose }) {
   }, []);
 
   const filtered = exercises.filter((e) => {
-    const matchGroup = filter === "All" || e.muscleGroup === filter || e.category === filter;
+    const muscles = getExerciseMuscles(e);
+    let matchGroup;
+    if (filter === "All") {
+      matchGroup = true;
+    } else if (subFilter) {
+      matchGroup = muscles.includes(subFilter);
+    } else {
+      const children = MUSCLE_HIERARCHY[filter] || [];
+      matchGroup = muscles.includes(filter) || children.some(c => muscles.includes(c));
+    }
     const matchSearch = !search || (e.name || "").toLowerCase().includes(search.toLowerCase());
     const matchVideo = !videoOnly || hasVideo(e);
     return matchGroup && matchSearch && matchVideo;
@@ -85,9 +113,9 @@ function ExercisePicker({ onSelect, onClose }) {
           />
         </div>
 
-        {/* Filters row */}
-        <div style={{ overflowX: "auto", padding: "0 16px 12px", display: "flex", gap: 8, flexShrink: 0, scrollbarWidth: "none" }}>
-          {/* Video-only toggle — first in row, visually distinct */}
+        {/* Filter row 1: video toggle + top-level category pills */}
+        <div style={{ overflowX: "auto", padding: "0 16px 8px", display: "flex", gap: 8, flexShrink: 0, scrollbarWidth: "none" }}>
+          {/* Video-only toggle */}
           <button
             onClick={() => setVideoOnly((v) => !v)}
             style={{
@@ -112,26 +140,75 @@ function ExercisePicker({ onSelect, onClose }) {
           {/* Divider */}
           <div style={{ width: 1, backgroundColor: "#e5e5e5", flexShrink: 0, margin: "4px 0" }} />
 
-          {MUSCLE_GROUPS.map((g) => (
+          {TOP_LEVEL_GROUPS.map((g) => {
+            const hasSubs = !!MUSCLE_HIERARCHY[g];
+            const isActive = filter === g;
+            return (
+              <button
+                key={g}
+                onClick={() => handleSetFilter(g)}
+                style={{
+                  flexShrink: 0,
+                  padding: "7px 14px",
+                  borderRadius: "20px",
+                  border: "none",
+                  backgroundColor: isActive ? "#1a3a2a" : "#f0f0f0",
+                  color: isActive ? "#fff" : "#555",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                {g}
+                {hasSubs && <span style={{ fontSize: 9, opacity: isActive ? 0.8 : 0.5, marginTop: 1 }}>▾</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filter row 2: sub-categories (only when Legs / Arms / Core is active) */}
+        {MUSCLE_HIERARCHY[filter] && (
+          <div style={{ overflowX: "auto", padding: "0 16px 12px", display: "flex", gap: 6, flexShrink: 0, scrollbarWidth: "none" }}>
             <button
-              key={g}
-              onClick={() => setFilter(g)}
+              onClick={() => setSubFilter(null)}
               style={{
                 flexShrink: 0,
-                padding: "7px 14px",
-                borderRadius: "20px",
+                padding: "5px 12px",
+                borderRadius: "16px",
                 border: "none",
-                backgroundColor: filter === g ? "#1a3a2a" : "#f0f0f0",
-                color: filter === g ? "#fff" : "#555",
-                fontSize: 13,
+                backgroundColor: !subFilter ? "#2d6a4f" : "#f0f0f0",
+                color: !subFilter ? "#fff" : "#888",
+                fontSize: 12,
                 fontWeight: 600,
                 cursor: "pointer",
               }}
             >
-              {g}
+              All {filter}
             </button>
-          ))}
-        </div>
+            {MUSCLE_HIERARCHY[filter].map((sub) => (
+              <button
+                key={sub}
+                onClick={() => setSubFilter(sub)}
+                style={{
+                  flexShrink: 0,
+                  padding: "5px 12px",
+                  borderRadius: "16px",
+                  border: "none",
+                  backgroundColor: subFilter === sub ? "#2d6a4f" : "#f0f0f0",
+                  color: subFilter === sub ? "#fff" : "#888",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {sub}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Exercise list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 24px" }}>
@@ -144,8 +221,13 @@ function ExercisePicker({ onSelect, onClose }) {
           )}
 
           {!loading && filtered.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#aaa", fontSize: 14 }}>
-              No exercises found
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <p style={{ color: "#aaa", fontSize: 14, margin: "0 0 6px" }}>No exercises found</p>
+              {subFilter && (
+                <p style={{ color: "#bbb", fontSize: 12, margin: 0 }}>
+                  None tagged "{subFilter}" yet. Tap "All {filter}" to see all.
+                </p>
+              )}
             </div>
           )}
 
@@ -221,7 +303,7 @@ function ExercisePicker({ onSelect, onClose }) {
                       {ex.name}
                     </p>
                     <p style={{ fontSize: 12, color: "#888", margin: 0 }}>
-                      {ex.muscleGroup || ex.category || "Exercise"}
+                      {getExerciseMuscles(ex).join(", ") || "Exercise"}
                     </p>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>

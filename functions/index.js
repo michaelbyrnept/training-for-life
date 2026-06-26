@@ -15,6 +15,27 @@ const db = getFirestore();
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const zapierWebhookSecret = defineSecret("ZAPIER_WEBHOOK_SECRET");
 
+// Admin-only: export consented free users as CSV for Brevo import
+exports.exportConsentedUsers = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in.");
+
+  const adminDoc = await db.collection("users").doc(request.auth.uid).get();
+  if (adminDoc.data()?.tier !== "admin") throw new HttpsError("permission-denied", "Admins only.");
+
+  const snapshot = await db.collection("users").where("marketingConsent", "==", true).get();
+
+  const rows = ["EMAIL,FIRSTNAME"];
+  snapshot.forEach((doc) => {
+    const d = doc.data();
+    const isFree = !d.subscription || d.subscription === "free" || d.subscriptionTier === "free";
+    if (isFree && d.email) {
+      rows.push(`${d.email.toLowerCase().trim()},${d.firstName || ""}`);
+    }
+  });
+
+  return { csv: rows.join("\n"), count: rows.length - 1 };
+});
+
 exports.generateRunningPlan = onCall(
   { secrets: [anthropicApiKey] },
   async (request) => {
@@ -1166,7 +1187,6 @@ exports.resendActivationToken = onCall(
  * Returns: { allowed: boolean, currentCount: number, limit: number }
  */
 exports.checkWorkoutSaveEntitlement = onCall(
-  { invoker: "public" },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Login required.");

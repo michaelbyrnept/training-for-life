@@ -3,13 +3,25 @@ import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase
 import { db } from "../../firebase";
 import { Link } from "react-router-dom";
 
-const MUSCLE_GROUPS = ["Legs", "Chest", "Back", "Shoulders", "Arms", "Core", "Full Body", "Cardio"];
+const MUSCLE_GROUPS = [
+  // Specific leg muscles (tag these instead of "Legs" going forward)
+  "Legs", "Quads", "Hamstrings", "Calves", "Glutes", "Adductors",
+  // Specific arm muscles
+  "Arms", "Biceps", "Triceps",
+  // Specific core muscles
+  "Core", "Abs", "Obliques",
+  // Other top-level groups
+  "Chest", "Back", "Shoulders", "Full Body", "Cardio",
+];
+
+const getExerciseMuscles = (e) =>
+  e.muscleGroups?.length ? e.muscleGroups : e.muscleGroup ? [e.muscleGroup] : [];
 
 const empty = {
   name: "",
   description: "",
   type: "strength",
-  muscleGroup: "Legs",
+  muscleGroups: ["Legs"],
   defaultSets: 3,
   defaultReps: 10,
   repsMin: 8,
@@ -29,6 +41,10 @@ export default function AdminExercises() {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState({});
+
+  const toggleGroup = (group) =>
+    setCollapsed(prev => ({ ...prev, [group]: !prev[group] }));
 
   useEffect(() => { fetchExercises(); }, []);
 
@@ -66,7 +82,9 @@ export default function AdminExercises() {
       name: exercise.name || "",
       description: exercise.description || "",
       type: exercise.type || "strength",
-      muscleGroup: exercise.muscleGroup || "Legs",
+      muscleGroups: exercise.muscleGroups?.length
+        ? exercise.muscleGroups
+        : exercise.muscleGroup ? [exercise.muscleGroup] : ["Legs"],
       defaultSets: exercise.defaultSets || 3,
       defaultReps: exercise.defaultReps || 10,
       repsMin: exercise.repsMin || 8,
@@ -93,7 +111,7 @@ export default function AdminExercises() {
     : exercises;
 
   const grouped = MUSCLE_GROUPS.reduce((acc, group) => {
-    const items = filtered.filter((e) => e.muscleGroup === group);
+    const items = filtered.filter((e) => getExerciseMuscles(e).includes(group));
     if (items.length > 0) acc[group] = items;
     return acc;
   }, {});
@@ -136,10 +154,41 @@ export default function AdminExercises() {
           <label style={labelStyle}>Description</label>
           <input style={inputStyle} placeholder={isCardio ? "e.g. A steady comfortable walk." : "e.g. Build lower body strength and stability."} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
-          <label style={labelStyle}>Category</label>
-          <select style={inputStyle} value={form.muscleGroup} onChange={(e) => setForm({ ...form, muscleGroup: e.target.value })}>
-            {MUSCLE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
+          <label style={labelStyle}>Muscle Groups (tap to select, can pick multiple)</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+            {MUSCLE_GROUPS.map((g) => {
+              const selected = form.muscleGroups.includes(g);
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() =>
+                    setForm(f => ({
+                      ...f,
+                      muscleGroups: selected
+                        ? f.muscleGroups.filter(x => x !== g)
+                        : [...f.muscleGroups, g],
+                    }))
+                  }
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "16px",
+                    border: "none",
+                    backgroundColor: selected ? "#2d6a4f" : "#f0f0f0",
+                    color: selected ? "#fff" : "#555",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {g}
+                </button>
+              );
+            })}
+          </div>
+          {form.muscleGroups.length === 0 && (
+            <p style={{ fontSize: 11, color: "#dc2626", margin: "4px 0 0" }}>Select at least one muscle group.</p>
+          )}
 
           {isCardio ? (
             <>
@@ -229,10 +278,29 @@ export default function AdminExercises() {
         <p style={{ textAlign: "center", color: "#888", padding: "2rem" }}>No exercises found.</p>
       ) : (
         Object.entries(grouped).map(([group, items]) => (
-          <div key={group} style={{ marginBottom: "1.5rem" }}>
-            <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#888", padding: "0 1.25rem", marginBottom: "8px" }}>
-              {group} ({items.length})
-            </p>
+          <div key={group} style={{ marginBottom: "1rem" }}>
+            <button
+              onClick={() => toggleGroup(group)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 1.25rem",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#888" }}>
+                {group} ({items.length})
+              </span>
+              <span style={{ fontSize: 14, color: "#aaa", fontWeight: 700 }}>
+                {collapsed[group] ? "▸" : "▾"}
+              </span>
+            </button>
+            {!collapsed[group] && (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "0 1.25rem" }}>
               {items.map((exercise) => (
                 <div key={exercise.id} style={{ backgroundColor: "#fff", borderRadius: "12px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
@@ -266,6 +334,7 @@ export default function AdminExercises() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         ))
       )}

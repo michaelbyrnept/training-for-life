@@ -4,17 +4,27 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { auth, db } from "../firebase";
 
-const KIT_FORM_ID = "9528217";
+const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY;
+const BREVO_LIST_ID = Number(import.meta.env.VITE_BREVO_LIST_ID);
 
-async function subscribeToKit(firstName, email) {
+async function subscribeToBrevo(firstName, email) {
   try {
-    await fetch(`https://app.kit.com/forms/${KIT_FORM_ID}/subscriptions`, {
+    await fetch("https://api.brevo.com/v3/contacts", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ "fields[first_name]": firstName, email_address: email }),
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": BREVO_API_KEY,
+      },
+      body: JSON.stringify({
+        email,
+        attributes: { FIRSTNAME: firstName },
+        listIds: [BREVO_LIST_ID],
+        updateEnabled: true,
+      }),
     });
   } catch (e) {
-    console.error("Kit subscription error:", e);
+    console.error("Brevo subscription error:", e);
   }
 }
 
@@ -75,9 +85,9 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
         createdAt: new Date().toISOString(),
       });
 
-      // Only subscribe to Kit if they opted in
+      // Only subscribe to Brevo if they opted in
       if (marketingConsent) {
-        await subscribeToKit(firstName, email.toLowerCase());
+        await subscribeToBrevo(firstName, email.toLowerCase());
       }
 
       navigate("/onboarding");

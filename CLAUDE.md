@@ -46,10 +46,22 @@ src/                                    — React/Vite frontend (trainingforlife
         Admin/
           AdminCoachSession.jsx        — coach-led workout logging (/admin/session/:clientUid/...)
           AdminWins.jsx                — Wins & Recognition queue + custom milestone creator
+          AdminExercises.jsx           — exercise library; muscleGroups is now an array (multi-select pills);
+                                         collapsible sections; getExerciseMuscles() handles legacy muscleGroup string
 functions/                              — Firebase Cloud Functions (Node 24)
   index.js                             — Stripe, Meaningful Moments Engine,
                                          checkWorkoutSaveEntitlement, onCustomWorkoutCompleted
 firestore.rules                         — Firestore security rules (uses isAdmin/isOwner helpers)
+
+## Key Schema Notes
+- exercises: `muscleGroups: string[]` (new) or `muscleGroup: string` (legacy) — always use `getExerciseMuscles(ex)` helper to read
+- workoutLogs: `logType: "custom"` distinguishes user custom logs from programme logs
+- users: `subscriptionTier` + `subscriptionStatus` (new) or `subscription` (legacy) — use `useFeatures()` hook, never check tier directly
+
+## Vercel Build Checks
+- Project: training-for-life, team: michaelbyrnepts-projects
+- After pushing to GitHub: tell Claude "pushed" and Claude will pull build logs via Vercel MCP
+- Cloud-only OneDrive files don't sync to bash — use Read tool for file validation, not bash
 ```
 
 ---

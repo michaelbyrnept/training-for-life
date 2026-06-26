@@ -178,8 +178,13 @@ function TopSetCard({ exercise, logs, openSheet, toggleSetDone, setRestTimer, on
           <button onClick={onSwap} style={{ flexShrink: 0, backgroundColor: "#f7f5f2", border: "1px solid #e5e5e5", borderRadius: 10, padding: "6px 10px", fontSize: 11, fontWeight: 700, color: "#555", cursor: "pointer" }}>🔄 Swap</button>
         </div>
         {exercise.description && <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px", lineHeight: 1.5 }}>{exercise.description}</p>}
-        <div onClick={onViewHistory} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#2d6a4f" }}>📊 View full history</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div onClick={onViewHistory} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#2d6a4f" }}>📊 View full history</span>
+          </div>
+          <Link to={`/exercise/${exercise.exerciseId}`} style={{ fontSize: 12, fontWeight: 700, color: "#888", textDecoration: "none" }}>
+            📖 Exercise guide
+          </Link>
         </div>
       </div>
 
@@ -301,8 +306,13 @@ function ExerciseCard({ exercise, exerciseLogs, isCardio, repRange, openSheet, t
         </div>
         <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px", lineHeight: 1.5 }}>{exercise.description}</p>
         {!isCardio && (
-          <div onClick={onViewHistory} style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8, cursor: "pointer" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#2d6a4f" }}>📊 View full history</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <div onClick={onViewHistory} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#2d6a4f" }}>📊 View full history</span>
+            </div>
+            <Link to={`/exercise/${exercise.exerciseId}`} style={{ fontSize: 12, fontWeight: 700, color: "#888", textDecoration: "none" }}>
+              📖 Exercise guide
+            </Link>
           </div>
         )}
         {isCardio ? (

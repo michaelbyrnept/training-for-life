@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "../../firebase";
 
@@ -84,6 +84,13 @@ const sections = [
     label: "Clients",
     description: "View and manage all client profiles.",
     icon: "👥",
+    highlight: true,
+  },
+  {
+    to: "/admin/import-clients",
+    label: "Import Past Clients",
+    description: "Upload a CSV of previous clients, create free accounts, and send activation links.",
+    icon: "📥",
     highlight: true,
   },
   {
@@ -171,6 +178,23 @@ export default function AdminDashboard() {
 
   const currentTier = TIERS.find(t => t.id === myTier) || TIERS[0];
 
+  const exportBrevoCSV = async () => {
+    const snap = await getDocs(query(collection(db, "users"), where("marketingConsent", "==", true)));
+    const rows = ["EMAIL,FIRSTNAME"];
+    snap.forEach(doc => {
+      const d = doc.data();
+      const isFree = !d.subscription || d.subscription === "free" || d.subscriptionTier === "free";
+      if (isFree && d.email) rows.push(`${d.email.toLowerCase().trim()},${d.firstName || ""}`);
+    });
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "brevo-free-users.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", padding: "2rem 1.25rem" }}>
 
@@ -194,6 +218,9 @@ export default function AdminDashboard() {
             My Training
           </Link>
         </div>
+        <button onClick={exportBrevoCSV} style={{ marginTop: "8px", width: "100%", backgroundColor: "rgba(159,225,203,0.15)", color: "#9fe1cb", border: "1px solid rgba(159,225,203,0.3)", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
+          Export Free Users CSV (Brevo)
+        </button>
       </div>
 
       <div style={{ marginBottom: "2rem" }}>

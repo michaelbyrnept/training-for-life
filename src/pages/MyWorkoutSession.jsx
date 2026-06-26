@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { doc, getDoc, getDocs, collection, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { db, auth } from "../firebase";
 import PortalNav from "../components/PortalNav";
 
@@ -381,12 +381,21 @@ export default function MyWorkoutSession() {
                   </div>
 
                   {/* Coach cue from exercise library */}
-                  {detail?.coaching?.cues?.[0] && (
+                  {detail?.coachingNotes && (
                     <div style={{ marginTop: 10, backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "8px 12px" }}>
                       <p style={{ fontSize: 12, color: "#555", margin: 0, fontStyle: "italic" }}>
-                        "{detail.coaching.cues[0]}"
+                        "{detail.coachingNotes.split(/\n|\. /)[0].replace(/\.$/, "")}"
                       </p>
                     </div>
+                  )}
+                  {/* Exercise guide link */}
+                  {ex.exerciseId && (
+                    <Link
+                      to={`/exercise/${ex.exerciseId}`}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 12, fontWeight: 700, color: "#888", textDecoration: "none" }}
+                    >
+                      📖 Exercise guide
+                    </Link>
                   )}
                 </div>
 

@@ -224,6 +224,12 @@ export default function AdminClients() {
           <p style={{ fontSize: "13px", color: "#9fe1cb", margin: 0 }}>{clients.length} total accounts</p>
           <div style={{ display: "flex", gap: "8px" }}>
             <Link
+              to="/admin/import-clients"
+              style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "#9fe1cb", border: "none", borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: 700, textDecoration: "none" }}
+            >
+              Import
+            </Link>
+            <Link
               to="/admin/groups"
               style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "#9fe1cb", border: "none", borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: 700, textDecoration: "none" }}
             >
