@@ -94,6 +94,12 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
     }
 
+    // ─── GROUPS ────────────────────────────────────────────────────────────────
+    match /groups/{doc} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // ─── ADMIN-ONLY CONTENT ────────────────────────────────────────────────────
     match /clientNotes/{doc} {
       allow read, write: if isAdmin();
