@@ -89,11 +89,11 @@ export default function App() {
       <Route path="/nutrition" element={<Nutrition />} />
       <Route path="/habits" element={<Habits />} />
       <Route path="/progress" element={<Progress />} />
-<Route path="/programme/capability-programme"              element={<CapabilityProgramme />} />
-<Route path="/programme/capability-programme/:weekId/:day" element={<CapabilitySession />} />
-<Route path="/programme/:id" element={<Programme />} />
-<Route path="/programme/:programmeId/:weekId" element={<Week />} />
-<Route path="/programme/:programmeId/:weekId/:workoutId" element={<Workout />} />
+      <Route path="/programme/capability-programme"              element={<CapabilityProgramme />} />
+      <Route path="/programme/capability-programme/:weekId/:day" element={<CapabilitySession />} />
+      <Route path="/programme/:id" element={<Programme />} />
+      <Route path="/programme/:programmeId/:weekId" element={<Week />} />
+      <Route path="/programme/:programmeId/:weekId/:workoutId" element={<Workout />} />
       <Route path="/exercise/:exerciseId" element={<Exercise />} />
       <Route path="/classes" element={<Classes />} />
       <Route path="/class/:classId" element={<ClassLog />} />
@@ -132,17 +132,29 @@ export default function App() {
       <Route path="/ai-running-plan" element={<AIRunningPlan />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/coaching" element={<CoachingOverview />} />
-
-<Route path="/coaching/about" element={<CoachingAbout />} />
-<Route path="/coaching/in-person" element={<InPersonCoaching />} />
-<Route path="/coaching/philosophy" element={<CoachingPhilosophy />} />
-<Route path="/coaching/support" element={<CoachingSupport />} />
-
-<Route path="/coaching/book" element={<CoachingBook />} />
+      <Route path="/coaching/about" element={<CoachingAbout />} />
+      <Route path="/coaching/in-person" element={<InPersonCoaching />} />
+      <Route path="/coaching/philosophy" element={<CoachingPhilosophy />} />
+      <Route path="/coaching/support" element={<CoachingSupport />} />
+      <Route path="/coaching/book" element={<CoachingBook />} />
       <Route path="/subscription/success" element={<SubscriptionSuccess />} />
       <Route path="/bundles" element={<Bundles />} />
       <Route path="/bundles/success" element={<BundleSuccess />} />
       <Route path="/activate/:token" element={<AccountActivation />} />
       <Route path="/start" element={<GymLanding />} />
       <Route path="/admin/import-clients" element={<AdminRoute><AdminImportClients /></AdminRoute>} />
-      {/* Premium Workout Bu
+      <Route path="/my-workouts" element={<MyWorkouts />} />
+      <Route path="/my-workouts/new" element={<WorkoutBuilder />} />
+      <Route path="/my-workouts/:workoutId/edit" element={<WorkoutBuilder />} />
+      <Route path="/my-workouts/:workoutId" element={<MyWorkoutSession />} />
+      <Route path="/my-programmes" element={<MyProgrammes />} />
+      <Route path="/my-programmes/new" element={<ProgrammeBuilder />} />
+      <Route path="/my-programmes/:programmeId/edit" element={<ProgrammeBuilder />} />
+      <Route path="/my-programmes/:programmeId" element={<MyProgrammeView />} />
+      <Route path="/integrations" element={<Integrations />} />
+      <Route path="/strava/callback" element={<StravaCallback />} />
+      <Route path="/admin/integrations" element={<AdminRoute><AdminIntegrations /></AdminRoute>} />
+    </Routes>
+    </>
+  )
+}

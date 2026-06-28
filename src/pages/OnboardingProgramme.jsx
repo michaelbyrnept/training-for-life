@@ -2,7 +2,18 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "../firebase";
+
+const PREMIUM_PRICE_ID = "price_1Tn3fsPojX8gToKVeUfENsCZ";
+
+const PREMIUM_FEATURES = [
+  { icon: "🏋️", label: "Custom workout builder", sub: "Build and save your own workouts" },
+  { icon: "📋", label: "Custom training programmes", sub: "Design multi-week plans and follow them week by week" },
+  { icon: "🔗", label: "Strava sync", sub: "Activities auto-count toward your 6/week target" },
+  { icon: "🏆", label: "Personal bests tracking", sub: "Beat your records, see your progress over time" },
+  { icon: "📊", label: "Unlimited training history", sub: "Every session logged, forever" },
+];
 
 const GOAL_COPY = {
   strength:     { headline: "Your strength programme is ready", sub: "Built around progressive overload to make you noticeably stronger over the next 8 weeks." },
@@ -30,6 +41,8 @@ export default function OnboardingProgramme() {
   const [userGoal, setUserGoal] = useState("");
   const [starting, setStarting] = useState(false);
   const [uid, setUid] = useState(null);
+  const [showPremium, setShowPremium] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -62,10 +75,29 @@ export default function OnboardingProgramme() {
     setStarting(true);
     try {
       await updateDoc(doc(db, "users", uid), { programmeId: programme.id });
-      navigate(`/programme/${programme.id}`);
+      setShowPremium(true);
     } catch (e) {
       console.error(e);
-      setStarting(false);
+    }
+    setStarting(false);
+  }
+
+  async function handleUpgrade() {
+    setCheckingOut(true);
+    try {
+      const fns = getFunctions(undefined, "us-central1");
+      const createCheckoutSession = httpsCallable(fns, "createCheckoutSession");
+      const origin = window.location.origin;
+      const { data } = await createCheckoutSession({
+        type: "subscription",
+        priceId: PREMIUM_PRICE_ID,
+        successUrl: `${origin}/subscription/success`,
+        cancelUrl: `${origin}/dashboard`,
+      });
+      if (data?.url) window.location.href = data.url;
+    } catch (e) {
+      console.error(e);
+      setCheckingOut(false);
     }
   }
 
@@ -77,10 +109,17 @@ export default function OnboardingProgramme() {
     );
   }
 
-  // No recommended programme set yet -- go straight to dashboard
-  if (!programme) {
+  // No recommended programme set yet -- skip straight to premium upsell
+  if (!programme && !loading) {
+    if (showPremium) {
+      return <PremiumUpsell onUpgrade={handleUpgrade} onSkip={() => navigate("/dashboard")} checkingOut={checkingOut} />;
+    }
     navigate("/dashboard");
     return null;
+  }
+
+  if (showPremium) {
+    return <PremiumUpsell onUpgrade={handleUpgrade} onSkip={() => navigate("/dashboard")} checkingOut={checkingOut} />;
   }
 
   const weekCount = programme.weeks?.length || 0;
@@ -155,7 +194,7 @@ export default function OnboardingProgramme() {
           {starting ? "Setting up..." : "Start Programme"}
         </button>
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => setShowPremium(true)}
           style={{ background: "none", border: "none", color: "#9fe1cb", fontSize: "14px", cursor: "pointer", padding: "10px" }}>
           Explore the app first
         </button>
@@ -163,3 +202,69 @@ export default function OnboardingProgramme() {
     </div>
   );
 }
+
+// ─── Premium Upsell Screen (inserted between programme and dashboard) ──────────
+
+function PremiumUpsell({ onUpgrade, onSkip, checkingOut }) {
+  return (
+    <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", display: "flex", flexDirection: "column" }}>
+
+      {/* Header */}
+      <div style={{ backgroundColor: "#1a3a2a", padding: "52px 24px 32px", textAlign: "center" }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 10px" }}>
+          One last thing
+        </p>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: "0 0 8px", lineHeight: 1.2 }}>
+          Unlock the full app
+        </h1>
+        <p style={{ fontSize: 15, color: "#9fe1cb", margin: 0, lineHeight: 1.6 }}>
+          Your free programme is set up. Premium gives you tools to train completely on your own terms.
+        </p>
+      </div>
+
+      <div style={{ padding: "24px 16px", flex: 1 }}>
+        {/* Features */}
+        <div style={{ backgroundColor: "#fff", borderRadius: 20, padding: "20px", marginBottom: 20, border: "0.5px solid #e5e5e5" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {PREMIUM_FEATURES.map((f) => (
+              <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "#eaf5ef", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                  {f.icon}
+                </div>
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{f.label}</p>
+                  <p style={{ fontSize: 13, color: "#888", margin: 0 }}>{f.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Price callout */}
+        <div style={{ backgroundColor: "#1a3a2a", borderRadius: 16, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <p style={{ fontSize: 13, color: "#9fe1cb", margin: "0 0 2px", fontWeight: 600 }}>Premium</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: 0 }}>€19.99 <span style={{ fontSize: 13, fontWeight: 500, color: "#9fe1cb" }}>/ 4 weeks</span></p>
+          </div>
+          <p style={{ fontSize: 12, color: "#9fe1cb", margin: 0, textAlign: "right", lineHeight: 1.5 }}>Cancel<br />anytime</p>
+        </div>
+
+        {/* CTAs */}
+        <button
+          onClick={onUpgrade}
+          disabled={checkingOut}
+          style={{ width: "100%", backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: 14, padding: "17px", fontSize: 16, fontWeight: 700, cursor: checkingOut ? "not-allowed" : "pointer", opacity: checkingOut ? 0.7 : 1, marginBottom: 12 }}
+        >
+          {checkingOut ? "Opening checkout..." : "Upgrade to Premium"}
+        </button>
+        <button
+          onClick={onSkip}
+          style={{ width: "100%", background: "none", border: "none", color: "#aaa", fontSize: 14, cursor: "pointer", padding: "10px" }}
+        >
+          No thanks, start for free
+        </button>
+      </div>
+    </div>
+  );
+}
+
