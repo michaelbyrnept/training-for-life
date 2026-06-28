@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from "firebase/firestore";
@@ -75,9 +75,7 @@ function BarcodeScanner({ onResult, onClose }) {
   const [searching, setSearching] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
-  const videoRef = useState(null);
-  const [videoEl, setVideoEl] = useState(null);
-  const readerRef = useState(null);
+  const controlsRef = useRef(null);
 
   const startScan = async () => {
     setScanning(true);
@@ -85,15 +83,19 @@ function BarcodeScanner({ onResult, onClose }) {
     try {
       const { BrowserMultiFormatReader } = await import("@zxing/browser");
       const codeReader = new BrowserMultiFormatReader();
-      readerRef[0] = codeReader;
       const videoElement = document.getElementById("barcode-video");
-      codeReader.decodeFromVideoDevice(null, videoElement, (result, err) => {
-        if (result) {
-          codeReader.reset();
-          setScanning(false);
-          lookupBarcode(result.getText());
+      const controls = await codeReader.decodeFromVideoDevice(
+        undefined,
+        videoElement,
+        (result, err) => {
+          if (result) {
+            controlsRef.current?.stop();
+            setScanning(false);
+            lookupBarcode(result.getText());
+          }
         }
-      });
+      );
+      controlsRef.current = controls;
     } catch (e) {
       console.error(e);
       setError("Camera not available. Please type the barcode below.");
@@ -102,9 +104,8 @@ function BarcodeScanner({ onResult, onClose }) {
   };
 
   const stopScan = () => {
-    if (readerRef[0]) {
-      try { readerRef[0].reset(); } catch (e) {}
-    }
+    try { controlsRef.current?.stop(); } catch (e) {}
+    controlsRef.current = null;
     setScanning(false);
   };
 
