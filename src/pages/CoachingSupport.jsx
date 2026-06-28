@@ -136,7 +136,7 @@ function TierCard({ tier, userSub, onSubscribe, checkoutLoading }) {
                 marginBottom: tier.secondaryCta ? "8px" : 0,
               }}
             >
-              {isLoading ? "Loading checkout..." : `${tier.cta.label} — ${tier.badge}`}
+              {isLoading ? "Loading checkout..." : `${tier.cta.label} for ${tier.badge}`}
             </button>
           ) : (
             <Link

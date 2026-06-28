@@ -7,31 +7,31 @@ export default function Testimonials() {
   {
     quote:
       "Michael is a fantastic PT. Always positive and upbeat I always leave our sessions in better form than when I arrived. He is technically excellent and knowledgable about all of the machines and free weights but as importantly he is also very knowledgable around human physiology and he can distinguish between what is best for clients based on age and fitness profile. He makes everything clear and easy to understand. I would strongly recommend Michael to anyone looking for a personal trainer.",
-    name: "Paul, Capability Coaching Client",
+    name: "Paul, Personal Training Client, South Dublin",
   },
 
   {
     quote:
       "Michael believes in me more than I believe in myself at times, and that motivation has made a huge difference.",
-    name: "Ann-Marie, Capability Coaching Client",
+    name: "Ann-Marie, Personal Training Client, South Dublin",
   },
 
   {
     quote:
       "Efficiency and fun. Michael is an excellent personal trainer. I feel good during my sessions hence I feel great and strong for my every day activities.",
-    name: "Capability Coaching Client",
+    name: "Personal Training Client, South Dublin",
   },
 
   {
     quote:
       "I highly recommend my personal trainer! Very professional, motivating, and attentive during every workout. Since I started training, I’ve felt stronger, more confident, and healthier. The workouts are well planned and adapted to my goals. Great experience overall!",
-    name: "Karen, Capability Coaching Client",
+    name: "Karen, Personal Training Client, South Dublin",
   },
 
   {
     quote:
-      "I couldn't speak more highly of Michael. Firstly he's a great guy and secondly he's a brilliant personal trainer. He really helped me get me up and running in the gym and he couldn't have been more helpful. Highly recommend him",
-    name: "Barry, Capability Coaching Client",
+      "I couldn’t speak more highly of Michael. Firstly he’s a great guy and secondly he’s a brilliant personal trainer. He really helped me get me up and running in the gym and he couldn’t have been more helpful. Highly recommend him",
+    name: "Barry, Online Coaching Client",
   },
 
 ];
@@ -134,11 +134,11 @@ const handlers = useSwipeable({
               <div className="mt-10">
 
                 <p className="text-2xl font-semibold tracking-tight">
-                  — Jarlath Dolly
+                  Jarlath Dolly
                 </p>
 
                 <p className="mt-2 text-zinc-500">
-                  Capability Coaching Client
+                  Personal Training Client, South Dublin
                 </p>
 
               </div>
@@ -159,7 +159,7 @@ const handlers = useSwipeable({
     {/* LEFT ARROW */}
     <button
       onClick={prevTestimonial}
-      className="absolute left-4 toptop-20-1/2 hidden -translate-y-1/2 rounded-full border border-zinc-200 bg-white p-3 text-zinc-600 transition hover:bg-zinc-100 md:block"
+      className="absolute left-4 top-1/2 hidden -translate-y-1/2 rounded-full border border-zinc-200 bg-white p-3 text-zinc-600 transition hover:bg-zinc-100 md:block"
     >
       ←
     </button>
@@ -167,7 +167,7 @@ const handlers = useSwipeable({
     {/* RIGHT ARROW */}
     <button
       onClick={nextTestimonial}
-      className="absolute right-4 toptop-20-1/2 hidden -translate-y-1/2 rounded-full border border-zinc-200 bg-white p-3 text-zinc-600 transition hover:bg-zinc-100 md:block"
+      className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-full border border-zinc-200 bg-white p-3 text-zinc-600 transition hover:bg-zinc-100 md:block"
     >
       →
     </button>
@@ -193,7 +193,7 @@ const handlers = useSwipeable({
       <div className="mt-10">
 
         <p className="font-semibold tracking-tight">
-          — {testimonials[testimonialIndex].name}
+          {testimonials[testimonialIndex].name}
         </p>
 
       </div>

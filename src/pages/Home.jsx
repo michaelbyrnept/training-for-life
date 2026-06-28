@@ -16,7 +16,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-stone-50 text-zinc-900">
       <SEO
-        title="Personal Trainer in Dublin | Training for Life — Michael Byrne"
+        title="Personal Trainer in Dublin | Training for Life with Michael Byrne"
         description="1:1 personal training and online coaching in South Dublin with Michael Byrne. Strength training, weight loss and capability coaching for adults. Book a free consultation today."
         canonical="https://trainingforlife.ie"
       />

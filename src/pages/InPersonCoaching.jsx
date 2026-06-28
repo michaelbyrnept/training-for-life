@@ -288,10 +288,30 @@ export default function InPersonCoaching() {
         </p>
         <p
           className="text-base"
-          style={{ lineHeight: 1.6, color: COLORS.textMuted, maxWidth: "580px", margin: "0 0 40px" }}
+          style={{ lineHeight: 1.6, color: COLORS.textMuted, maxWidth: "580px", margin: "0 0 20px" }}
         >
           Serving clients in Rathmines, Ranelagh, Dundrum, Sandyford, Stillorgan, Ballsbridge, Donnybrook and surrounding South Dublin areas.
         </p>
+
+        {/* AVAILABILITY NOTICE */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: "#fef3c7",
+            border: "1px solid #f59e0b",
+            borderRadius: "6px",
+            padding: "10px 16px",
+            marginBottom: "32px",
+            fontSize: "13px",
+            color: "#92400e",
+            fontWeight: 500,
+          }}
+        >
+          <span style={{ fontSize: "16px" }}>⚡</span>
+          <span>Limited spots available. Currently accepting new clients for July.</span>
+        </div>
 
         <div
           className="flex flex-wrap items-center justify-between p-6 sm:p-8"

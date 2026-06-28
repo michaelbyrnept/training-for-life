@@ -7,9 +7,13 @@
  * Props:
  *   reason: "workout_limit" | "generic"
  *   onClose: () => void
- *   onUpgrade: () => void  (optional — defaults to /bundles)
+ *   onUpgrade: () => void  (optional — overrides default Stripe checkout)
  */
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getFunctions, httpsCallable } from "firebase/functions";
+
+const PREMIUM_MONTHLY_PRICE_ID = "price_1Tn3fsPojX8gToKVeUfENsCZ";
 
 const REASONS = {
   workout_limit: {
@@ -45,12 +49,25 @@ const REASONS = {
 export default function PremiumGate({ reason = "generic", onClose, onUpgrade }) {
   const navigate = useNavigate();
   const content = REASONS[reason] || REASONS.generic;
+  const [loading, setLoading] = useState(false);
 
-  const handleUpgrade = () => {
-    if (onUpgrade) {
-      onUpgrade();
-    } else {
-      navigate("/bundles");
+  const handleUpgrade = async () => {
+    if (onUpgrade) { onUpgrade(); return; }
+    setLoading(true);
+    try {
+      const fns = getFunctions(undefined, "us-central1");
+      const createCheckoutSession = httpsCallable(fns, "createCheckoutSession");
+      const origin = window.location.origin;
+      const { data } = await createCheckoutSession({
+        type: "subscription",
+        priceId: PREMIUM_MONTHLY_PRICE_ID,
+        successUrl: `${origin}/subscription/success?tier=premium`,
+        cancelUrl: `${origin}${window.location.pathname}`,
+      });
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      console.error("Checkout error:", err);
+      setLoading(false);
     }
   };
 
@@ -210,7 +227,7 @@ export default function PremiumGate({ reason = "generic", onClose, onUpgrade }) 
               cursor: "pointer",
             }}
           >
-            {content.cta} — €19.99/month
+            {loading ? "Redirecting to checkout..." : `${content.cta} — €19.99/month`}
           </button>
           {onClose && (
             <button

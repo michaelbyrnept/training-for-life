@@ -47,7 +47,7 @@ export default function CoachingOverview() {
           Personal training in Dublin and online across Ireland.
         </h1>
         <p style={{ fontSize: "13px", color: "#9fe1cb", margin: 0 }}>
-          In-person, online, or hybrid — find the option that works for you.
+          In-person, online, or hybrid. Find the option that works for you.
         </p>
       </div>
 

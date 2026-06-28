@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const DEFAULT_TITLE = 'Personal Trainer in Dublin | Training for Life — Michael Byrne';
+const DEFAULT_TITLE = 'Personal Trainer in Dublin | Training for Life with Michael Byrne';
 const DEFAULT_DESC = '1:1 personal training and online coaching in South Dublin with Michael Byrne. Strength training, weight loss and capability coaching for adults. Book a free consultation today.';
 
 /**

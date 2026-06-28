@@ -1187,6 +1187,7 @@ exports.resendActivationToken = onCall(
  * Returns: { allowed: boolean, currentCount: number, limit: number }
  */
 exports.checkWorkoutSaveEntitlement = onCall(
+  { invoker: "public" },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Login required.");

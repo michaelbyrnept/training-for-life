@@ -23,42 +23,37 @@ export default function Hero() {
           </h1>
 
           <p className="mt-10 max-w-2xl text-xl leading-9 text-zinc-600">
-            Premium coaching designed to help you stay strong, active, independent, and physically confident as you age.
+            Premium coaching designed to help you stay strong, active, independent, and physically confident for decades to come.
           </p>
 
           {/* BUTTONS */}
-          <div className="mt-12 flex flex-col gap-4 sm:flex-row">
-
-            <a
-              href="/capability-score"
-              className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
-            >
-              Take The Capability Assessment
-            </a>
-
-            <a
-              href="/register"
-              className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
-            >
-              Get the Free App
-            </a>
+          <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
 
             <a
               href="/consultation"
-              className="flex min-h-[88px] items-center justify-center rounded-2xl bg-emerald-700 px-8 text-center text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-700 px-8 py-5 text-base font-medium text-white shadow-lg shadow-emerald-700/20 transition hover:opacity-90"
             >
-              Book your Capability Consultation
+              Book a Free Consultation
+            </a>
+
+            <a
+              href="/#services"
+              className="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-8 py-5 text-base font-medium text-zinc-800 transition hover:bg-zinc-50"
+            >
+              See Pricing &amp; Options
             </a>
 
           </div>
 
+
           {/* TRUST TEXT */}
-          <div className="mt-10 flex flex-wrap items-center gap-6 text-sm text-zinc-500">
-            <p>Patient. Clear. Empowering.</p>
-            <div className="h-1 w-1 rounded-full bg-zinc-400"></div>
-            <p>South Dublin Based</p>
-            <div className="h-1 w-1 rounded-full bg-zinc-400"></div>
-            <p>Private Coaching Experience</p>
+          <div className="mt-10 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
+            <span className="text-amber-400">★★★★★</span>
+            <span>5-Star Rated</span>
+            <span className="mx-1 text-zinc-300">|</span>
+            <span>South Dublin &amp; Online Ireland</span>
+            <span className="mx-1 text-zinc-300">|</span>
+            <span>Private 1:1 Sessions</span>
           </div>
         </div>
 

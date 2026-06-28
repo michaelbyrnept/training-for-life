@@ -119,7 +119,7 @@ export default function GymLanding() {
             my fitness in years."
           </p>
           <p className="text-xs font-semibold mt-1" style={{ color: THEME.accent }}>
-            Mark, 44 — Dublin
+            Mark, 44, Dublin
           </p>
         </div>
 

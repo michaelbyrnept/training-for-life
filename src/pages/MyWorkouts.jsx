@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Link, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase";
@@ -40,11 +40,17 @@ export default function MyWorkouts() {
   const loadWorkouts = async (uid) => {
     setLoading(true);
     try {
-      const snap = await getDocs(
-        query(collection(db, "users", uid, "workouts"), orderBy("updatedAt", "desc"))
-      );
-      setWorkouts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch {
+      const snap = await getDocs(collection(db, "users", uid, "workouts"));
+      const data = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const aTime = a.updatedAt?.seconds ?? a.updatedAt?.toMillis?.() / 1000 ?? 0;
+          const bTime = b.updatedAt?.seconds ?? b.updatedAt?.toMillis?.() / 1000 ?? 0;
+          return bTime - aTime;
+        });
+      setWorkouts(data);
+    } catch (e) {
+      console.error("Failed to load workouts:", e);
       setWorkouts([]);
     }
     setLoading(false);

@@ -16,7 +16,7 @@ export default function FinalCTA() {
         </h2>
 
         <p className="mx-auto mt-8 max-w-2xl text-lg leading-8 text-zinc-300">
-          Personal training in South Dublin and online coaching across Ireland — designed to help you stay strong, active, independent, and physically confident for the decades ahead.
+          Personal training in South Dublin and online coaching across Ireland, designed to help you stay strong, active, independent, and physically confident for the decades ahead.
         </p>
 
         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
@@ -35,7 +35,7 @@ export default function FinalCTA() {
         </div>
 
         <p className="mt-8 text-sm text-zinc-500">
-          Serving South Dublin — Rathmines, Ranelagh, Dundrum, Sandyford, Stillorgan and surrounding areas
+          Serving South Dublin: Rathmines, Ranelagh, Dundrum, Sandyford, Stillorgan and surrounding areas
         </p>
 
       </div>

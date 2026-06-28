@@ -6,7 +6,7 @@ export default function CoachingAbout() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px" }}>
       <SEO
-        title="About Michael Byrne — Personal Trainer in Dublin | Training for Life"
+        title="About Michael Byrne, Personal Trainer in Dublin | Training for Life"
         description="Michael Byrne is a personal trainer and coach based in South Dublin, Ireland. Learn about his approach to helping adults build strength, confidence and long-term physical capability."
         canonical="https://trainingforlife.ie/coaching/about"
       />
@@ -20,7 +20,7 @@ export default function CoachingAbout() {
           About Your Trainer
         </p>
         <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.25 }}>
-          Michael Byrne — Personal Trainer in South Dublin
+          Michael Byrne, Personal Trainer in South Dublin
         </h1>
       </div>
 

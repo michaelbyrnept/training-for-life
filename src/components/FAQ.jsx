@@ -24,7 +24,7 @@ const faqs = [
   },
   {
     q: "What is the difference between 1:1, 1:2 and small group personal training?",
-    a: "1:1 means the full session is yours alone — fully personalised. 1:2 means you train with one partner and share the cost of the same hour. 1:3 is a small group of three people, offering the best per-person value. All sessions are led by Michael and fully supervised.",
+    a: "1:1 means the full session is yours alone, fully personalised. 1:2 means you train with one partner and share the cost of the same hour. 1:3 is a small group of three people, offering the best per-person value. All sessions are led by Michael and fully supervised.",
   },
 ];
 
@@ -69,7 +69,7 @@ export default function FAQ() {
             Common Questions
           </p>
           <h2 className="text-4xl font-semibold leading-tight tracking-tight text-zinc-900 md:text-5xl">
-            Personal training in Dublin — what you need to know.
+            Personal training in Dublin: what you need to know.
           </h2>
         </div>
 

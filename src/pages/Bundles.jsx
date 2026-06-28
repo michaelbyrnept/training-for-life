@@ -31,7 +31,7 @@ export default function Bundles() {
     async function loadBundles() {
       try {
         const snap = await getDocs(
-          query(collection(db, "sessionBundles"), where("isActive", "!=", false), orderBy("price"))
+          query(collection(db, "sessionBundles"), where("isActive", "==", true), orderBy("price"))
         );
         setBundles(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch {

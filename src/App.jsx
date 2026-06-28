@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import WhatsAppButton from './components/WhatsAppButton'
 
 import Home from './pages/Home'
 import CapabilityScore from './pages/CapabilityScore'
@@ -70,6 +71,8 @@ import MyWorkoutSession from "./pages/MyWorkoutSession";
 
 export default function App() {
   return (
+    <>
+    <WhatsAppButton />
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/capability-score" element={<CapabilityScore />} />
@@ -142,5 +145,6 @@ export default function App() {
       <Route path="/my-workouts/:workoutId/edit" element={<WorkoutBuilder />} />
       <Route path="/my-workouts/:workoutId" element={<MyWorkoutSession />} />
     </Routes>
+    </>
   )
 }

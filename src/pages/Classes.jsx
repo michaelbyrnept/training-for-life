@@ -185,7 +185,7 @@ export default function Classes() {
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "40px 24px", textAlign: "center" }}>
               <p style={{ fontSize: "32px", margin: "0 0 12px" }}>📅</p>
               <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: "0 0 6px" }}>No upcoming classes</p>
-              <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>Check back soon — classes are added weekly.</p>
+              <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>Check back soon, classes are added weekly.</p>
             </div>
           ) : (
             upcomingGroups.map(group => (

@@ -30,7 +30,7 @@ export default function About() {
           </p>
 
           <h2 className="text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
-            Michael Byrne — Personal Trainer, South Dublin
+            Michael Byrne, Personal Trainer in South Dublin
           </h2>
 
           <div className="mt-10 space-y-8 text-lg leading-8 text-zinc-700">

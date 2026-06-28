@@ -5,8 +5,11 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
 const TIER_LABELS = {
-  premium: { name: "Premium", price: "€19.99/mo", emoji: "⭐" },
-  online: { name: "Online Coaching", price: "€149/mo", emoji: "💻" },
+  premium: { name: "Premium", price: "€19.99 every 4 weeks", emoji: "⭐" },
+  premium_annual: { name: "Premium Annual", price: "€149/year", emoji: "⭐" },
+  online: { name: "Online Coaching", price: "€149 every 4 weeks", emoji: "💻" },
+  hybrid: { name: "Hybrid Coaching", price: "€249 every 4 weeks", emoji: "🏋️" },
+  elite: { name: "Elite Coaching", price: "€999 every 4 weeks", emoji: "🏆" },
 };
 
 export default function SubscriptionSuccess() {
@@ -71,7 +74,7 @@ export default function SubscriptionSuccess() {
         {tierInfo.name} is now active.
       </p>
       <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.55)", margin: "0 0 32px" }}>
-        {tierInfo.price} billed monthly. Cancel anytime in your profile.
+        {tierInfo.price}. Cancel anytime in your profile.
       </p>
 
       {!verified ? (
@@ -121,9 +124,9 @@ export default function SubscriptionSuccess() {
         >
           Go to Dashboard
         </Link>
-        {tier === "premium" && (
+        {(tier === "premium" || tier === "premium_annual") && (
           <Link
-            to="/nutrition"
+            to="/my-workouts"
             style={{
               display: "block",
               backgroundColor: "rgba(255,255,255,0.15)",
@@ -135,10 +138,10 @@ export default function SubscriptionSuccess() {
               textDecoration: "none",
             }}
           >
-            Try Meal Recommendations
+            Build Your First Workout
           </Link>
         )}
-        {tier === "online" && (
+        {(tier === "online" || tier === "hybrid" || tier === "elite") && (
           <Link
             to="/check-in"
             style={{
