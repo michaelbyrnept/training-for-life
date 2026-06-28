@@ -75,6 +75,8 @@ function BarcodeScanner({ onResult, onClose }) {
   const [searching, setSearching] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
+  const [scannedFood, setScannedFood] = useState(null);
+  const [amount, setAmount] = useState("100");
   const controlsRef = useRef(null);
 
   const startScan = async () => {
@@ -118,18 +120,18 @@ function BarcodeScanner({ onResult, onClose }) {
       if (data.status === 1 && data.product) {
         const p = data.product;
         const nutriments = p.nutriments || {};
-        onResult({
+        setScannedFood({
           name: p.product_name || p.product_name_en || "Unknown Product",
           brand: p.brands || "",
-          calories: Math.round(nutriments["energy-kcal_100g"] || nutriments["energy-kcal"] || 0),
-          protein: Math.round((nutriments.proteins_100g || 0) * 10) / 10,
-          carbs: Math.round((nutriments.carbohydrates_100g || 0) * 10) / 10,
-          fat: Math.round((nutriments.fat_100g || 0) * 10) / 10,
-          fibre: Math.round((nutriments.fiber_100g || 0) * 10) / 10,
+          calories100g: Math.round(nutriments["energy-kcal_100g"] || nutriments["energy-kcal"] || 0),
+          protein100g: Math.round((nutriments.proteins_100g || 0) * 10) / 10,
+          carbs100g: Math.round((nutriments.carbohydrates_100g || 0) * 10) / 10,
+          fat100g: Math.round((nutriments.fat_100g || 0) * 10) / 10,
+          fibre100g: Math.round((nutriments.fiber_100g || 0) * 10) / 10,
           serving: p.serving_size || "100g",
           barcode,
-          per100g: true,
         });
+        setAmount("100");
       } else {
         setError("Product not found. Try searching by name instead.");
       }
@@ -138,6 +140,71 @@ function BarcodeScanner({ onResult, onClose }) {
     }
     setSearching(false);
   };
+
+  const confirmLog = () => {
+    if (!scannedFood) return;
+    const m = parseFloat(amount) / 100;
+    onResult({
+      name: scannedFood.name,
+      brand: scannedFood.brand,
+      calories: Math.round(scannedFood.calories100g * m),
+      protein: Math.round(scannedFood.protein100g * m * 10) / 10,
+      carbs: Math.round(scannedFood.carbs100g * m * 10) / 10,
+      fat: Math.round(scannedFood.fat100g * m * 10) / 10,
+      fibre: Math.round(scannedFood.fibre100g * m * 10) / 10,
+      amount: `${amount}g`,
+      barcode: scannedFood.barcode,
+    });
+  };
+
+  if (scannedFood) {
+    const m = parseFloat(amount || "100") / 100;
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+        <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "90vh", overflowY: "auto" }}>
+          <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+          <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{scannedFood.name}</h2>
+          {scannedFood.brand && <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px" }}>{scannedFood.brand}</p>}
+
+          <label style={{ fontSize: "12px", fontWeight: 700, color: "#555", display: "block", marginBottom: "6px" }}>Amount (grams)</label>
+          <input
+            type="number"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #2d6a4f", fontSize: "22px", fontWeight: 700, outline: "none", textAlign: "center", boxSizing: "border-box", marginBottom: "8px" }}
+          />
+          <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+            {["30", "50", "100", "150", "200"].map(a => (
+              <button key={a} onClick={() => setAmount(a)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: amount === a ? "2px solid #2d6a4f" : "1px solid #e5e5e5", backgroundColor: amount === a ? "#eaf5ef" : "#f7f5f2", color: amount === a ? "#2d6a4f" : "#888", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>
+                {a}g
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px", marginBottom: "20px" }}>
+            {[
+              { label: "Calories", value: Math.round(scannedFood.calories100g * m) },
+              { label: "Protein", value: `${Math.round(scannedFood.protein100g * m * 10) / 10}g` },
+              { label: "Carbs", value: `${Math.round(scannedFood.carbs100g * m * 10) / 10}g` },
+              { label: "Fat", value: `${Math.round(scannedFood.fat100g * m * 10) / 10}g` },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "10px 8px", textAlign: "center" }}>
+                <p style={{ fontSize: "16px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{value}</p>
+                <p style={{ fontSize: "11px", color: "#888", margin: 0 }}>{label}</p>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={confirmLog} style={{ width: "100%", backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "12px", padding: "16px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "10px" }}>
+            Log this
+          </button>
+          <button onClick={() => { setScannedFood(null); setError(""); }} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", padding: "6px" }}>
+            Scan again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
