@@ -32,6 +32,23 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
         allow read: if isAdmin();
       }
+
+      // User-created custom programmes (Premium)
+      match /userProgrammes/{programmeId} {
+        allow read, write: if isOwner(userId);
+        allow read: if isAdmin();
+      }
+
+      // Third-party integration tokens (Strava etc.) — owner only, never admin
+      match /integrations/{integrationId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Strava activity cache — owner read, Cloud Functions write via Admin SDK
+      match /stravaActivities/{activityId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // written by Cloud Function only
+      }
     }
     // ─── EXERCISE LIBRARY ──────────────────────────────────────────────────────
     match /assessmentResults/{doc} {
@@ -126,6 +143,14 @@ service cloud.firestore {
       allow create: if isAuthenticated();
     }
 
+    // ─── EXERCISE REQUESTS ─────────────────────────────────────────────────────────
+    // Members submit exercise requests when search finds nothing.
+    match /exerciseRequests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read, update: if isAdmin();
+      allow delete: if false;
+    }
+
     // ─── LEAD / INTAKE ─────────────────────────────────────────────────────────
     match /consultations/{doc} {
       allow read, write: if isAdmin();
@@ -161,37 +186,4 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.clientId || isAdmin());
       allow update: if isAdmin();
       allow create: if isAdmin();
-      allow delete: if false;
-    }
-    match /coachNotifications/{doc} {
-      allow read, update: if isAdmin();
-      allow create: if isAdmin();
-      allow delete: if false;
-    }
-    match /clientTimeline/{doc} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.clientId || isAdmin());
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
-
-    // ─── STRENGTH / PB LOGS (coach-written) ────────────────────────────────────
-    match /exerciseMetricLogs/{doc} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.clientId || isAdmin());
-      allow create: if isAdmin();
-      allow delete: if false;
-    }
-
-    // ─── IMPORT SYSTEM ─────────────────────────────────────────────────────────
-    // activationTokens: Cloud Functions Admin SDK only. Admin can read for debugging.
-    match /activationTokens/{token} {
-      allow read, write: if isAdmin();
-      allow create, update: if false;
-    }
-    // importBatches: audit log, Cloud Functions Admin SDK only.
-    match /importBatches/{batchId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-  }
-}
+      allow dele

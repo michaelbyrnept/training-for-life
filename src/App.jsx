@@ -68,6 +68,12 @@ import GymLanding from "./pages/GymLanding";
 import MyWorkouts from "./pages/MyWorkouts";
 import WorkoutBuilder from "./pages/WorkoutBuilder";
 import MyWorkoutSession from "./pages/MyWorkoutSession";
+import MyProgrammes from "./pages/MyProgrammes";
+import ProgrammeBuilder from "./pages/ProgrammeBuilder";
+import MyProgrammeView from "./pages/MyProgrammeView";
+import Integrations from "./pages/Integrations";
+import StravaCallback from "./pages/StravaCallback";
+import AdminIntegrations from "./pages/Admin/AdminIntegrations";
 
 export default function App() {
   return (
@@ -139,12 +145,4 @@ export default function App() {
       <Route path="/activate/:token" element={<AccountActivation />} />
       <Route path="/start" element={<GymLanding />} />
       <Route path="/admin/import-clients" element={<AdminRoute><AdminImportClients /></AdminRoute>} />
-      {/* Premium Workout Builder */}
-      <Route path="/my-workouts" element={<MyWorkouts />} />
-      <Route path="/my-workouts/new" element={<WorkoutBuilder />} />
-      <Route path="/my-workouts/:workoutId/edit" element={<WorkoutBuilder />} />
-      <Route path="/my-workouts/:workoutId" element={<MyWorkoutSession />} />
-    </Routes>
-    </>
-  )
-}
+      {/* Premium Workout Bu

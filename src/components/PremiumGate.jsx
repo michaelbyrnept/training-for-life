@@ -12,6 +12,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { useFeatures } from "../hooks/useFeatures";
+import { useUserProfile } from "../hooks/useUserProfile";
 
 const PREMIUM_MONTHLY_PRICE_ID = "price_1Tn3fsPojX8gToKVeUfENsCZ";
 
@@ -48,7 +50,20 @@ const REASONS = {
 
 export default function PremiumGate({ reason = "generic", onClose, onUpgrade }) {
   const navigate = useNavigate();
-  const content = REASONS[reason] || REASONS.generic;
+  const { profile } = useUserProfile();
+  const hadTrial = profile?.hadTrial === true;
+  const trialExpired = hadTrial && profile?.subscriptionStatus === "expired_trial";
+
+  // Override content for post-trial users
+  const baseContent = REASONS[reason] || REASONS.generic;
+  const content = trialExpired ? {
+    ...baseContent,
+    icon: "⭐",
+    title: "Your Trial Is Up",
+    subtitle: "Upgrade to Premium to keep your custom workouts, progress tracking, and everything else you've been using.",
+    cta: "Upgrade to Premium",
+  } : baseContent;
+
   const [loading, setLoading] = useState(false);
 
   const handleUpgrade = async () => {
@@ -202,53 +217,4 @@ export default function PremiumGate({ reason = "generic", onClose, onUpgrade }) 
                   }}
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 6l3 3 5-5" stroke="#2d6a4f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <p style={{ fontSize: 14, color: "#111", margin: 0, fontWeight: 500 }}>{benefit}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA buttons */}
-        <div style={{ padding: "24px 16px 0", display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            onClick={handleUpgrade}
-            style={{
-              width: "100%",
-              padding: "16px",
-              borderRadius: "14px",
-              border: "none",
-              backgroundColor: "#2d6a4f",
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {loading ? "Redirecting to checkout..." : `${content.cta} — €19.99/month`}
-          </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              style={{
-                width: "100%",
-                padding: "14px",
-                borderRadius: "14px",
-                border: "none",
-                backgroundColor: "transparent",
-                color: "#888",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Maybe later
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+                    <path d="M2 6l3 3 5-5" stroke=

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy } from "firebase/firestore";
 import { db } from "../../firebase";
 import { Link } from "react-router-dom";
 
@@ -42,11 +42,51 @@ export default function AdminExercises() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState({});
+  const [requests, setRequests] = useState([]);
+  const [showRequests, setShowRequests] = useState(false);
+  const [dismissingId, setDismissingId] = useState(null);
 
   const toggleGroup = (group) =>
     setCollapsed(prev => ({ ...prev, [group]: !prev[group] }));
 
-  useEffect(() => { fetchExercises(); }, []);
+  useEffect(() => {
+    fetchExercises();
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    try {
+      const snap = await getDocs(query(collection(db, "exerciseRequests"), where("status", "==", "pending")));
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => {
+        const at = a.createdAt?.seconds ?? 0;
+        const bt = b.createdAt?.seconds ?? 0;
+        return bt - at;
+      });
+      setRequests(data);
+    } catch (e) {
+      console.error("Failed to fetch exercise requests:", e);
+    }
+  };
+
+  const dismissRequest = async (id) => {
+    setDismissingId(id);
+    try {
+      await updateDoc(doc(db, "exerciseRequests", id), { status: "dismissed" });
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+    } catch (e) { console.error(e); }
+    setDismissingId(null);
+  };
+
+  const fulfillRequest = async (id, exerciseName) => {
+    await updateDoc(doc(db, "exerciseRequests", id), { status: "fulfilled" });
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+    // Pre-fill the add exercise form
+    setForm({ ...empty, name: exerciseName });
+    setEditing(null);
+    setShowForm(true);
+    setShowRequests(false);
+  };
 
   const fetchExercises = async () => {
     setLoading(true);
@@ -123,9 +163,60 @@ export default function AdminExercises() {
 
       <div style={{ padding: "1.5rem 1.25rem 1rem" }}>
         <Link to="/admin" style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 600, textDecoration: "none" }}>← Admin</Link>
-        <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#111", margin: "8px 0 4px" }}>Exercise Library</h1>
-        <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>{exercises.length} exercises</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+          <div>
+            <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Exercise Library</h1>
+            <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>{exercises.length} exercises</p>
+          </div>
+          {requests.length > 0 && (
+            <button
+              onClick={() => setShowRequests((v) => !v)}
+              style={{ position: "relative", backgroundColor: "#fffbeb", border: "1.5px solid #f59e0b", borderRadius: 12, padding: "8px 14px", fontWeight: 700, fontSize: 13, color: "#b45309", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            >
+              Requests
+              <span style={{ backgroundColor: "#f59e0b", color: "#fff", borderRadius: "50%", width: 20, height: 20, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {requests.length}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Exercise Request Queue */}
+      {showRequests && requests.length > 0 && (
+        <div style={{ margin: "0 1.25rem 1.5rem", backgroundColor: "#fffbeb", borderRadius: 16, border: "1.5px solid #f59e0b", padding: "16px" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>
+            Member Exercise Requests
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {requests.map((req) => (
+              <div key={req.id} style={{ backgroundColor: "#fff", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{req.exerciseName}</p>
+                  <p style={{ fontSize: 11, color: "#aaa", margin: 0 }}>
+                    {req.createdAt?.seconds ? new Date(req.createdAt.seconds * 1000).toLocaleDateString("en-IE", { day: "numeric", month: "short" }) : ""}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => fulfillRequest(req.id, req.exerciseName)}
+                    style={{ backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Add it
+                  </button>
+                  <button
+                    onClick={() => dismissRequest(req.id)}
+                    disabled={dismissingId === req.id}
+                    style={{ backgroundColor: "#f0f0f0", color: "#888", border: "none", borderRadius: 8, padding: "7px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ margin: "0 1.25rem 1.5rem", backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "20px" }}>
@@ -277,71 +368,4 @@ export default function AdminExercises() {
       ) : filtered.length === 0 ? (
         <p style={{ textAlign: "center", color: "#888", padding: "2rem" }}>No exercises found.</p>
       ) : (
-        Object.entries(grouped).map(([group, items]) => (
-          <div key={group} style={{ marginBottom: "1rem" }}>
-            <button
-              onClick={() => toggleGroup(group)}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 1.25rem",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#888" }}>
-                {group} ({items.length})
-              </span>
-              <span style={{ fontSize: 14, color: "#aaa", fontWeight: 700 }}>
-                {collapsed[group] ? "▸" : "▾"}
-              </span>
-            </button>
-            {!collapsed[group] && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "0 1.25rem" }}>
-              {items.map((exercise) => (
-                <div key={exercise.id} style={{ backgroundColor: "#fff", borderRadius: "12px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 700, fontSize: "15px", color: "#111", margin: 0 }}>{exercise.name}</p>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px", flexWrap: "wrap" }}>
-                      {exercise.type === "cardio" ? (
-                        <>
-                          <span style={{ fontSize: "10px", backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>🏃 Cardio</span>
-                          <span style={{ fontSize: "10px", backgroundColor: "#f3f4f6", color: "#666", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>{exercise.defaultDuration || 30} min</span>
-                        </>
-                      ) : (
-                        <>
-                          <span style={{ fontSize: "10px", color: "#888" }}>{exercise.defaultSets || 3} sets</span>
-                          <span style={{ fontSize: "10px", backgroundColor: "#eaf5ef", color: "#2d6a4f", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>
-                            {exercise.repsMin || 8}-{exercise.repsMax || exercise.defaultReps || 12} reps
-                          </span>
-                          {exercise.countPerSide && (
-                            <span style={{ fontSize: "10px", backgroundColor: "#f5f3ff", color: "#7c3aed", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>per side</span>
-                          )}
-                        </>
-                      )}
-                      {exercise.videoUrl && <span style={{ fontSize: "10px", backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>Video</span>}
-                      {exercise.coachingNotes && <span style={{ fontSize: "10px", backgroundColor: "#f3f4f6", color: "#666", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>Notes</span>}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button onClick={() => handleEdit(exercise)} style={smallBtnStyle("#eaf5ef", "#2d6a4f")}>Edit</button>
-                    <button onClick={() => handleDelete(exercise.id)} style={smallBtnStyle("#fef2f2", "#dc2626")}>Delete</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            )}
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-const labelStyle = { display: "block", fontSize: "12px", fontWeight: 600, color: "#555", marginBottom: "6px", marginTop: "14px" };
-const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", color: "#111", backgroundColor: "#fafafa", boxSizing: "border-box" };
-const smallBtnStyle = (bg, color) => ({ backgroundColor: bg, color, border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer" });
+        Object.entries(grouped).map(([group,

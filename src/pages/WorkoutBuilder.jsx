@@ -11,6 +11,21 @@ import PortalNav from "../components/PortalNav";
 import PremiumGate from "../components/PremiumGate";
 import { useFeatures } from "../hooks/useFeatures";
 
+async function requestExercise(userId, exerciseName) {
+  try {
+    await addDoc(collection(db, "exerciseRequests"), {
+      exerciseName: exerciseName.trim(),
+      userId,
+      status: "pending",
+      createdAt: serverTimestamp(),
+    });
+    return true;
+  } catch (e) {
+    console.error("Exercise request failed:", e);
+    return false;
+  }
+}
+
 const MUSCLE_HIERARCHY = {
   Legs: ["Quads", "Hamstrings", "Calves", "Glutes", "Adductors"],
   Arms: ["Biceps", "Triceps"],
@@ -32,13 +47,15 @@ function hasVideo(ex) {
   return !!(ex.videoUrl?.trim() || ex.media?.demoUrl?.trim() || ex.media?.demoThumbnailUrl?.trim());
 }
 
-function ExercisePicker({ onSelect, onClose }) {
+function ExercisePicker({ onSelect, onClose, userId }) {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [subFilter, setSubFilter] = useState(null);
   const [search, setSearch] = useState("");
   const [videoOnly, setVideoOnly] = useState(true);
+  const [requestSent, setRequestSent] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   const handleSetFilter = (g) => {
     setFilter(g);
@@ -221,12 +238,47 @@ function ExercisePicker({ onSelect, onClose }) {
           )}
 
           {!loading && filtered.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <div style={{ textAlign: "center", padding: "40px 16px" }}>
               <p style={{ color: "#aaa", fontSize: 14, margin: "0 0 6px" }}>No exercises found</p>
               {subFilter && (
-                <p style={{ color: "#bbb", fontSize: 12, margin: 0 }}>
+                <p style={{ color: "#bbb", fontSize: 12, margin: "0 0 16px" }}>
                   None tagged "{subFilter}" yet. Tap "All {filter}" to see all.
                 </p>
+              )}
+              {search.trim().length > 1 && !requestSent && (
+                <div style={{ marginTop: 12 }}>
+                  <p style={{ fontSize: 13, color: "#888", margin: "0 0 10px" }}>
+                    Can't find "{search.trim()}"?
+                  </p>
+                  <button
+                    onClick={async () => {
+                      setRequesting(true);
+                      const ok = await requestExercise(userId, search.trim());
+                      setRequesting(false);
+                      if (ok) setRequestSent(true);
+                    }}
+                    disabled={requesting}
+                    style={{
+                      backgroundColor: "#1a3a2a",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "10px 18px",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: requesting ? "not-allowed" : "pointer",
+                      opacity: requesting ? 0.7 : 1,
+                    }}
+                  >
+                    {requesting ? "Sending..." : `Request "${search.trim()}"`}
+                  </button>
+                </div>
+              )}
+              {requestSent && (
+                <div style={{ marginTop: 12, backgroundColor: "#eaf5ef", borderRadius: 10, padding: "12px 16px" }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#2d6a4f", margin: "0 0 2px" }}>Request sent!</p>
+                  <p style={{ fontSize: 12, color: "#5a9e7a", margin: 0 }}>Michael will add it to the library soon.</p>
+                </div>
               )}
             </div>
           )}
@@ -662,75 +714,4 @@ export default function WorkoutBuilder() {
                   index={i}
                   total={exercises.length}
                   onChange={(updated) => updateExercise(i, updated)}
-                  onRemove={() => removeExercise(i)}
-                  onMoveUp={() => moveExercise(i, -1)}
-                  onMoveDown={() => moveExercise(i, 1)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Add exercise button */}
-        <button
-          onClick={() => setShowPicker(true)}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "14px",
-            border: "2px dashed #2d6a4f",
-            backgroundColor: exercises.length === 0 ? "#eaf5ef" : "transparent",
-            color: "#2d6a4f",
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: "pointer",
-            marginBottom: 24,
-          }}
-        >
-          + Add Exercise
-        </button>
-
-        {/* Error */}
-        {error && (
-          <div style={{ backgroundColor: "#fef2f2", border: "0.5px solid #fca5a5", borderRadius: "12px", padding: "12px 14px", marginBottom: 16 }}>
-            <p style={{ color: "#dc2626", fontSize: 13, fontWeight: 600, margin: 0 }}>{error}</p>
-          </div>
-        )}
-
-        {/* Save button */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          style={{
-            width: "100%",
-            padding: "16px",
-            borderRadius: "14px",
-            border: "none",
-            backgroundColor: saving ? "#aaa" : "#2d6a4f",
-            color: "#fff",
-            fontSize: 16,
-            fontWeight: 700,
-            cursor: saving ? "default" : "pointer",
-          }}
-        >
-          {saving ? "Saving..." : isEditing ? "Save Changes" : "Save Workout"}
-        </button>
-
-        {/* Free tier tip */}
-        {!features.isPremium && !isEditing && (
-          <p style={{ fontSize: 12, color: "#aaa", textAlign: "center", marginTop: 12 }}>
-            Free plan: 1 saved workout. Upgrade for unlimited.
-          </p>
-        )}
-      </div>
-
-      {showPicker && (
-        <ExercisePicker onSelect={addExercise} onClose={() => setShowPicker(false)} />
-      )}
-
-      {showGate && (
-        <PremiumGate reason="workout_limit" onClose={() => setShowGate(false)} />
-      )}
-    </div>
-  );
-}
+                  onRemove={() =>

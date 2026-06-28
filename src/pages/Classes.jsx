@@ -399,3 +399,4 @@ function ClassCard({ cls, attended, past, marking, onMarkAttended }) {
   }
   return card;
 }
+   

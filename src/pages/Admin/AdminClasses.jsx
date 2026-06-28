@@ -4,18 +4,30 @@ import { db } from "../../firebase";
 import { Link } from "react-router-dom";
 
 const CLASS_TYPES = [
-  { id: "strength", label: "Strength", icon: "🏋️", color: "#2d6a4f", bg: "#eaf5ef" },
-  { id: "conditioning", label: "Conditioning", icon: "🔥", color: "#b45309", bg: "#fffbeb" },
-  { id: "spin", label: "Spin", icon: "🚴", color: "#0369a1", bg: "#e0f2fe" },
+  { id: "strength", label: "Strength", icon: "🏋️", color: "#2d6a4f", bg: "#eaf5ef", trackWeights: true },
+  { id: "conditioning", label: "Conditioning", icon: "🔥", color: "#b45309", bg: "#fffbeb", trackWeights: false },
+  { id: "spin", label: "Spin", icon: "🚴", color: "#0369a1", bg: "#e0f2fe", trackWeights: false },
+  { id: "hyrox", label: "Hyrox", icon: "⚡", color: "#7c3aed", bg: "#f5f3ff", trackWeights: false },
+  { id: "tryka", label: "Tryka", icon: "🏃", color: "#dc2626", bg: "#fef2f2", trackWeights: false },
+  { id: "pilates", label: "Pilates", icon: "🧘", color: "#0891b2", bg: "#ecfeff", trackWeights: false },
+  { id: "pump", label: "Pump", icon: "💪", color: "#b45309", bg: "#fffbeb", trackWeights: false },
+  { id: "ass_abs", label: "Ass & Abs", icon: "🍑", color: "#db2777", bg: "#fdf2f8", trackWeights: false },
 ];
 
 const TIMES = ["06:00","06:30","07:00","07:30","07:35","08:00","08:30","09:00","09:30","10:00","10:30","11:00","12:00","13:00","13:15","17:00","17:30","18:00","18:30","19:00"];
 
 const emptyBlock = () => ({ duration: 10, goal: "", exercises: [] });
 
+const localDateStr = (d = new Date()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 const emptyForm = {
   type: "strength",
-  date: new Date().toISOString().split("T")[0],
+  date: localDateStr(),
   time: "07:35",
   duration: 30,
   title: "",
@@ -32,6 +44,8 @@ export default function AdminClasses() {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [pickerState, setPickerState] = useState(null); // { blockIndex, search }
+  const [weekView, setWeekView] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = this week, 1 = next week, etc.
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -41,7 +55,11 @@ export default function AdminClasses() {
       getDocs(collection(db, "classes")),
       getDocs(collection(db, "exercises")),
     ]);
-    setClasses(classSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => new Date(a.date) - new Date(b.date)));
+    setClasses(classSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => {
+      const dateCompare = new Date(a.date) - new Date(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return (a.time || "").localeCompare(b.time || "");
+    }));
     setExercises(exSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => e.name).sort((a, b) => a.name.localeCompare(b.name)));
     setLoading(false);
   };
@@ -70,7 +88,7 @@ export default function AdminClasses() {
   const handleEdit = (cls) => {
     setForm({
       type: cls.type || "strength",
-      date: cls.date || new Date().toISOString().split("T")[0],
+      date: cls.date || localDateStr(),
       time: cls.time || "07:35",
       duration: cls.duration || 30,
       title: cls.title || "",
@@ -126,15 +144,25 @@ export default function AdminClasses() {
     return acc;
   }, {});
 
-  const isStrengthForm = form.type === "strength";
+  const isStrengthForm = CLASS_TYPES.find(t => t.id === form.type)?.trackWeights ?? false;
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "2rem" }}>
       <div style={{ padding: "1.5rem 1.25rem 1rem" }}>
         <Link to="/admin" style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 600, textDecoration: "none" }}>← Admin</Link>
-        <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#111", margin: "8px 0 4px" }}>Class Timetable</h1>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "8px 0 4px" }}>
+          <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#111", margin: 0 }}>Class Timetable</h1>
+          <button
+            onClick={() => setWeekView(v => !v)}
+            style={{ padding: "8px 14px", borderRadius: "10px", border: "none", background: weekView ? "#2d6a4f" : "#e5e5e5", color: weekView ? "#fff" : "#555", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
+          >
+            {weekView ? "List View" : "Week View"}
+          </button>
+        </div>
         <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>{classes.length} classes scheduled</p>
       </div>
+
+      {weekView && <WeekSnapshot classes={classes} weekOffset={weekOffset} onOffsetChange={setWeekOffset} />}
 
       {showForm && (
         <div style={{ margin: "0 1.25rem 1.5rem", backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "20px" }}>
@@ -159,9 +187,7 @@ export default function AdminClasses() {
           <input type="date" style={inputStyle} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
 
           <p style={labelStyle}>Time</p>
-          <select style={inputStyle} value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))}>
-            {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <input type="time" style={inputStyle} value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
 
           <p style={labelStyle}>Duration (minutes)</p>
           <input style={inputStyle} type="number" value={form.duration} onChange={e => setForm(f => ({ ...f, duration: Number(e.target.value) }))} />
@@ -354,68 +380,36 @@ export default function AdminClasses() {
   );
 }
 
-function QuickCreateExercise({ name, onCreated, onCancel }) {
-  const [form, setForm] = useState({
-    name: name || "",
-    muscleGroup: "Legs",
-    type: "strength",
-    videoUrl: "",
-    defaultSets: 3,
-    repsMin: 8,
-    repsMax: 12,
-  });
-  const [saving, setSaving] = useState(false);
-
-  const MUSCLE_GROUPS = ["Legs", "Chest", "Back", "Shoulders", "Arms", "Core", "Full Body"];
-
-  const handleCreate = async () => {
-    if (!form.name.trim()) return alert("Exercise name required.");
-    setSaving(true);
-    try {
-      const ref = await addDoc(collection(db, "exercises"), {
-        ...form,
-        coachingNotes: "",
-        createdAt: new Date().toISOString(),
-      });
-      onCreated({ id: ref.id, ...form });
-    } catch (e) {
-      console.error(e);
-      alert("Error creating exercise.");
-    }
-    setSaving(false);
+function WeekSnapshot({ classes, weekOffset, onOffsetChange }) {
+  const getMonday = (offset = 0) => {
+    const d = new Date();
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
   };
 
-  return (
-    <div style={{ backgroundColor: "#eaf5ef", borderRadius: "10px", padding: "12px", marginTop: "8px", border: "1px solid #86efac" }}>
-      <p style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", margin: "0 0 10px" }}>Create New Exercise</p>
-      <input
-        style={{ ...inputStyle, marginBottom: "8px" }}
-        placeholder="Exercise name"
-        value={form.name}
-        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-        autoFocus
-      />
-      <select style={{ ...inputStyle, marginBottom: "8px" }} value={form.muscleGroup} onChange={e => setForm(f => ({ ...f, muscleGroup: e.target.value }))}>
-        {MUSCLE_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-      </select>
-      <input
-        style={{ ...inputStyle, marginBottom: "10px" }}
-        placeholder="Video URL (optional)"
-        value={form.videoUrl}
-        onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value }))}
-      />
-      <div style={{ display: "flex", gap: "8px" }}>
-        <button onClick={handleCreate} disabled={saving} style={{ flex: 1, backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
-          {saving ? "Creating..." : "Create & Add"}
-        </button>
-        <button onClick={onCancel} style={{ backgroundColor: "#fff", color: "#555", border: "0.5px solid #e5e5e5", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
+  const monday = getMonday(weekOffset);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
 
-const labelStyle = { display: "block", fontSize: "12px", fontWeight: 600, color: "#555", marginBottom: "6px", marginTop: "14px" };
-const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", color: "#111", backgroundColor: "#fafafa", boxSizing: "border-box" };
-const smallBtn = (bg, color) => ({ backgroundColor: bg, color, border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer" });
+  const toDateStr = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const weekLabel = `${monday.toLocaleDateString("en-IE", { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString("en-IE", { day: "numeric", month: "short" })}`;
+
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  return (
+    <div style={{ margin: "0 1rem 1.5rem", background: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", overflow: "hidden" }}>
+      {/* Week nav */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #f0f0f0" }}>
+        <button onClick={() => onOffsetChange(weekOffset - 1)} st

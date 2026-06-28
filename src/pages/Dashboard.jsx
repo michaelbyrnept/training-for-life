@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
+import { useFeatures } from "../hooks/useFeatures";
 
 const ADMIN_UID = "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
 const WEEKLY_TARGETS = { strength: 3, cardio: 2, mobility: 1 };
@@ -31,6 +32,7 @@ function normalizeDate(val) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { isPremium, tier } = useFeatures();
   const [firstName, setFirstName] = useState("");
   const [userData, setUserData] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -434,47 +436,151 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* PREMIUM TRIAL BANNER -- shown when on an app-granted trial (no Stripe sub) */}
+      {userData?.subscriptionStatus === "trialing" && !userData?.stripeSubscriptionId && userData?.trialEndsAt && (() => {
+        const endsAt = userData.trialEndsAt?.toDate ? userData.trialEndsAt.toDate() : new Date(userData.trialEndsAt);
+        const daysLeft = Math.max(0, Math.ceil((endsAt - new Date()) / 86400000));
+        const urgent = daysLeft <= 3;
+        return (
+          <div style={{ padding: "0 16px", marginBottom: "12px" }}>
+            <Link to="/bundles" style={{ textDecoration: "none", display: "block" }}>
+              <div style={{ background: urgent ? "linear-gradient(135deg, #b45309 0%, #92400e 100%)" : "linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 100%)", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "14px" }}>
+                <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>
+                  {urgent ? "⏰" : "⭐"}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>
+                    {daysLeft === 0 ? "Your Premium trial ends today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in your free trial`}
+                  </p>
+                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)", margin: 0 }}>
+                    Subscribe now to keep Premium access
+                  </p>
+                </div>
+                <div style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff", fontSize: "12px", fontWeight: 700, padding: "6px 12px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                  €19.99 →
+                </div>
+              </div>
+            </Link>
+          </div>
+        );
+      })()}
+
+      {/* BOOK SESSIONS / ONLINE COACHING CTAs -- shown to users who aren't already on an in-person/hybrid plan */}
+      {walletBalance === null && (() => {
+        // Resolve effective tier (check legacy subscription field as fallback)
+        const sub = userData?.subscription ?? "";
+        const effectiveTier = tier !== "free" ? tier
+          : sub === "online" ? "online"
+          : sub === "hybrid" ? "hybrid"
+          : sub === "elite" ? "elite"
+          : isPremium ? "premium"
+          : "free";
+
+        // At Elite, no upsell card needed
+        if (effectiveTier === "elite") return null;
+
+        const upsell = {
+          free:    { emoji: "💻", title: "Upgrade your membership",      sub: "Premium app, online coaching, hybrid and more" },
+          premium: { emoji: "💻", title: "Take your training further",    sub: "Online and hybrid coaching from €149/month" },
+          premium_annual: { emoji: "💻", title: "Take your training further", sub: "Online and hybrid coaching from €149/month" },
+          online:  { emoji: "🏋️", title: "Level up to Hybrid coaching",  sub: "Add optional in-person sessions for €249/month" },
+          hybrid:  { emoji: "🏆", title: "Go Elite",                     sub: "Daily check-ins, fully managed results for €999/month" },
+        }[effectiveTier] ?? { emoji: "💻", title: "Upgrade your membership", sub: "Premium app, online coaching, hybrid and more" };
+
+        return (
+          <div style={{ padding: "0 16px", marginBottom: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <Link to="/bundles?tab=inperson" style={{ textDecoration: "none", display: "block" }}>
+              <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "14px" }}>
+                <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "#2d6a4f", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>
+                  🏋️
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>Book sessions with Michael</p>
+                  <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>1:1 in-person training in South Dublin</p>
+                </div>
+                <div style={{ fontSize: "18px", color: "#9fe1cb", flexShrink: 0 }}>→</div>
+              </div>
+            </Link>
+            <Link to="/bundles" style={{ textDecoration: "none", display: "block" }}>
+              <div style={{ backgroundColor: "#fff", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "14px", border: "1.5px solid #e5e5e5" }}>
+                <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "#eaf5ef", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>
+                  {upsell.emoji}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#1a3a2a", margin: "0 0 2px" }}>{upsell.title}</p>
+                  <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>{upsell.sub}</p>
+                </div>
+                <div style={{ fontSize: "18px", color: "#2d6a4f", flexShrink: 0 }}>→</div>
+              </div>
+            </Link>
+          </div>
+        );
+      })()}
+
       {/* SESSION CREDITS + NEXT SESSION */}
       {walletBalance !== null && (
         <div style={{ padding: "0 16px", marginBottom: "12px" }}>
-          <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "16px" }}>
-            {/* Credit balance */}
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Session Credits</p>
-              <p style={{ fontSize: "32px", fontWeight: 700, color: walletBalance <= 2 ? "#f87171" : "#fff", lineHeight: 1, margin: "0 0 4px" }}>
-                {walletBalance}
-              </p>
-              <p style={{ fontSize: "12px", color: walletBalance <= 2 ? "#f87171" : "#9fe1cb", margin: 0 }}>
-                {walletBalance === 0 ? "No credits remaining" : walletBalance === 1 ? "1 credit remaining" : `${walletBalance} credits remaining`}
-              </p>
+          <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              {/* Credit balance */}
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Session Credits</p>
+                <p style={{ fontSize: "32px", fontWeight: 700, color: walletBalance <= 2 ? "#f87171" : "#fff", lineHeight: 1, margin: "0 0 4px" }}>
+                  {walletBalance}
+                </p>
+                <p style={{ fontSize: "12px", color: walletBalance <= 2 ? "#f87171" : "#9fe1cb", margin: 0 }}>
+                  {walletBalance === 0 ? "No credits remaining" : walletBalance === 1 ? "1 credit remaining" : `${walletBalance} credits remaining`}
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div style={{ width: "1px", height: "60px", backgroundColor: "rgba(255,255,255,0.1)" }} />
+
+              {/* Next session */}
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Next Session</p>
+                {nextSession ? (
+                  <>
+                    <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px", lineHeight: 1.2 }}>
+                      {(() => {
+                        const d = nextSession.date?.toDate ? nextSession.date.toDate() : new Date(nextSession.date);
+                        return d.toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" });
+                      })()}
+                    </p>
+                    <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>
+                      {(() => {
+                        const d = nextSession.date?.toDate ? nextSession.date.toDate() : new Date(nextSession.date);
+                        return d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
+                      })()}
+                      {" "}&middot;{" "}{nextSession.type}
+                    </p>
+                  </>
+                ) : (
+                  <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.3 }}>None booked yet</p>
+                )}
+              </div>
             </div>
 
-            {/* Divider */}
-            <div style={{ width: "1px", height: "60px", backgroundColor: "rgba(255,255,255,0.1)" }} />
-
-            {/* Next session */}
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Next Session</p>
-              {nextSession ? (
-                <>
-                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px", lineHeight: 1.2 }}>
-                    {(() => {
-                      const d = nextSession.date?.toDate ? nextSession.date.toDate() : new Date(nextSession.date);
-                      return d.toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" });
-                    })()}
-                  </p>
-                  <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>
-                    {(() => {
-                      const d = nextSession.date?.toDate ? nextSession.date.toDate() : new Date(nextSession.date);
-                      return d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
-                    })()}
-                    {" "}&middot;{" "}{nextSession.type}
-                  </p>
-                </>
-              ) : (
-                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.3 }}>None booked yet</p>
-              )}
-            </div>
+            {/* Buy sessions CTA -- shown when credits are low */}
+            {walletBalance <= 2 && (
+              <Link
+                to="/bundles?tab=inperson"
+                style={{
+                  display: "block",
+                  marginTop: "14px",
+                  padding: "12px",
+                  background: walletBalance === 0 ? "#f87171" : "#2d6a4f",
+                  borderRadius: "10px",
+                  textAlign: "center",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#fff",
+                  textDecoration: "none",
+                }}
+              >
+                {walletBalance === 0 ? "Buy sessions to continue training →" : "Top up your sessions →"}
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -674,111 +780,4 @@ export default function Dashboard() {
                   <span style={{ fontSize: "13px", color: item.done >= item.target ? "#c5e8d8" : "rgba(255,255,255,0.7)", fontWeight: item.done >= item.target ? 700 : 400 }}>
                     {item.label} {item.comingSoon ? "(coming soon)" : ""}
                   </span>
-                </div>
-                <div style={{ display: "flex", gap: "5px" }}>
-                  {Array.from({ length: item.target }).map((_, i) => (
-                    <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", backgroundColor: i < item.done ? "#4ade80" : "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {i < item.done && (
-                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-                          <path d="M1.5 4.5l2 2 4-4" stroke="#1a3a2a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <Link to="/training" style={{ display: "block", textAlign: "center", marginTop: "14px", fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none" }}>
-            Manage my programmes →
-          </Link>
-        </div>
-      </div>
-
-      {/* QUICK ACTIONS */}
-      <div style={{ padding: "16px 16px 0", display: "flex", gap: "10px" }}>
-        <Link to="/capability-score" style={{ flex: 1, backgroundColor: "#fff", border: "0.5px solid #e5e5e5", borderRadius: "12px", padding: "12px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#2d6a4f", textDecoration: "none" }}>
-          {capabilityScore ? "Retake Assessment" : "Take Assessment"}
-        </Link>
-        <Link to="/training" style={{ flex: 1, backgroundColor: "#2d6a4f", borderRadius: "12px", padding: "12px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#fff", textDecoration: "none" }}>
-          View Training
-        </Link>
-      </div>
-
-      {/* SCORE HISTORY MODAL */}
-      {showScoreModal && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) setShowScoreModal(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
-          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px" }}>
-            <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
-            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Capability Score</h2>
-            <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>
-              {allScores.length > 1 ? `${allScores.length} assessments completed` : "Reassess every 30 days to track progress"}
-            </p>
-
-            {allScores.length > 1 ? (
-              /* REAL HISTORY GRAPH */
-              <div style={{ background: "#f7f5f2", borderRadius: "12px", padding: "16px", marginBottom: "16px" }}>
-                <svg viewBox="0 0 300 120" width="100%" style={{ display: "block", overflow: "visible" }}>
-                  {(() => {
-                    const vals = allScores.map(s => s.capabilityScore);
-                    const minV = Math.min(...vals);
-                    const maxV = Math.max(...vals);
-                    const range = maxV - minV || 1;
-                    const coords = vals.map((v, i) => ({
-                      x: 16 + (i / (vals.length - 1)) * 268,
-                      y: 100 - ((v - minV) / range) * 80,
-                      v,
-                      date: allScores[i].assessmentDate,
-                    }));
-                    const pts = coords.map(c => `${c.x},${c.y}`).join(" ");
-                    const fillPts = `${coords[0].x},110 ${pts} ${coords[coords.length - 1].x},110`;
-                    return (
-                      <>
-                        <defs>
-                          <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#2d6a4f" stopOpacity="0.2"/>
-                            <stop offset="100%" stopColor="#2d6a4f" stopOpacity="0"/>
-                          </linearGradient>
-                        </defs>
-                        <polygon points={fillPts} fill="url(#grad)"/>
-                        <polyline points={pts} fill="none" stroke="#2d6a4f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        {coords.map((c, i) => (
-                          <g key={i}>
-                            <circle cx={c.x} cy={c.y} r="4" fill="#2d6a4f" stroke="#fff" strokeWidth="2"/>
-                            <text x={c.x} y={c.y - 10} textAnchor="middle" fontSize="10" fill="#2d6a4f" fontWeight="700">{c.v}</text>
-                          </g>
-                        ))}
-                      </>
-                    );
-                  })()}
-                </svg>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0 0" }}>
-                  {allScores.map((s, i) => (
-                    <span key={i} style={{ fontSize: "10px", color: "#aaa", fontWeight: 600, flex: 1, textAlign: "center" }}>
-                      {new Date(s.assessmentDate).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              /* ONLY ONE SCORE -- show current + prompt to retest */
-              <div style={{ background: "#f7f5f2", borderRadius: "12px", padding: "20px", marginBottom: "16px", textAlign: "center" }}>
-                <p style={{ fontSize: "48px", fontWeight: 700, color: "#2d6a4f", margin: "0 0 4px", lineHeight: 1 }}>{capabilityScore}</p>
-                <p style={{ fontSize: "14px", color: "#888", margin: "0 0 4px" }}>{category}</p>
-                <p style={{ fontSize: "12px", color: "#aaa", margin: 0 }}>
-                  Assessed {new Date(assessmentDate).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}
-                </p>
-                <p style={{ fontSize: "12px", color: "#aaa", margin: "12px 0 0" }}>Retake in 30 days to see your progress graph</p>
-              </div>
-            )}
-
-            <Link to="/capability-score" onClick={() => setShowScoreModal(false)} style={{ display: "block", textAlign: "center", background: "#2d6a4f", color: "#fff", borderRadius: "12px", padding: "13px", fontSize: "14px", fontWeight: 700, textDecoration: "none" }}>
-              {capabilityScore ? "Retake Assessment" : "Take Assessment"}
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+              

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { auth, db, storage, functions } from "../firebase";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, addDoc, orderBy } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, addDoc, orderBy, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useNavigate, Link } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
@@ -68,6 +68,8 @@ export default function Profile() {
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [myGroups, setMyGroups] = useState([]);
   const [groupSessions, setGroupSessions] = useState([]);
+  const [stravaConnected, setStravaConnected] = useState(null); // null=loading
+  const [personalBests, setPersonalBests] = useState([]);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -132,9 +134,31 @@ export default function Profile() {
         setGroupSessions(upcoming);
       }
 
+      // Load personal bests
+      const pbSnap = await getDocs(
+        query(collection(db, "users", u.uid, "personalBests"), orderBy("achievedAt", "desc"))
+      );
+      setPersonalBests(pbSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    // Real-time Strava connection status
+    let unsubStrava = null;
+    const stravaAuthUnsub = onAuthStateChanged(auth, (u) => {
+      if (!u) return;
+      if (unsubStrava) unsubStrava();
+      unsubStrava = onSnapshot(
+        doc(db, "users", u.uid, "integrations", "strava"),
+        (snap) => setStravaConnected(snap.exists())
+      );
+    });
+
+    return () => {
+      unsubscribe();
+      stravaAuthUnsub();
+      if (unsubStrava) unsubStrava();
+    };
   }, [navigate]);
 
   const handleLogout = async () => {
@@ -528,18 +552,73 @@ export default function Profile() {
         </div>
       )}
 
+      {/* PERSONAL BESTS */}
+      {personalBests.length > 0 && (
+        <div style={{ padding: "16px 16px 0" }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+            Personal Bests
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {personalBests.slice(0, 8).map(pb => (
+              <div key={pb.id} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "10px", background: "#f0f5f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>
+                    🏋️
+                  </div>
+                  <div>
+                    <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{pb.exerciseName}</p>
+                    <p style={{ fontSize: "12px", color: "#888", margin: "2px 0 0" }}>
+                      {pb.bestWeight > 0 && `${pb.bestWeight} kg`}
+                      {pb.bestWeight > 0 && pb.bestReps > 0 && " · "}
+                      {pb.bestReps > 0 && `${pb.bestReps} reps`}
+                    </p>
+                  </div>
+                </div>
+                <p style={{ fontSize: "11px", color: "#bbb", margin: 0 }}>
+                  {pb.achievedAt?.toDate
+                    ? pb.achievedAt.toDate().toLocaleDateString("en-IE", { day: "numeric", month: "short" })
+                    : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* CONNECTED DEVICES */}
       <div style={{ padding: "16px 16px 0" }}>
         <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
           Connected Devices
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+
+          {/* Strava — live connection status */}
+          <div style={{ backgroundColor: "#fff", borderRadius: "14px", border: stravaConnected ? "1.5px solid #FC4C02" : "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ width: 40, height: 40, borderRadius: "10px", background: stravaConnected ? "#fff3ee" : "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg" alt="Strava" style={{ height: "16px" }} />
+              </div>
+              <div>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>Strava</p>
+                <p style={{ fontSize: "12px", color: stravaConnected ? "#FC4C02" : "#aaa", margin: "2px 0 0" }}>
+                  {stravaConnected === null ? "Loading..." : stravaConnected ? "Connected" : "Not connected"}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate("/integrations")}
+              style={{ backgroundColor: stravaConnected ? "#fff3ee" : "#f0f0f0", color: stravaConnected ? "#FC4C02" : "#555", border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+            >
+              {stravaConnected ? "Manage" : "Connect"}
+            </button>
+          </div>
+
+          {/* Garmin + Apple Health — coming soon */}
           {[
-            { name: "Strava", icon: "🟠", status: "Coming soon" },
-            { name: "Garmin", icon: "🔵", status: "Coming soon" },
-            { name: "Apple Health", icon: "⚫", status: "Coming soon" },
+            { name: "Apple Health", icon: "🍎", status: "Coming soon" },
+            { name: "Garmin", icon: "🟦", status: "Coming soon" },
           ].map(d => (
-            <div key={d.name} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div key={d.name} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: 0.6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{ width: 40, height: 40, borderRadius: "10px", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>
                   {d.icon}
@@ -633,78 +712,4 @@ export default function Profile() {
       <div style={{ padding: "8px 16px 0" }}>
         <div style={{ backgroundColor: "#fef2f2", borderRadius: "14px", border: "0.5px solid #fecaca", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
           <p style={{ fontSize: "14px", fontWeight: 600, color: "#dc2626", margin: 0 }}>Delete Account</p>
-          <span style={{ fontSize: "13px", color: "#dc2626" }}>→</span>
-        </div>
-      </div>
-
-      {showCompare && (
-        <ComparePhotosModal photos={photos[activePhotoAngle]} angle={activePhotoAngle} onClose={() => setShowCompare(false)} />
-      )}
-
-    </div>
-  );
-}
-
-function ComparePhotosModal({ photos, angle, onClose }) {
-  const [selected, setSelected] = useState([]);
-  const toggleSelect = (id) => {
-    setSelected(prev => {
-      if (prev.includes(id)) return prev.filter(x => x !== id);
-      if (prev.length >= 2) return [prev[1], id];
-      return [...prev, id];
-    });
-  };
-  const photoA = photos.find(p => p.id === selected[0]);
-  const photoB = photos.find(p => p.id === selected[1]);
-
-  return (
-    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
-      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "85vh", overflowY: "auto" }}>
-        <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: "0 0 4px", textTransform: "capitalize" }}>Compare {angle} Photos</h2>
-        <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Select two photos to compare side by side.</p>
-
-        {photoA && photoB ? (
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            {[photoA, photoB].map(p => (
-              <div key={p.id} style={{ flex: 1 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#888", textAlign: "center", marginBottom: 6 }}>
-                  {new Date(p.date).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}
-                </p>
-                <div style={{ borderRadius: 12, overflow: "hidden", backgroundColor: "#000", aspectRatio: "3/4" }}>
-                  <img src={p.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>
-            {photos.map(p => {
-              const isSelected = selected.includes(p.id);
-              return (
-                <div key={p.id} onClick={() => toggleSelect(p.id)} style={{ position: "relative", borderRadius: 10, overflow: "hidden", backgroundColor: "#000", aspectRatio: "3/4", cursor: "pointer", border: isSelected ? "3px solid #2d6a4f" : "3px solid transparent" }}>
-                  <img src={p.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <p style={{ position: "absolute", bottom: 4, left: 0, right: 0, textAlign: "center", fontSize: 10, color: "#fff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
-                    {new Date(p.date).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
-                  </p>
-                  {isSelected && (
-                    <div style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", backgroundColor: "#2d6a4f", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5l3 3 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {photoA && photoB && (
-          <button onClick={() => setSelected([])} style={{ width: "100%", background: "#f7f5f2", border: "none", borderRadius: 12, padding: 12, fontSize: 13, fontWeight: 700, color: "#2d6a4f", cursor: "pointer", marginBottom: 10 }}>
-            Choose different photos
-          </button>
-        )}
-        <button onClick={onClose} style={{ width: "100%", background: "none", border: "none", fontSize: 13, color: "#aaa", cursor: "pointer", padding: 6 }}>Close</button>
-      </div>
-    </div>
-  );
-}
+          <span style={{ fontSiz

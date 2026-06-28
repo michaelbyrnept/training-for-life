@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { doc, getDoc, getDocs, collection, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, getDocs, collection, addDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db, auth } from "../firebase";
 import PortalNav from "../components/PortalNav";
 
@@ -91,7 +91,7 @@ function RestTimer({ seconds: defaultSeconds, onDismiss }) {
 
 // ─── Completion screen ────────────────────────────────────────────────────────
 
-function CompletionScreen({ workout, durationSeconds, setsCompleted, navigate }) {
+function CompletionScreen({ workout, durationSeconds, setsCompleted, navigate, programmeId }) {
   const mins = Math.floor(durationSeconds / 60);
   const secs = durationSeconds % 60;
 
@@ -114,15 +114,23 @@ function CompletionScreen({ workout, durationSeconds, setsCompleted, navigate })
         </div>
       </div>
 
+      {programmeId && (
+        <button
+          onClick={() => navigate(`/my-programmes/${programmeId}`)}
+          style={{ width: "100%", maxWidth: 340, padding: "16px", borderRadius: "14px", border: "none", backgroundColor: "#2d6a4f", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}
+        >
+          Back to Programme
+        </button>
+      )}
       <button
         onClick={() => navigate("/my-workouts")}
-        style={{ width: "100%", maxWidth: 340, padding: "16px", borderRadius: "14px", border: "none", backgroundColor: "#2d6a4f", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}
+        style={{ width: "100%", maxWidth: 340, padding: "16px", borderRadius: "14px", border: "none", backgroundColor: programmeId ? "transparent" : "#2d6a4f", color: programmeId ? "#888" : "#fff", fontSize: programmeId ? 14 : 16, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}
       >
         Back to My Workouts
       </button>
       <button
         onClick={() => navigate("/dashboard")}
-        style={{ width: "100%", maxWidth: 340, padding: "14px", borderRadius: "14px", border: "none", backgroundColor: "transparent", color: "#888", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+        style={{ width: "100%", maxWidth: 340, padding: "14px", borderRadius: "14px", border: "none", backgroundColor: "transparent", color: "#aaa", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
       >
         Go to Dashboard
       </button>
@@ -135,6 +143,10 @@ function CompletionScreen({ workout, durationSeconds, setsCompleted, navigate })
 export default function MyWorkoutSession() {
   const { workoutId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const programmeId = searchParams.get("programmeId");
+  const programmeWeek = parseInt(searchParams.get("week")) || null;
+  const programmeDay = searchParams.get("day") || null;
 
   const [user, setUser] = useState(null);
   const [workout, setWorkout] = useState(null);
@@ -247,7 +259,7 @@ export default function MyWorkoutSession() {
 
     try {
       // Save workout log
-      await addDoc(collection(db, "workoutLogs"), {
+      const logRef = await addDoc(collection(db, "workoutLogs"), {
         userId: user.uid,
         workoutId: workout.id,
         workoutName: workout.name,
@@ -256,6 +268,7 @@ export default function MyWorkoutSession() {
         completedAt: endTime,
         durationSeconds: dur,
         exercises: logExercises,
+        ...(programmeId ? { programmeId, programmeWeek, programmeDay } : {}),
         healthSnapshot: { restingHeartRate: null, hrv: null, sleepHours: null, source: null },
         createdAt: serverTimestamp(),
       });
@@ -264,6 +277,18 @@ export default function MyWorkoutSession() {
       await updateDoc(doc(db, "users", user.uid, "workouts", workout.id), {
         lastUsedAt: serverTimestamp(),
       });
+
+      // Mark session complete on the programme
+      if (programmeId && programmeWeek && programmeDay) {
+        await updateDoc(doc(db, "users", user.uid, "userProgrammes", programmeId), {
+          completedSessions: arrayUnion({
+            week: programmeWeek,
+            day: programmeDay,
+            logId: logRef.id,
+            completedAt: endTime.toISOString(),
+          }),
+        });
+      }
 
       setFinished(true);
     } catch (e) {
@@ -294,6 +319,7 @@ export default function MyWorkoutSession() {
           durationSeconds={durationSeconds}
           setsCompleted={completedSets}
           navigate={navigate}
+          programmeId={programmeId}
         />
       </>
     );
@@ -515,44 +541,4 @@ export default function MyWorkoutSession() {
                 </div>
 
                 {/* Notes */}
-                {ex.notes && (
-                  <div style={{ borderTop: "0.5px solid #f0f0f0", padding: "10px 16px" }}>
-                    <p style={{ fontSize: 12, color: "#888", margin: 0, fontStyle: "italic" }}>Note: {ex.notes}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Finish button */}
-        <button
-          onClick={handleFinish}
-          disabled={saving}
-          style={{
-            width: "100%",
-            padding: "16px",
-            borderRadius: "14px",
-            border: "none",
-            backgroundColor: saving ? "#aaa" : completedSets > 0 ? "#2d6a4f" : "#e5e5e5",
-            color: completedSets > 0 || saving ? "#fff" : "#aaa",
-            fontSize: 16,
-            fontWeight: 700,
-            cursor: saving || completedSets === 0 ? "default" : "pointer",
-            marginTop: 8,
-          }}
-        >
-          {saving ? "Saving..." : completedSets === 0 ? "Complete sets to finish" : `Finish Workout (${completedSets}/${totalSets} sets)`}
-        </button>
-      </div>
-
-      {/* Rest timer overlay */}
-      {restTimer && (
-        <RestTimer
-          seconds={restTimer.seconds}
-          onDismiss={() => setRestTimer(null)}
-        />
-      )}
-    </div>
-  );
-}
+                {ex.notes && 

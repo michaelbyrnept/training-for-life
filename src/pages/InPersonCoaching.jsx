@@ -403,4 +403,4 @@ export default function InPersonCoaching() {
     </section>
     </>
   );
-}
+}  

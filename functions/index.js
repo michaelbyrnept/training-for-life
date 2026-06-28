@@ -215,6 +215,9 @@ exports.onWorkoutLogged = onDocumentCreated("workoutLogs/{docId}", async (event)
 
   // Check streak (7 and 30 day)
   await checkStreakMilestones(clientId, clientName);
+
+  // Check 3-week habit trial trigger
+  await checkThreeWeekHabitTrial(clientId);
 });
 
 async function checkStreakMilestones(clientId, clientName) {
@@ -260,6 +263,55 @@ async function checkStreakMilestones(clientId, clientName) {
       });
     }
   }
+}
+
+/**
+ * Checks if a user has logged 2+ workouts in each of the last 3 consecutive
+ * calendar weeks (Mon-Sun). If so, grants a Premium trial.
+ * Time-gated: impossible to achieve in less than ~15 real days.
+ */
+async function checkThreeWeekHabitTrial(clientId) {
+  // grantPremiumTrial handles cooldown checks internally
+
+  const logsSnap = await db.collection("workoutLogs")
+    .where("userId", "==", clientId)
+    .get();
+
+  // Group logs by Mon-Sun week key
+  function getWeekKey(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split("T")[0];
+  }
+
+  const weekCounts = {};
+  logsSnap.docs.forEach((doc) => {
+    const ts = doc.data().completedAt;
+    if (!ts) return;
+    const date = ts.toDate ? ts.toDate() : new Date(ts);
+    const key = getWeekKey(date);
+    weekCounts[key] = (weekCounts[key] || 0) + 1;
+  });
+
+  // Get the 3 most recent week keys that have 2+ workouts
+  const qualifyingWeeks = Object.entries(weekCounts)
+    .filter(([, count]) => count >= 2)
+    .map(([key]) => key)
+    .sort()
+    .reverse();
+
+  if (qualifyingWeeks.length < 3) return;
+
+  // Check the top 3 are consecutive (each 7 days apart)
+  const [w1, w2, w3] = qualifyingWeeks.slice(0, 3).map((k) => new Date(k));
+  const gap1 = (w1 - w2) / 86400000;
+  const gap2 = (w2 - w3) / 86400000;
+  if (gap1 !== 7 || gap2 !== 7) return;
+
+  await grantPremiumTrial(clientId, "3_week_habit");
 }
 
 // ─── SESSION MILESTONE DETECTOR ────────────────────────────────────────────
@@ -344,6 +396,11 @@ exports.onMetricLogged = onDocumentCreated("metricLogs/{docId}", async (event) =
           priority: "high",
           achievedAt: Timestamp.now(),
         });
+
+        // Grant Premium trial on first 5kg lost
+        if (threshold === 5) {
+          await grantPremiumTrial(clientId, "weight_loss_5kg");
+        }
       }
     }
   }
@@ -364,6 +421,30 @@ exports.onMetricLogged = onDocumentCreated("metricLogs/{docId}", async (event) =
           achievedAt: Timestamp.now(),
         });
       }
+    }
+  }
+
+  // Check weight goal: grant trial if user has a goal set and is within 3kg of it
+  // and their weight has changed by at least 3kg from baseline (not just a rounding difference)
+  const userSnap = await db.collection("users").doc(clientId).get();
+  const userData2 = userSnap.data() || {};
+  const weightGoal = parseFloat(userData2.weightGoal);
+  if (!isNaN(weightGoal) && Math.abs(baseline - weightGoal) >= 3) {
+    const distanceToGoal = Math.abs(currentWeight - weightGoal);
+    if (distanceToGoal <= 3) {
+      await writeMilestoneIfNew({
+        clientId,
+        clientName,
+        type: "weight_goal_reached",
+        category: "Weight",
+        title: "Weight Goal Reached",
+        description: `${clientName.split(" ")[0]} is within 3kg of their weight goal of ${weightGoal}kg. Currently at ${currentWeight.toFixed(1)}kg.`,
+        value: currentWeight,
+        unit: "kg",
+        priority: "high",
+        achievedAt: Timestamp.now(),
+      });
+      await grantPremiumTrial(clientId, "weight_goal_reached");
     }
   }
 });
@@ -471,13 +552,46 @@ exports.checkAnniversaries = onSchedule("0 6 * * *", async () => {
 //   clientId, exerciseName, metricType (weight|reps|time), value (number), loggedAt (Timestamp)
 
 const NAMED_STRENGTH_MILESTONES = [
-  { exercise: "pull-up",   metricType: "reps",   threshold: 1,   title: "First Pull-Up",         priority: "high" },
-  { exercise: "push-up",   metricType: "reps",   threshold: 1,   title: "First Push-Up",         priority: "medium" },
-  { exercise: "squat",     metricType: "reps",   threshold: 1,   title: "First Bodyweight Squat", priority: "medium" },
-  { exercise: "deadlift",  metricType: "weight", threshold: 100, title: "100kg Deadlift",        priority: "high" },
-  { exercise: "deadlift",  metricType: "weight", threshold: 140, title: "140kg Deadlift",        priority: "high" },
-  { exercise: "squat",     metricType: "weight", threshold: 100, title: "100kg Squat",           priority: "high" },
-  { exercise: "bench press", metricType: "weight", threshold: 100, title: "100kg Bench Press",   priority: "high" },
+  { exercise: "pull-up",     metricType: "reps",   threshold: 1,   title: "First Pull-Up",          priority: "high" },
+  { exercise: "push-up",     metricType: "reps",   threshold: 1,   title: "First Push-Up",          priority: "medium" },
+  { exercise: "squat",       metricType: "reps",   threshold: 1,   title: "First Bodyweight Squat", priority: "medium" },
+  { exercise: "deadlift",    metricType: "weight", threshold: 80,  title: "80kg Deadlift",          priority: "medium" },
+  { exercise: "deadlift",    metricType: "weight", threshold: 100, title: "100kg Deadlift",         priority: "high" },
+  { exercise: "deadlift",    metricType: "weight", threshold: 140, title: "140kg Deadlift",         priority: "high" },
+  { exercise: "deadlift",    metricType: "weight", threshold: 150, title: "150kg Deadlift",         priority: "high" },
+  { exercise: "deadlift",    metricType: "weight", threshold: 200, title: "200kg Deadlift",         priority: "high" },
+  { exercise: "squat",       metricType: "weight", threshold: 60,  title: "60kg Squat",             priority: "medium" },
+  { exercise: "squat",       metricType: "weight", threshold: 100, title: "100kg Squat",            priority: "high" },
+  { exercise: "squat",       metricType: "weight", threshold: 140, title: "140kg Squat",            priority: "high" },
+  { exercise: "bench press", metricType: "weight", threshold: 40,  title: "40kg Bench Press",       priority: "medium" },
+  { exercise: "bench press", metricType: "weight", threshold: 60,  title: "60kg Bench Press",       priority: "high" },
+  { exercise: "bench press", metricType: "weight", threshold: 80,  title: "80kg Bench Press",       priority: "high" },
+  { exercise: "bench press", metricType: "weight", threshold: 100, title: "100kg Bench Press",      priority: "high" },
+  { exercise: "bench press", metricType: "weight", threshold: 120, title: "120kg Bench Press",      priority: "high" },
+  { exercise: "pull-up",     metricType: "reps",   threshold: 5,   title: "5 Pull-Ups",             priority: "medium" },
+  { exercise: "pull-up",     metricType: "reps",   threshold: 10,  title: "10 Pull-Ups",            priority: "high" },
+];
+
+// Gender-specific thresholds that trigger a Premium trial.
+// Uses the lower threshold as the milestone marker so both genders get a milestone record.
+// Trial is granted only when the user hits their gender-appropriate threshold.
+const TRIAL_STRENGTH_STANDARDS = [
+  {
+    exercise: "bench press",
+    metricType: "weight",
+    male: 100,
+    female: 60,
+    titleTemplate: (kg) => `${kg}kg Bench Press`,
+    source: "strength_bench_press",
+  },
+  {
+    exercise: "deadlift",
+    metricType: "weight",
+    male: 150,
+    female: 100,
+    titleTemplate: (kg) => `${kg}kg Deadlift`,
+    source: "strength_deadlift",
+  },
 ];
 
 exports.onExerciseMetricLogged = onDocumentCreated("exerciseMetricLogs/{docId}", async (event) => {
@@ -493,6 +607,10 @@ exports.onExerciseMetricLogged = onDocumentCreated("exerciseMetricLogs/{docId}",
   const clientName = await getClientName(clientId);
   const firstName = clientName.split(" ")[0];
 
+  // Fetch user gender once for trial threshold checks
+  const userSnap = await db.collection("users").doc(clientId).get();
+  const gender = (userSnap.data()?.gender || "").toLowerCase(); // "male" | "female" | ""
+
   // 1. Check named milestones
   for (const nm of NAMED_STRENGTH_MILESTONES) {
     if (exerciseName.includes(nm.exercise) && metricType === nm.metricType && value >= nm.threshold) {
@@ -502,12 +620,23 @@ exports.onExerciseMetricLogged = onDocumentCreated("exerciseMetricLogs/{docId}",
         type: `strength_${nm.exercise.replace(/\s+/g, "_")}_${nm.threshold}${nm.metricType === "weight" ? "kg" : "reps"}`,
         category: "Strength",
         title: nm.title,
-        description: `${firstName} has achieved ${nm.title.toLowerCase()} — a significant strength milestone.`,
+        description: `${firstName} has achieved ${nm.title.toLowerCase()}, a significant strength milestone.`,
         value: nm.threshold,
         unit: nm.metricType === "weight" ? "kg" : "reps",
         priority: nm.priority,
         achievedAt: log.loggedAt || Timestamp.now(),
       });
+    }
+  }
+
+  // 2. Gender-based trial triggers — skipped entirely if gender not set
+  if (gender === "male" || gender === "female") {
+    for (const std of TRIAL_STRENGTH_STANDARDS) {
+      if (!exerciseName.includes(std.exercise) || metricType !== std.metricType) continue;
+      const threshold = gender === "female" ? std.female : std.male;
+      if (value >= threshold) {
+        await grantPremiumTrial(clientId, `${std.source}_${threshold}kg`);
+      }
     }
   }
 
@@ -548,6 +677,106 @@ exports.onExerciseMetricLogged = onDocumentCreated("exerciseMetricLogs/{docId}",
 });
 
 // ─── END MEANINGFUL MOMENTS ENGINE ─────────────────────────────────────────
+
+// ─── PREMIUM TRIAL SYSTEM ───────────────────────────────────────────────────
+
+const TRIAL_DAYS = 14;
+
+/**
+ * Grants a 14-day in-app Premium trial to a user.
+ * Only ever granted once (hadTrial guards repeat grants).
+ * Does NOT touch Stripe — this is a Firestore-only trial.
+ */
+const TRIAL_COOLDOWN_MONTHS = 6;
+
+async function grantPremiumTrial(uid, source) {
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  const userData = userSnap.data() || {};
+
+  // Don't grant if already on a paid tier
+  const activeTiers = ["premium", "premium_annual", "online", "hybrid", "elite"];
+  if (activeTiers.includes(userData.subscriptionTier) && userData.subscriptionStatus === "active") {
+    logger.info(`User ${uid} already on paid tier, skipping trial`);
+    return false;
+  }
+
+  // Don't grant if currently on an active trial
+  if (userData.subscriptionStatus === "trialing" && !userData.stripeSubscriptionId) {
+    logger.info(`User ${uid} already on active app trial, skipping`);
+    return false;
+  }
+
+  // Enforce 6-month cooldown between trials
+  if (userData.trialGrantedAt) {
+    const lastGranted = userData.trialGrantedAt.toDate ? userData.trialGrantedAt.toDate() : new Date(userData.trialGrantedAt);
+    const cooldownMs = TRIAL_COOLDOWN_MONTHS * 30 * 24 * 60 * 60 * 1000;
+    if (Date.now() - lastGranted.getTime() < cooldownMs) {
+      const nextEligible = new Date(lastGranted.getTime() + cooldownMs);
+      logger.info(`User ${uid} in cooldown period, next trial eligible: ${nextEligible.toISOString()}`);
+      return false;
+    }
+  }
+
+  const trialEndsAt = Timestamp.fromDate(new Date(Date.now() + TRIAL_DAYS * 86400000));
+
+  await userRef.update({
+    subscriptionTier: "premium",
+    subscriptionStatus: "trialing",
+    trialEndsAt,
+    trialGrantedAt: Timestamp.now(),
+    trialSource: source,
+    hadTrial: true,
+    stripeSubscriptionId: null, // ensure this is not a Stripe trial
+  });
+
+  // Write a notification so the user sees it in-app
+  await db.collection("coachNotifications").doc().set({
+    clientId: uid,
+    clientName: [userData.firstName, userData.lastName].filter(Boolean).join(" ") || "User",
+    title: `${userData.firstName || "A user"} earned a Premium trial via ${source}`,
+    body: `14-day free Premium trial started. Trial ends in ${TRIAL_DAYS} days.`,
+    read: false,
+    readAt: null,
+    createdAt: Timestamp.now(),
+    type: "trial_granted",
+  });
+
+  logger.info(`Premium trial granted: ${uid} (source: ${source}), expires: ${trialEndsAt.toDate().toISOString()}`);
+  return true;
+}
+
+/**
+ * Daily job: expire app-granted trials that have passed their end date.
+ * Only affects users with no stripeSubscriptionId (pure app trials).
+ */
+exports.expireAppTrials = onSchedule("0 7 * * *", async () => {
+  const now = Timestamp.now();
+  const expiredSnap = await db.collection("users")
+    .where("subscriptionStatus", "==", "trialing")
+    .where("hadTrial", "==", true)
+    .get();
+
+  let expired = 0;
+  for (const doc of expiredSnap.docs) {
+    const data = doc.data();
+    // Skip Stripe-managed trials
+    if (data.stripeSubscriptionId) continue;
+    // Skip if trial hasn't ended yet
+    if (!data.trialEndsAt || data.trialEndsAt.toMillis() > now.toMillis()) continue;
+
+    await doc.ref.update({
+      subscriptionTier: "free",
+      subscriptionStatus: "expired_trial",
+    });
+    expired++;
+    logger.info(`Trial expired: ${doc.id}`);
+  }
+
+  logger.info(`Trial expiry run complete: ${expired} trials expired`);
+});
+
+// ─── END PREMIUM TRIAL SYSTEM ───────────────────────────────────────────────
 
 // ─── ADMIN: GENERATE PASSWORD RESET LINK ──────────────────────────────────
 exports.adminGenerateResetLink = onCall(
@@ -749,16 +978,23 @@ exports.stripeWebhook = onRequest(
         logger.info(`Bundle purchase: ${clientId} bought ${bundleName} (+${sessionCredits} credits)`);
 
       } else if (type === "subscription") {
+        const PRICE_TO_TIER = {
+          "price_1Tn3fsPojX8gToKVeUfENsCZ": { subscriptionTier: "premium",        subscription: "premium" },
+          "price_1Tn40bPojX8gToKVOEJmvZyI": { subscriptionTier: "premium_annual",  subscription: "premium" },
+          "price_1Tn3ngPojX8gToKV9Dl3G76f": { subscriptionTier: "online",          subscription: "online" },
+          "price_1Tn3uQPojX8gToKVImRx15ZL": { subscriptionTier: "hybrid",          subscription: "hybrid" },
+          "price_1Tn3w6PojX8gToKVtG5WeC7f": { subscriptionTier: "elite",           subscription: "elite" },
+        };
+        const priceId = session.metadata?.priceId || "";
+        const tierFields = PRICE_TO_TIER[priceId] || { subscriptionTier: "premium", subscription: "premium" };
         await db.collection("users").doc(clientId).update({
-          subscription: "online",
+          ...tierFields,
           stripeSubscriptionId: session.subscription || null,
           stripeCustomerId: session.customer || null,
           subscriptionActivatedAt: now,
-          // Premium app tier fields
-          subscriptionTier: "premium",
           subscriptionStatus: session.subscription ? "active" : "trialing",
         });
-        logger.info(`Subscription activated: ${clientId}`);
+        logger.info(`Subscription activated: ${clientId} -> tier=${tierFields.subscriptionTier} (priceId=${priceId})`);
 
       } else if (type === "onetime") {
         const amountPaid = (session.amount_total || 0) / 100;
@@ -800,13 +1036,26 @@ exports.stripeWebhook = onRequest(
         .limit(1)
         .get();
       if (!usersSnap.empty) {
-        const status = sub.status; // active | trialing | past_due | canceled | etc.
-        const isPremium = status === "active" || status === "trialing";
-        await usersSnap.docs[0].ref.update({
-          subscriptionStatus: status,
-          subscriptionTier: isPremium ? "premium" : "free",
-        });
-        logger.info(`Subscription updated: customer ${sub.customer} -> ${status}`);
+        const status = sub.status;
+        const isActive = status === "active" || status === "trialing";
+        // Read the price ID from the subscription's first item to keep tier accurate
+        const PRICE_TO_TIER = {
+          "price_1Tn3fsPojX8gToKVeUfENsCZ": "premium",
+          "price_1Tn40bPojX8gToKVOEJmvZyI": "premium_annual",
+          "price_1Tn3ngPojX8gToKV9Dl3G76f": "online",
+          "price_1Tn3uQPojX8gToKVImRx15ZL": "hybrid",
+          "price_1Tn3w6PojX8gToKVtG5WeC7f": "elite",
+        };
+        const priceId = sub.items?.data?.[0]?.price?.id || "";
+        const knownTier = PRICE_TO_TIER[priceId];
+        const updateData = { subscriptionStatus: status };
+        if (!isActive) {
+          updateData.subscriptionTier = "free";
+        } else if (knownTier) {
+          updateData.subscriptionTier = knownTier;
+        }
+        await usersSnap.docs[0].ref.update(updateData);
+        logger.info(`Subscription updated: customer ${sub.customer} -> ${status}, tier=${updateData.subscriptionTier || "unchanged"}`);
       }
     }
 
@@ -1103,314 +1352,4 @@ exports.activateAccount = onCall(
     try {
       customToken = await adminAuth.createCustomToken(uid);
     } catch (err) {
-      logger.error("activateAccount: createCustomToken failed", { uid, err: err.message });
-      throw new HttpsError("internal", "Account activated but sign-in token failed. Please log in manually.");
-    }
-
-    logger.info(`Account activated: ${uid} (${tokenData.email})`);
-    return { customToken, email: tokenData.email, firstName: tokenData.firstName };
-  }
-);
-
-/**
- * resendActivationToken — admin only callable
- * data: { uid: string }
- * Supersedes all existing tokens for the user and generates a fresh one.
- * Returns: { activationUrl }
- */
-exports.resendActivationToken = onCall(
-  async (request) => {
-    if (!request.auth || request.auth.uid !== ADMIN_UID) {
-      throw new HttpsError("permission-denied", "Admin only.");
-    }
-
-    const { uid } = request.data;
-    if (!uid || typeof uid !== "string") {
-      throw new HttpsError("invalid-argument", "uid is required.");
-    }
-
-    const userSnap = await db.collection("users").doc(uid).get();
-    if (!userSnap.exists) {
-      throw new HttpsError("not-found", "User not found.");
-    }
-
-    const userData = userSnap.data();
-    if (userData.activated) {
-      throw new HttpsError("failed-precondition", "This account is already activated.");
-    }
-
-    // Supersede existing unused tokens for this user
-    const existingTokensSnap = await db.collection("activationTokens")
-      .where("uid", "==", uid)
-      .where("used", "==", false)
-      .get();
-
-    const now = Timestamp.now();
-    const expiresAt = Timestamp.fromDate(new Date(Date.now() + TOKEN_TTL_DAYS * 86400000));
-    const batch = db.batch();
-
-    existingTokensSnap.docs.forEach(d => {
-      batch.update(d.ref, { used: true, usedAt: now, superseded: true });
-    });
-
-    const newToken = crypto.randomBytes(32).toString("hex");
-    const tokenRef = db.collection("activationTokens").doc(newToken);
-    batch.set(tokenRef, {
-      uid,
-      email: userData.email,
-      firstName: userData.firstName,
-      expiresAt,
-      used: false,
-      usedAt: null,
-      importBatchId: userData.importBatchId || null,
-      createdAt: now,
-      resent: true,
-    });
-
-    await batch.commit();
-
-    const activationUrl = `${SITE_URL}/activate/${newToken}`;
-    logger.info(`Activation token resent for ${uid} (${userData.email})`);
-    return { activationUrl, email: userData.email };
-  }
-);
-
-// ─── END PAST CLIENT IMPORT SYSTEM ─────────────────────────────────────────
-
-// ─── PREMIUM WORKOUT BUILDER ───────────────────────────────────────────────
-
-/**
- * checkWorkoutSaveEntitlement — callable
- * Called before saving a new custom workout. Enforces the free tier limit (1 workout).
- * Never trust the client to enforce this — always verify server-side.
- *
- * Returns: { allowed: boolean, currentCount: number, limit: number }
- */
-exports.checkWorkoutSaveEntitlement = onCall(
-  { invoker: "public" },
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Login required.");
-    }
-
-    const uid = request.auth.uid;
-    const userSnap = await db.collection("users").doc(uid).get();
-    const userData = userSnap.data() || {};
-
-    const tier = userData.subscriptionTier || "free";
-    const status = userData.subscriptionStatus || null;
-    const isPremium = tier === "premium" && (status === "active" || status === "trialing");
-
-    if (isPremium) {
-      return { allowed: true, currentCount: null, limit: null };
-    }
-
-    // Free tier: count existing custom workouts
-    const workoutsSnap = await db.collection("users").doc(uid).collection("workouts").get();
-    const currentCount = workoutsSnap.size;
-    const FREE_LIMIT = 1;
-
-    return {
-      allowed: currentCount < FREE_LIMIT,
-      currentCount,
-      limit: FREE_LIMIT,
-    };
-  }
-);
-
-/**
- * onCustomWorkoutCompleted — Firestore trigger
- * Fires when any document is created in /workoutLogs.
- * Only processes documents with logType === "custom" to avoid duplicating
- * the existing onWorkoutLogged milestone logic.
- *
- * Responsibilities:
- *   1. Detect and record personal bests per exercise in /users/{userId}/personalBests
- *   2. Recalculate Capability Score v1 (consistency + streak)
- */
-exports.onCustomWorkoutCompleted = onDocumentCreated("workoutLogs/{docId}", async (event) => {
-  const log = event.data.data();
-  if (!log || log.logType !== "custom") return; // only custom workout logs
-
-  const userId = log.userId;
-  if (!userId || userId === ADMIN_UID) return;
-
-  const logId = event.params.docId;
-
-  await Promise.all([
-    updatePersonalBests(userId, log, logId),
-    recalculateCapabilityScore(userId),
-  ]);
-});
-
-/**
- * Scans each exercise in a completed custom workout log and updates
- * /users/{userId}/personalBests/{exerciseId} if a new best was achieved.
- */
-async function updatePersonalBests(userId, log, logId) {
-  const exercises = log.exercises || [];
-  if (exercises.length === 0) return;
-
-  for (const ex of exercises) {
-    const { exerciseId, exerciseName, sets = [] } = ex;
-    if (!exerciseId) continue;
-
-    // Find the best weight lifted in completed sets for this exercise
-    const completedSets = sets.filter((s) => s.completed !== false);
-    if (completedSets.length === 0) continue;
-
-    const maxWeight = Math.max(
-      ...completedSets.map((s) => parseFloat(s.weight) || 0)
-    );
-    const maxReps = Math.max(
-      ...completedSets.map((s) => parseInt(s.reps) || 0)
-    );
-    // Best volume = highest single-set weight * reps (useful for AI coaching later)
-    const bestVolume = Math.max(
-      ...completedSets.map((s) => (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0))
-    );
-
-    const pbRef = db.collection("users").doc(userId).collection("personalBests").doc(exerciseId);
-    const pbSnap = await pbRef.get();
-    const existing = pbSnap.exists ? pbSnap.data() : null;
-
-    const isNewWeightPB = maxWeight > 0 && (!existing || maxWeight > (existing.bestWeight || 0));
-    const isNewRepsPB = maxReps > 0 && (!existing || maxReps > (existing.bestReps || 0));
-
-    if (isNewWeightPB || isNewRepsPB || !existing) {
-      await pbRef.set(
-        {
-          exerciseId,
-          exerciseName: exerciseName || exerciseId,
-          bestWeight: isNewWeightPB ? maxWeight : (existing?.bestWeight || 0),
-          bestReps: isNewRepsPB ? maxReps : (existing?.bestReps || 0),
-          bestVolume: Math.max(bestVolume, existing?.bestVolume || 0),
-          achievedAt: Timestamp.now(),
-          logId: logId || null,
-          updatedAt: Timestamp.now(),
-        },
-        { merge: true }
-      );
-
-      logger.info(`New PB for user ${userId} on exercise ${exerciseId}: weight=${maxWeight}kg reps=${maxReps}`);
-    }
-  }
-}
-
-/**
- * Recalculates the user's Capability Score v1.
- *
- * Inputs (Phase 1 — no wearable required):
- *   Consistency Score: sessions in last 28 days. Target = 12 (3/week * 4 weeks). Max 100.
- *   Streak Score:      consecutive weeks with 2+ sessions. 1w=25, 2w=50, 3w=75, 4w+=100.
- *   Overall Score:     (consistency * 0.6) + (streak * 0.4). Rounded to nearest integer.
- *
- * Writes to /users/{userId}.capabilityScore
- */
-async function recalculateCapabilityScore(userId) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 28);
-
-  const logsSnap = await db.collection("workoutLogs")
-    .where("userId", "==", userId)
-    .where("completedAt", ">=", Timestamp.fromDate(cutoff))
-    .orderBy("completedAt", "desc")
-    .limit(200)
-    .get();
-
-  const sessionDates = logsSnap.docs
-    .map((d) => {
-      const ts = d.data().completedAt;
-      if (!ts) return null;
-      return ts.toDate ? ts.toDate() : new Date(ts);
-    })
-    .filter(Boolean);
-
-  // Consistency Score (0-100)
-  const WEEKLY_TARGET = 3;
-  const WEEKS = 4;
-  const TOTAL_TARGET = WEEKLY_TARGET * WEEKS;
-  const consistencyScore = Math.min(100, Math.round((sessionDates.length / TOTAL_TARGET) * 100));
-
-  // Streak Score — count consecutive weeks (Mon-Sun) with 2+ sessions
-  function getWeekKey(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-    monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().split("T")[0];
-  }
-
-  const weekCounts = {};
-  sessionDates.forEach((d) => {
-    const key = getWeekKey(d);
-    weekCounts[key] = (weekCounts[key] || 0) + 1;
-  });
-
-  // Count consecutive qualifying weeks from most recent
-  let streakWeeks = 0;
-  const currentWeekKey = getWeekKey(new Date());
-  const allWeekKeys = Object.keys(weekCounts).sort().reverse();
-
-  for (let i = 0; i < allWeekKeys.length; i++) {
-    if (weekCounts[allWeekKeys[i]] >= 2) {
-      streakWeeks++;
-    } else {
-      break;
-    }
-  }
-
-  const streakScore = Math.min(100, streakWeeks * 25); // 4+ weeks = 100
-
-  // Overall Capability Score
-  const overall = Math.round(consistencyScore * 0.6 + streakScore * 0.4);
-
-  await db.collection("users").doc(userId).update({
-    "capabilityScore.overall": overall,
-    "capabilityScore.lastCalculatedAt": Timestamp.now(),
-    "capabilityScore.breakdown.consistency": consistencyScore,
-    "capabilityScore.breakdown.streak": streakScore,
-    "capabilityScore.version": 1,
-  });
-
-  logger.info(`Capability Score updated for ${userId}: overall=${overall} (consistency=${consistencyScore}, streak=${streakScore})`);
-}
-
-// ─── END PREMIUM WORKOUT BUILDER ────────────────────────────────────────────
-
-exports.zapierLeadWebhook = onRequest(
-  { secrets: [zapierWebhookSecret] },
-  async (req, res) => {
-    if (req.method !== "POST") {
-      return res.status(405).send("Method not allowed");
-    }
-
-    const providedSecret = req.get("x-webhook-secret");
-    if (providedSecret !== zapierWebhookSecret.value()) {
-      logger.warn("Rejected lead webhook call with invalid secret");
-      return res.status(401).send("Unauthorized");
-    }
-
-    const { firstName, email, phone } = req.body || {};
-    if (!email || typeof email !== "string") {
-      return res.status(400).send("Email is required");
-    }
-
-    try {
-      await db.collection("leads").add({
-        firstName: firstName || "",
-        email: email.toLowerCase(),
-        phone: phone || "",
-        source: "instant_form",
-        consentStatus: "pending",
-        createdAt: new Date().toISOString(),
-      });
-
-      return res.status(200).send("OK");
-    } catch (e) {
-      logger.error("Failed to write lead from Zapier webhook", e);
-      return res.status(500).send("Internal error");
-    }
-  }
-);
+      logger.error("activateAccount: 

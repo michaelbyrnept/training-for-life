@@ -38,6 +38,13 @@ const sections = [
     highlight: true,
   },
   {
+    to: "/admin/integrations",
+    label: "Integrations",
+    description: "Manage Strava webhook, view connected athletes, monitor auto-logged activities.",
+    icon: "🔗",
+    highlight: false,
+  },
+  {
     to: "/admin/broadcast",
     label: "Broadcast",
     description: "Send a message to all clients or a filtered group.",
@@ -292,10 +299,4 @@ export default function AdminDashboard() {
                 );
               })}
             </div>
-            <button onClick={() => setShowTierSheet(false)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "16px", padding: "6px" }}>Cancel</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+            <button onClick={() => setShowTierSheet(false)} style={{ width:

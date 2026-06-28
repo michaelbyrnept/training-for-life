@@ -100,6 +100,16 @@ export default function MyWorkouts() {
 
       <div style={{ padding: "0 16px" }}>
 
+        {/* Tab strip: Workouts / Programmes */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+          <div style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 12, backgroundColor: "#1a3a2a", color: "#fff", fontWeight: 700, fontSize: 14 }}>
+            Workouts
+          </div>
+          <Link to="/my-programmes" style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 12, backgroundColor: "#f0f0f0", color: "#888", fontWeight: 600, fontSize: 14, textDecoration: "none" }}>
+            Programmes
+          </Link>
+        </div>
+
         {/* Create new workout button */}
         <button
           onClick={handleCreateNew}
@@ -303,34 +313,4 @@ export default function MyWorkouts() {
                     </Link>
                     <button
                       onClick={() => handleDelete(workout.id)}
-                      disabled={deletingId === workout.id}
-                      style={{
-                        flex: 1,
-                        padding: "12px 0",
-                        border: "none",
-                        background: "none",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: isConfirmingDelete ? "#dc2626" : "#bbb",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {deletingId === workout.id ? "..." : isConfirmingDelete ? "Sure?" : "Delete"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {showGate && (
-        <PremiumGate
-          reason="workout_limit"
-          onClose={() => setShowGate(false)}
-        />
-      )}
-    </div>
-  );
-}
+                      disabled={deletingId =

@@ -37,9 +37,12 @@ src/                                    — React/Vite frontend (trainingforlife
   ├── components/
   │     PremiumGate.jsx                — upgrade prompt (shown when free user hits limits)
   └── pages/
-        MyWorkouts.jsx                 — custom workout library (/my-workouts)
-        WorkoutBuilder.jsx             — create/edit custom workouts (/my-workouts/new, /edit)
-        MyWorkoutSession.jsx           — active workout logging session (/my-workouts/:id)
+        MyWorkouts.jsx                 — custom workout library (/my-workouts); tab strip links to Programmes
+        WorkoutBuilder.jsx             — create/edit custom workouts (/my-workouts/new, /edit); exercise request button when search returns no results
+        MyWorkoutSession.jsx           — active workout logging session (/my-workouts/:id); reads ?programmeId&week&day params and writes completedSessions on finish
+        MyProgrammes.jsx               — user's custom programme list (/my-programmes); premium-gated
+        ProgrammeBuilder.jsx           — create/edit a custom programme (/my-programmes/new, /:id/edit)
+        MyProgrammeView.jsx            — follow a programme week by week (/my-programmes/:id)
         Bundles.jsx                    — client-facing session bundle purchase page (/bundles)
         BundleSuccess.jsx              — post-purchase success page (/bundles/success)
         SubscriptionSuccess.jsx        — post-subscription success page
@@ -47,7 +50,8 @@ src/                                    — React/Vite frontend (trainingforlife
           AdminCoachSession.jsx        — coach-led workout logging (/admin/session/:clientUid/...)
           AdminWins.jsx                — Wins & Recognition queue + custom milestone creator
           AdminExercises.jsx           — exercise library; muscleGroups is now an array (multi-select pills);
-                                         collapsible sections; getExerciseMuscles() handles legacy muscleGroup string
+                                         collapsible sections; getExerciseMuscles() handles legacy muscleGroup string;
+                                         pending exercise requests badge + queue (from /exerciseRequests collection)
 functions/                              — Firebase Cloud Functions (Node 24)
   index.js                             — Stripe, Meaningful Moments Engine,
                                          checkWorkoutSaveEntitlement, onCustomWorkoutCompleted
@@ -97,14 +101,4 @@ firestore.rules                         — Firestore security rules (uses isAdm
 
 Here's what you can ask me to do:
 
-| Say this | What happens |
-|---|---|
-| `/setup` | First-time workspace setup (you already did this!) |
-| "new project" | I'll interview you about the project and set up a folder with a project overview |
-| "good morning" | I'll recap recent work, recommend what's most important, and help you pick what to do |
-| "end of day" or "wrap up" | I'll log what we worked on so the next session can pick up where we left off |
-| "help" or "what can you do?" | I'll show you everything I can help with |
-
----
-
-*Claude updates this file as your workspace grows. You can also edit it yourself anytime.*
+| Say th
