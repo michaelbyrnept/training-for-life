@@ -1352,4 +1352,837 @@ exports.activateAccount = onCall(
     try {
       customToken = await adminAuth.createCustomToken(uid);
     } catch (err) {
-      logger.error("activateAccount: 
+      logger.error("activateAccount: createCustomToken failed", { uid, err: err.message });
+      throw new HttpsError("internal", "Account activated but sign-in token failed. Please log in manually.");
+    }
+
+    logger.info(`Account activated: ${uid} (${tokenData.email})`);
+    return { customToken, email: tokenData.email, firstName: tokenData.firstName };
+  }
+);
+
+// ─── Strava Integration ───────────────────────────────────────────────────────
+
+const stravaClientId = defineSecret("STRAVA_CLIENT_ID");
+const stravaClientSecret = defineSecret("STRAVA_CLIENT_SECRET");
+
+/**
+ * Internal helper: get a valid Strava access token for a user.
+ * Refreshes automatically if expired.
+ */
+async function stravaGetValidToken(uid) {
+  const integRef = db.collection("users").doc(uid).collection("integrations").doc("strava");
+  const snap = await integRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Strava not connected.");
+
+  const data = snap.data();
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  // If token still valid (with 5 min buffer), return it
+  if (data.expiresAt > nowSeconds + 300) {
+    return data.accessToken;
+  }
+
+  // Refresh the token
+  const res = await fetch("https://www.strava.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: stravaClientId.value(),
+      client_secret: stravaClientSecret.value(),
+      refresh_token: data.refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    logger.error("Strava token refresh failed", { uid, err });
+    throw new HttpsError("internal", "Failed to refresh Strava token.");
+  }
+
+  const tokens = await res.json();
+  await integRef.update({
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt: tokens.expires_at,
+  });
+
+  return tokens.access_token;
+}
+
+/**
+ * stravaExchangeToken
+ * Exchanges a Strava OAuth code for tokens and stores them in Firestore.
+ * data: { code: string }
+ */
+exports.stravaExchangeToken = onCall(
+  { secrets: [stravaClientId, stravaClientSecret] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in.");
+
+    const { code } = request.data || {};
+    if (!code) throw new HttpsError("invalid-argument", "Authorization code required.");
+
+    const res = await fetch("https://www.strava.com/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: stravaClientId.value(),
+        client_secret: stravaClientSecret.value(),
+        code,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      logger.error("Strava exchange failed", { uid: request.auth.uid, err });
+      throw new HttpsError("internal", "Failed to connect Strava. Please try again.");
+    }
+
+    const data = await res.json();
+
+    const integRef = db
+      .collection("users")
+      .doc(request.auth.uid)
+      .collection("integrations")
+      .doc("strava");
+
+    const athleteName = `${data.athlete.firstname} ${data.athlete.lastname}`.trim();
+
+    await integRef.set({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: data.expires_at,
+      athleteId: data.athlete.id,
+      athleteName,
+      athletePhoto: data.athlete.profile_medium || data.athlete.profile || null,
+      connectedAt: FieldValue.serverTimestamp(),
+    });
+
+    // Write reverse mapping so the webhook can find this user by athleteId
+    await db.collection("stravaAthletes").doc(String(data.athlete.id)).set({
+      userId: request.auth.uid,
+      athleteName,
+      connectedAt: FieldValue.serverTimestamp(),
+    });
+
+    logger.info(`Strava connected: ${request.auth.uid} -> athlete ${data.athlete.id}`);
+    return {
+      athleteName: `${data.athlete.firstname} ${data.athlete.lastname}`.trim(),
+      athletePhoto: data.athlete.profile_medium || null,
+    };
+  }
+);
+
+/**
+ * stravaDisconnect
+ * Removes stored Strava tokens from Firestore.
+ */
+exports.stravaDisconnect = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in.");
+
+  await db
+    .collection("users")
+    .doc(request.auth.uid)
+    .collection("integrations")
+    .doc("strava")
+    .delete();
+
+  logger.info(`Strava disconnected: ${request.auth.uid}`);
+  return { success: true };
+});
+
+/**
+ * stravaSync
+ * Fetches the user's recent Strava activities (last 30) and returns them.
+ * Also caches them in Firestore under users/{uid}/stravaActivities.
+ * data: { afterTimestamp?: number } — Unix timestamp to fetch activities after
+ */
+exports.stravaSync = onCall(
+  { secrets: [stravaClientId, stravaClientSecret] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in.");
+
+    const accessToken = await stravaGetValidToken(request.auth.uid);
+    const after = request.data?.afterTimestamp || Math.floor(Date.now() / 1000) - 30 * 86400; // default: last 30 days
+
+    const res = await fetch(
+      `https://www.strava.com/api/v3/athlete/activities?per_page=30&after=${after}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    if (!res.ok) {
+      const err = await res.text();
+      logger.error("Strava activities fetch failed", { uid: request.auth.uid, err });
+      throw new HttpsError("internal", "Failed to fetch Strava activities.");
+    }
+
+    const activities = await res.json();
+
+    // Cache in Firestore
+    const batch = db.batch();
+    for (const act of activities) {
+      const ref = db
+        .collection("users")
+        .doc(request.auth.uid)
+        .collection("stravaActivities")
+        .doc(String(act.id));
+      batch.set(ref, {
+        stravaId: act.id,
+        name: act.name,
+        type: act.type,
+        sportType: act.sport_type,
+        startDate: act.start_date,
+        startDateLocal: act.start_date_local,
+        distance: act.distance || 0,
+        movingTime: act.moving_time || 0,
+        elapsedTime: act.elapsed_time || 0,
+        totalElevationGain: act.total_elevation_gain || 0,
+        averageHeartrate: act.average_heartrate || null,
+        maxHeartrate: act.max_heartrate || null,
+        averageSpeed: act.average_speed || null,
+        kilojoules: act.kilojoules || null,
+        kudosCount: act.kudos_count || 0,
+        syncedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    await batch.commit();
+
+    return {
+      count: activities.length,
+      activities: activities.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        sportType: a.sport_type,
+        startDateLocal: a.start_date_local,
+        distance: a.distance || 0,
+        movingTime: a.moving_time || 0,
+        averageHeartrate: a.average_heartrate || null,
+        totalElevationGain: a.total_elevation_gain || 0,
+      })),
+    };
+  }
+);
+
+/**
+ * stravaPushWorkout
+ * Creates a manual activity on Strava from a completed TFL workout log.
+ * data: { workoutName: string, startedAt: string (ISO), durationSeconds: number, notes?: string }
+ */
+exports.stravaPushWorkout = onCall(
+  { secrets: [stravaClientId, stravaClientSecret] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in.");
+
+    const { workoutName, startedAt, durationSeconds, notes } = request.data || {};
+    if (!workoutName || !startedAt || !durationSeconds) {
+      throw new HttpsError("invalid-argument", "workoutName, startedAt, and durationSeconds are required.");
+    }
+
+    const accessToken = await stravaGetValidToken(request.auth.uid);
+
+    const body = {
+      name: `${workoutName} (via Training for Life)`,
+      type: "WeightTraining",
+      sport_type: "WeightTraining",
+      start_date_local: startedAt,
+      elapsed_time: durationSeconds,
+      description: notes || "Logged via Training for Life",
+    };
+
+    const res = await fetch("https://www.strava.com/api/v3/activities", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      logger.error("Strava push workout failed", { uid: request.auth.uid, err });
+      throw new HttpsError("internal", "Failed to post workout to Strava.");
+    }
+
+    const activity = await res.json();
+    logger.info(`Strava workout pushed: ${request.auth.uid} -> activity ${activity.id}`);
+    return { stravaActivityId: activity.id, stravaUrl: `https://www.strava.com/activities/${activity.id}` };
+  }
+);
+
+const stravaWebhookVerifyToken = defineSecret("STRAVA_WEBHOOK_VERIFY_TOKEN");
+
+/**
+ * stravaWebhook — public onRequest endpoint
+ *
+ * GET  — Strava subscription verification challenge (one-time during setup)
+ * POST — Strava activity event (fires every time a connected user logs an activity)
+ *
+ * On POST: looks up the user by athleteId, fetches the activity from Strava,
+ * then creates a workoutLog so it counts toward their weekly target and Capability Score.
+ */
+exports.stravaWebhook = onRequest(
+  { secrets: [stravaClientId, stravaClientSecret, stravaWebhookVerifyToken] },
+  async (req, res) => {
+    // ── GET: Strava subscription verification ──────────────────────────────────
+    if (req.method === "GET") {
+      const mode = req.query["hub.mode"];
+      const token = req.query["hub.verify_token"];
+      const challenge = req.query["hub.challenge"];
+
+      if (mode === "subscribe" && token === stravaWebhookVerifyToken.value()) {
+        logger.info("Strava webhook verification successful");
+        return res.json({ "hub.challenge": challenge });
+      }
+      return res.status(403).send("Forbidden");
+    }
+
+    // ── POST: activity event ───────────────────────────────────────────────────
+    if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+
+    const event = req.body;
+
+    // Only handle new activity creates
+    if (event.object_type !== "activity" || event.aspect_type !== "create") {
+      return res.status(200).send("OK");
+    }
+
+    const athleteId = String(event.owner_id);
+    const stravaActivityId = String(event.object_id);
+
+    // Look up user by athleteId
+    const athleteSnap = await db.collection("stravaAthletes").doc(athleteId).get();
+    if (!athleteSnap.exists) {
+      logger.info(`Strava webhook: unknown athlete ${athleteId}, ignoring`);
+      return res.status(200).send("OK");
+    }
+
+    const { userId } = athleteSnap.data();
+
+    // Deduplicate — don't create a log if we already have one for this activity
+    const existing = await db.collection("workoutLogs")
+      .where("userId", "==", userId)
+      .where("stravaActivityId", "==", stravaActivityId)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      logger.info(`Strava webhook: activity ${stravaActivityId} already logged for ${userId}`);
+      return res.status(200).send("OK");
+    }
+
+    // Get a valid access token for this user
+    let accessToken;
+    try {
+      accessToken = await stravaGetValidToken(userId);
+    } catch (err) {
+      logger.error(`Strava webhook: could not get token for ${userId}`, err.message);
+      return res.status(200).send("OK"); // don't retry
+    }
+
+    // Fetch full activity details from Strava
+    const actRes = await fetch(`https://www.strava.com/api/v3/activities/${stravaActivityId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!actRes.ok) {
+      logger.error(`Strava webhook: failed to fetch activity ${stravaActivityId}`);
+      return res.status(200).send("OK");
+    }
+
+    const act = await actRes.json();
+
+    // Build a summary note
+    const parts = [];
+    if (act.distance > 0) parts.push(`${(act.distance / 1000).toFixed(1)} km`);
+    if (act.moving_time > 0) {
+      const mins = Math.floor(act.moving_time / 60);
+      const secs = act.moving_time % 60;
+      parts.push(`${mins}:${String(secs).padStart(2, "0")}`);
+    }
+    if (act.average_heartrate) parts.push(`${Math.round(act.average_heartrate)} bpm avg`);
+    const notes = parts.length > 0 ? parts.join(" · ") : null;
+
+    const startedAt = act.start_date ? Timestamp.fromDate(new Date(act.start_date)) : Timestamp.now();
+    const completedAt = act.elapsed_time
+      ? Timestamp.fromDate(new Date(new Date(act.start_date).getTime() + act.elapsed_time * 1000))
+      : startedAt;
+
+    await db.collection("workoutLogs").add({
+      userId,
+      logType: "strava",
+      stravaActivityId,
+      stravaActivityType: act.sport_type || act.type || "Workout",
+      workoutName: act.name || act.sport_type || "Strava Activity",
+      startedAt,
+      completedAt,
+      durationSeconds: act.elapsed_time || act.moving_time || null,
+      distance: act.distance || null,
+      averageHeartrate: act.average_heartrate || null,
+      totalElevationGain: act.total_elevation_gain || null,
+      notes,
+      source: "strava",
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    logger.info(`Strava webhook: created workoutLog for ${userId} — ${act.name} (${act.sport_type})`);
+    return res.status(200).send("OK");
+  }
+);
+
+/**
+ * stravaRegisterWebhook — admin-only callable
+ * Registers TFL's webhook subscription with Strava. Run once.
+ * data: { callbackUrl: string } — e.g. "https://us-central1-trainingforlife-1422f.cloudfunctions.net/stravaWebhook"
+ */
+exports.stravaRegisterWebhook = onCall(
+  { secrets: [stravaClientId, stravaClientSecret, stravaWebhookVerifyToken] },
+  async (request) => {
+    if (!request.auth || request.auth.uid !== "wKbgHNtTMtS01BQ4ddfAwTQaIgA3") {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { callbackUrl } = request.data || {};
+    if (!callbackUrl) throw new HttpsError("invalid-argument", "callbackUrl required.");
+
+    const res = await fetch("https://www.strava.com/api/v3/push_subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: stravaClientId.value(),
+        client_secret: stravaClientSecret.value(),
+        callback_url: callbackUrl,
+        verify_token: stravaWebhookVerifyToken.value(),
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      logger.error("Strava webhook registration failed", data);
+      throw new HttpsError("internal", JSON.stringify(data));
+    }
+
+    logger.info("Strava webhook registered", data);
+    return data; // contains subscription id
+  }
+);
+
+/**
+ * resendActivationToken — admin only callable
+ * data: { uid: string }
+ * Supersedes all existing tokens for the user and generates a fresh one.
+ * Returns: { activationUrl }
+ */
+exports.resendActivationToken = onCall(
+  async (request) => {
+    if (!request.auth || request.auth.uid !== ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Admin only.");
+    }
+
+    const { uid } = request.data;
+    if (!uid || typeof uid !== "string") {
+      throw new HttpsError("invalid-argument", "uid is required.");
+    }
+
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+
+    const userData = userSnap.data();
+    if (userData.activated) {
+      throw new HttpsError("failed-precondition", "This account is already activated.");
+    }
+
+    // Supersede existing unused tokens for this user
+    const existingTokensSnap = await db.collection("activationTokens")
+      .where("uid", "==", uid)
+      .where("used", "==", false)
+      .get();
+
+    const now = Timestamp.now();
+    const expiresAt = Timestamp.fromDate(new Date(Date.now() + TOKEN_TTL_DAYS * 86400000));
+    const batch = db.batch();
+
+    existingTokensSnap.docs.forEach(d => {
+      batch.update(d.ref, { used: true, usedAt: now, superseded: true });
+    });
+
+    const newToken = crypto.randomBytes(32).toString("hex");
+    const tokenRef = db.collection("activationTokens").doc(newToken);
+    batch.set(tokenRef, {
+      uid,
+      email: userData.email,
+      firstName: userData.firstName,
+      expiresAt,
+      used: false,
+      usedAt: null,
+      importBatchId: userData.importBatchId || null,
+      createdAt: now,
+      resent: true,
+    });
+
+    await batch.commit();
+
+    const activationUrl = `${SITE_URL}/activate/${newToken}`;
+    logger.info(`Activation token resent for ${uid} (${userData.email})`);
+    return { activationUrl, email: userData.email };
+  }
+);
+
+// ─── END PAST CLIENT IMPORT SYSTEM ─────────────────────────────────────────
+
+// ─── PREMIUM WORKOUT BUILDER ───────────────────────────────────────────────
+
+/**
+ * checkWorkoutSaveEntitlement — callable
+ * Called before saving a new custom workout. Enforces the free tier limit (1 workout).
+ * Never trust the client to enforce this — always verify server-side.
+ *
+ * Returns: { allowed: boolean, currentCount: number, limit: number }
+ */
+exports.checkWorkoutSaveEntitlement = onCall(
+  { invoker: "public" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Login required.");
+    }
+
+    const uid = request.auth.uid;
+    const userSnap = await db.collection("users").doc(uid).get();
+    const userData = userSnap.data() || {};
+
+    const tier = userData.subscriptionTier || "free";
+    const status = userData.subscriptionStatus || null;
+    const isPremium = tier === "premium" && (status === "active" || status === "trialing");
+
+    if (isPremium) {
+      return { allowed: true, currentCount: null, limit: null };
+    }
+
+    // Free tier: count existing custom workouts
+    const workoutsSnap = await db.collection("users").doc(uid).collection("workouts").get();
+    const currentCount = workoutsSnap.size;
+    const FREE_LIMIT = 1;
+
+    return {
+      allowed: currentCount < FREE_LIMIT,
+      currentCount,
+      limit: FREE_LIMIT,
+    };
+  }
+);
+
+/**
+ * onCustomWorkoutCompleted — Firestore trigger
+ * Fires when any document is created in /workoutLogs.
+ * Only processes documents with logType === "custom" to avoid duplicating
+ * the existing onWorkoutLogged milestone logic.
+ *
+ * Responsibilities:
+ *   1. Detect and record personal bests per exercise in /users/{userId}/personalBests
+ *   2. Recalculate Capability Score v1 (consistency + streak)
+ */
+exports.onCustomWorkoutCompleted = onDocumentCreated(
+  { document: "workoutLogs/{docId}", secrets: [stravaClientId, stravaClientSecret] },
+  async (event) => {
+    const log = event.data.data();
+    if (!log || log.logType !== "custom") return; // only custom workout logs
+
+    const userId = log.userId;
+    if (!userId || userId === ADMIN_UID) return;
+
+    const logId = event.params.docId;
+
+    // Run PB detection first so we can include PRs in the Strava description
+    const [newPBs] = await Promise.all([
+      updatePersonalBests(userId, log, logId),
+      recalculateCapabilityScore(userId),
+    ]);
+
+    // Auto-push to Strava if connected (fire-and-forget — don't fail the trigger if Strava is down)
+    pushWorkoutToStravaIfConnected(userId, log, newPBs).catch((err) =>
+      logger.warn(`Strava auto-push failed for ${userId}:`, err.message)
+    );
+  }
+);
+
+/**
+ * Scans each exercise in a completed custom workout log and updates
+ * /users/{userId}/personalBests/{exerciseId} if a new best was achieved.
+ */
+async function updatePersonalBests(userId, log, logId) {
+  const exercises = log.exercises || [];
+  if (exercises.length === 0) return [];
+
+  const newPBs = [];
+
+  for (const ex of exercises) {
+    const { exerciseId, exerciseName, sets = [] } = ex;
+    if (!exerciseId) continue;
+
+    // Find the best weight lifted in completed sets for this exercise
+    const completedSets = sets.filter((s) => s.completed !== false);
+    if (completedSets.length === 0) continue;
+
+    const maxWeight = Math.max(
+      ...completedSets.map((s) => parseFloat(s.weight) || 0)
+    );
+    const maxReps = Math.max(
+      ...completedSets.map((s) => parseInt(s.reps) || 0)
+    );
+    // Best volume = highest single-set weight * reps (useful for AI coaching later)
+    const bestVolume = Math.max(
+      ...completedSets.map((s) => (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0))
+    );
+
+    const pbRef = db.collection("users").doc(userId).collection("personalBests").doc(exerciseId);
+    const pbSnap = await pbRef.get();
+    const existing = pbSnap.exists ? pbSnap.data() : null;
+
+    const isNewWeightPB = maxWeight > 0 && (!existing || maxWeight > (existing.bestWeight || 0));
+    const isNewRepsPB = maxReps > 0 && (!existing || maxReps > (existing.bestReps || 0));
+
+    if (isNewWeightPB || isNewRepsPB || !existing) {
+      await pbRef.set(
+        {
+          exerciseId,
+          exerciseName: exerciseName || exerciseId,
+          bestWeight: isNewWeightPB ? maxWeight : (existing?.bestWeight || 0),
+          bestReps: isNewRepsPB ? maxReps : (existing?.bestReps || 0),
+          bestVolume: Math.max(bestVolume, existing?.bestVolume || 0),
+          achievedAt: Timestamp.now(),
+          logId: logId || null,
+          updatedAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
+
+      logger.info(`New PB for user ${userId} on exercise ${exerciseId}: weight=${maxWeight}kg reps=${maxReps}`);
+
+      if (isNewWeightPB || isNewRepsPB) {
+        newPBs.push({
+          exerciseName: exerciseName || exerciseId,
+          weight: isNewWeightPB ? maxWeight : null,
+          reps: isNewRepsPB ? maxReps : null,
+          isWeightPB: isNewWeightPB,
+          isRepsPB: isNewRepsPB,
+        });
+      }
+    }
+  }
+
+  return newPBs;
+}
+
+/**
+ * Calculates total volume lifted in a workout log (kg).
+ * Volume = sum of (weight * reps) across all completed sets.
+ */
+function calculateWorkoutVolume(log) {
+  const exercises = log.exercises || [];
+  let totalVolume = 0;
+  for (const ex of exercises) {
+    const completedSets = (ex.sets || []).filter((s) => s.completed !== false);
+    for (const s of completedSets) {
+      const w = parseFloat(s.weight) || 0;
+      const r = parseInt(s.reps) || 0;
+      totalVolume += w * r;
+    }
+  }
+  return Math.round(totalVolume);
+}
+
+/**
+ * Pushes a completed TFL workout to Strava as a manual activity, if the user has Strava connected.
+ * Includes total volume and any new PRs in the description.
+ */
+async function pushWorkoutToStravaIfConnected(userId, log, newPBs = []) {
+  const integRef = db.collection("users").doc(userId).collection("integrations").doc("strava");
+  const snap = await integRef.get();
+  if (!snap.exists) return; // not connected, nothing to do
+
+  const workoutName = log.workoutName || "Workout";
+  const durationSeconds = log.durationSeconds || null;
+  if (!durationSeconds || !log.startedAt) return; // can't post without duration and start time
+
+  const startedAt = log.startedAt.toDate
+    ? log.startedAt.toDate().toISOString()
+    : new Date(log.startedAt).toISOString();
+
+  const totalVolume = calculateWorkoutVolume(log);
+
+  // Build description
+  const lines = ["Logged via Training for Life"];
+  if (totalVolume > 0) {
+    lines.push(`\nTotal volume: ${totalVolume.toLocaleString()} kg`);
+  }
+  if (newPBs.length > 0) {
+    lines.push("\nNew personal bests:");
+    for (const pb of newPBs) {
+      const parts = [];
+      if (pb.isWeightPB && pb.weight) parts.push(`${pb.weight} kg`);
+      if (pb.isRepsPB && pb.reps) parts.push(`${pb.reps} reps`);
+      lines.push(`  ${pb.exerciseName}: ${parts.join(", ")}`);
+    }
+  }
+
+  const description = lines.join("\n");
+
+  // Get a valid token (refreshes if needed)
+  let accessToken;
+  try {
+    accessToken = await stravaGetValidToken(userId);
+  } catch (err) {
+    logger.info(`Strava auto-push skipped for ${userId}: token issue — ${err.message}`);
+    return;
+  }
+
+  const body = {
+    name: `${workoutName} (Training for Life)`,
+    type: "WeightTraining",
+    sport_type: "WeightTraining",
+    start_date_local: startedAt,
+    elapsed_time: durationSeconds,
+    description,
+  };
+
+  const res = await fetch("https://www.strava.com/api/v3/activities", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Strava API error: ${err}`);
+  }
+
+  const activity = await res.json();
+  logger.info(`Strava auto-push success for ${userId}: activity ${activity.id} (${workoutName}, volume=${totalVolume}kg, PRs=${newPBs.length})`);
+}
+
+/**
+ * Recalculates the user's Capability Score v1.
+ *
+ * Inputs (Phase 1 — no wearable required):
+ *   Consistency Score: sessions in last 28 days. Target = 12 (3/week * 4 weeks). Max 100.
+ *   Streak Score:      consecutive weeks with 2+ sessions. 1w=25, 2w=50, 3w=75, 4w+=100.
+ *   Overall Score:     (consistency * 0.6) + (streak * 0.4). Rounded to nearest integer.
+ *
+ * Writes to /users/{userId}.capabilityScore
+ */
+async function recalculateCapabilityScore(userId) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 28);
+
+  const logsSnap = await db.collection("workoutLogs")
+    .where("userId", "==", userId)
+    .where("completedAt", ">=", Timestamp.fromDate(cutoff))
+    .orderBy("completedAt", "desc")
+    .limit(200)
+    .get();
+
+  const sessionDates = logsSnap.docs
+    .map((d) => {
+      const ts = d.data().completedAt;
+      if (!ts) return null;
+      return ts.toDate ? ts.toDate() : new Date(ts);
+    })
+    .filter(Boolean);
+
+  // Consistency Score (0-100)
+  const WEEKLY_TARGET = 3;
+  const WEEKS = 4;
+  const TOTAL_TARGET = WEEKLY_TARGET * WEEKS;
+  const consistencyScore = Math.min(100, Math.round((sessionDates.length / TOTAL_TARGET) * 100));
+
+  // Streak Score — count consecutive weeks (Mon-Sun) with 2+ sessions
+  function getWeekKey(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split("T")[0];
+  }
+
+  const weekCounts = {};
+  sessionDates.forEach((d) => {
+    const key = getWeekKey(d);
+    weekCounts[key] = (weekCounts[key] || 0) + 1;
+  });
+
+  // Count consecutive qualifying weeks from most recent
+  let streakWeeks = 0;
+  const currentWeekKey = getWeekKey(new Date());
+  const allWeekKeys = Object.keys(weekCounts).sort().reverse();
+
+  for (let i = 0; i < allWeekKeys.length; i++) {
+    if (weekCounts[allWeekKeys[i]] >= 2) {
+      streakWeeks++;
+    } else {
+      break;
+    }
+  }
+
+  const streakScore = Math.min(100, streakWeeks * 25); // 4+ weeks = 100
+
+  // Overall Capability Score
+  const overall = Math.round(consistencyScore * 0.6 + streakScore * 0.4);
+
+  await db.collection("users").doc(userId).update({
+    "capabilityScore.overall": overall,
+    "capabilityScore.lastCalculatedAt": Timestamp.now(),
+    "capabilityScore.breakdown.consistency": consistencyScore,
+    "capabilityScore.breakdown.streak": streakScore,
+    "capabilityScore.version": 1,
+  });
+
+  logger.info(`Capability Score updated for ${userId}: overall=${overall} (consistency=${consistencyScore}, streak=${streakScore})`);
+}
+
+// ─── END PREMIUM WORKOUT BUILDER ────────────────────────────────────────────
+
+exports.zapierLeadWebhook = onRequest(
+  { secrets: [zapierWebhookSecret] },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).send("Method not allowed");
+    }
+
+    const providedSecret = req.get("x-webhook-secret");
+    if (providedSecret !== zapierWebhookSecret.value()) {
+      logger.warn("Rejected lead webhook call with invalid secret");
+      return res.status(401).send("Unauthorized");
+    }
+
+    const { firstName, email, phone } = req.body || {};
+    if (!email || typeof email !== "string") {
+      return res.status(400).send("Email is required");
+    }
+
+    try {
+      await db.collection("leads").add({
+        firstName: firstName || "",
+        email: email.toLowerCase(),
+        phone: phone || "",
+        source: "instant_form",
+        consentStatus: "pending",
+        createdAt: new Date().toISOString(),
+      });
+
+      return res.status(200).send("OK");
+    } catch (e) {
+      logger.error("Failed to write lead from Zapier webhook", e);
+      return res.status(500).send("Internal error");
+    }
+  }
+);

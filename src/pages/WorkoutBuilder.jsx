@@ -714,4 +714,75 @@ export default function WorkoutBuilder() {
                   index={i}
                   total={exercises.length}
                   onChange={(updated) => updateExercise(i, updated)}
-                  onRemove={() =>
+                  onRemove={() => removeExercise(i)}
+                  onMoveUp={() => moveExercise(i, -1)}
+                  onMoveDown={() => moveExercise(i, 1)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Add exercise button */}
+        <button
+          onClick={() => setShowPicker(true)}
+          style={{
+            width: "100%",
+            padding: "14px",
+            borderRadius: "14px",
+            border: "2px dashed #2d6a4f",
+            backgroundColor: exercises.length === 0 ? "#eaf5ef" : "transparent",
+            color: "#2d6a4f",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: "pointer",
+            marginBottom: 24,
+          }}
+        >
+          + Add Exercise
+        </button>
+
+        {/* Error */}
+        {error && (
+          <div style={{ backgroundColor: "#fef2f2", border: "0.5px solid #fca5a5", borderRadius: "12px", padding: "12px 14px", marginBottom: 16 }}>
+            <p style={{ color: "#dc2626", fontSize: 13, fontWeight: 600, margin: 0 }}>{error}</p>
+          </div>
+        )}
+
+        {/* Save button */}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            width: "100%",
+            padding: "16px",
+            borderRadius: "14px",
+            border: "none",
+            backgroundColor: saving ? "#aaa" : "#2d6a4f",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: saving ? "default" : "pointer",
+          }}
+        >
+          {saving ? "Saving..." : isEditing ? "Save Changes" : "Save Workout"}
+        </button>
+
+        {/* Free tier tip */}
+        {!features.isPremium && !isEditing && (
+          <p style={{ fontSize: 12, color: "#aaa", textAlign: "center", marginTop: 12 }}>
+            Free plan: 1 saved workout. Upgrade for unlimited.
+          </p>
+        )}
+      </div>
+
+      {showPicker && (
+        <ExercisePicker onSelect={addExercise} onClose={() => setShowPicker(false)} userId={user?.uid} />
+      )}
+
+      {showGate && (
+        <PremiumGate reason="workout_limit" onClose={() => setShowGate(false)} />
+      )}
+    </div>
+  );
+}

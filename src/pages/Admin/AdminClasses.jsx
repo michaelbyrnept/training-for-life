@@ -412,4 +412,125 @@ function WeekSnapshot({ classes, weekOffset, onOffsetChange }) {
     <div style={{ margin: "0 1rem 1.5rem", background: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", overflow: "hidden" }}>
       {/* Week nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #f0f0f0" }}>
-        <button onClick={() => onOffsetChange(weekOffset - 1)} st
+        <button onClick={() => onOffsetChange(weekOffset - 1)} style={{ background: "none", border: "none", fontSize: "18px", cursor: "pointer", color: "#555" }}>‹</button>
+        <span style={{ fontWeight: 700, fontSize: "14px", color: "#111" }}>{weekLabel}</span>
+        <button onClick={() => onOffsetChange(weekOffset + 1)} style={{ background: "none", border: "none", fontSize: "18px", cursor: "pointer", color: "#555" }}>›</button>
+      </div>
+
+      {/* Day columns */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "1px", background: "#f0f0f0" }}>
+        {days.map((day, i) => {
+          const dateStr = toDateStr(day);
+          const isToday = dateStr === toDateStr(new Date());
+          const dayClasses = classes
+            .filter(c => c.date === dateStr && c.published !== false)
+            .sort((a, b) => a.time?.localeCompare(b.time));
+
+          return (
+            <div key={dateStr} style={{ background: "#fff", minHeight: "120px" }}>
+              {/* Day header */}
+              <div style={{
+                padding: "8px 6px 6px",
+                textAlign: "center",
+                borderBottom: "1px solid #f0f0f0",
+                background: isToday ? "#eaf5ef" : "#fff",
+              }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: isToday ? "#2d6a4f" : "#888", margin: 0, textTransform: "uppercase" }}>{dayNames[i]}</p>
+                <p style={{ fontSize: "16px", fontWeight: 700, color: isToday ? "#2d6a4f" : "#111", margin: "2px 0 0" }}>{day.getDate()}</p>
+              </div>
+
+              {/* Classes */}
+              <div style={{ padding: "6px 4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                {dayClasses.length === 0 && (
+                  <p style={{ fontSize: "10px", color: "#ddd", textAlign: "center", margin: "8px 0" }}>–</p>
+                )}
+                {dayClasses.map(cls => {
+                  const typeInfo = CLASS_TYPES.find(t => t.id === cls.type) || CLASS_TYPES[0];
+                  return (
+                    <div key={cls.id} style={{
+                      background: typeInfo.bg,
+                      borderRadius: "6px",
+                      padding: "5px 6px",
+                    }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, color: typeInfo.color, margin: "0 0 1px", lineHeight: 1.2 }}>
+                        {typeInfo.icon} {cls.time}
+                      </p>
+                      <p style={{ fontSize: "11px", fontWeight: 700, color: "#111", margin: 0, lineHeight: 1.2 }}>{cls.title}</p>
+                      <p style={{ fontSize: "10px", color: "#888", margin: "1px 0 0" }}>{cls.duration}m</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function QuickCreateExercise({ name, onCreated, onCancel }) {
+  const [form, setForm] = useState({
+    name: name || "",
+    muscleGroup: "Legs",
+    type: "strength",
+    videoUrl: "",
+    defaultSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const MUSCLE_GROUPS = ["Legs", "Chest", "Back", "Shoulders", "Arms", "Core", "Full Body"];
+
+  const handleCreate = async () => {
+    if (!form.name.trim()) return alert("Exercise name required.");
+    setSaving(true);
+    try {
+      const ref = await addDoc(collection(db, "exercises"), {
+        ...form,
+        coachingNotes: "",
+        createdAt: new Date().toISOString(),
+      });
+      onCreated({ id: ref.id, ...form });
+    } catch (e) {
+      console.error(e);
+      alert("Error creating exercise.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ backgroundColor: "#eaf5ef", borderRadius: "10px", padding: "12px", marginTop: "8px", border: "1px solid #86efac" }}>
+      <p style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", margin: "0 0 10px" }}>Create New Exercise</p>
+      <input
+        style={{ ...inputStyle, marginBottom: "8px" }}
+        placeholder="Exercise name"
+        value={form.name}
+        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+        autoFocus
+      />
+      <select style={{ ...inputStyle, marginBottom: "8px" }} value={form.muscleGroup} onChange={e => setForm(f => ({ ...f, muscleGroup: e.target.value }))}>
+        {MUSCLE_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+      </select>
+      <input
+        style={{ ...inputStyle, marginBottom: "10px" }}
+        placeholder="Video URL (optional)"
+        value={form.videoUrl}
+        onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value }))}
+      />
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button onClick={handleCreate} disabled={saving} style={{ flex: 1, backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
+          {saving ? "Creating..." : "Create & Add"}
+        </button>
+        <button onClick={onCancel} style={{ backgroundColor: "#fff", color: "#555", border: "0.5px solid #e5e5e5", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const labelStyle = { display: "block", fontSize: "12px", fontWeight: 600, color: "#555", marginBottom: "6px", marginTop: "14px" };
+const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", color: "#111", backgroundColor: "#fafafa", boxSizing: "border-box" };
+const smallBtn = (bg, color) => ({ backgroundColor: bg, color, border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer" });

@@ -217,4 +217,53 @@ export default function PremiumGate({ reason = "generic", onClose, onUpgrade }) 
                   }}
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 6l3 3 5-5" stroke=
+                    <path d="M2 6l3 3 5-5" stroke="#2d6a4f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <p style={{ fontSize: 14, color: "#111", margin: 0, fontWeight: 500 }}>{benefit}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA buttons */}
+        <div style={{ padding: "24px 16px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={handleUpgrade}
+            style={{
+              width: "100%",
+              padding: "16px",
+              borderRadius: "14px",
+              border: "none",
+              backgroundColor: "#2d6a4f",
+              color: "#fff",
+              fontSize: 16,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Redirecting to checkout..." : `${content.cta} for €19.99/month`}
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{
+                width: "100%",
+                padding: "14px",
+                borderRadius: "14px",
+                border: "none",
+                backgroundColor: "transparent",
+                color: "#888",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Maybe later
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

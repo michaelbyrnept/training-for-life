@@ -101,4 +101,14 @@ firestore.rules                         — Firestore security rules (uses isAdm
 
 Here's what you can ask me to do:
 
-| Say th
+| Say this | What happens |
+|---|---|
+| `/setup` | First-time workspace setup (you already did this!) |
+| "new project" | I'll interview you about the project and set up a folder with a project overview |
+| "good morning" | I'll recap recent work, recommend what's most important, and help you pick what to do |
+| "end of day" or "wrap up" | I'll log what we worked on so the next session can pick up where we left off |
+| "help" or "what can you do?" | I'll show you everything I can help with |
+
+---
+
+*Claude updates this file as your workspace grows. You can also edit it yourself anytime.*

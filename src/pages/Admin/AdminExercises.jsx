@@ -368,4 +368,71 @@ export default function AdminExercises() {
       ) : filtered.length === 0 ? (
         <p style={{ textAlign: "center", color: "#888", padding: "2rem" }}>No exercises found.</p>
       ) : (
-        Object.entries(grouped).map(([group,
+        Object.entries(grouped).map(([group, items]) => (
+          <div key={group} style={{ marginBottom: "1rem" }}>
+            <button
+              onClick={() => toggleGroup(group)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 1.25rem",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#888" }}>
+                {group} ({items.length})
+              </span>
+              <span style={{ fontSize: 14, color: "#aaa", fontWeight: 700 }}>
+                {collapsed[group] ? "▸" : "▾"}
+              </span>
+            </button>
+            {!collapsed[group] && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "0 1.25rem" }}>
+              {items.map((exercise) => (
+                <div key={exercise.id} style={{ backgroundColor: "#fff", borderRadius: "12px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 700, fontSize: "15px", color: "#111", margin: 0 }}>{exercise.name}</p>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px", flexWrap: "wrap" }}>
+                      {exercise.type === "cardio" ? (
+                        <>
+                          <span style={{ fontSize: "10px", backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>🏃 Cardio</span>
+                          <span style={{ fontSize: "10px", backgroundColor: "#f3f4f6", color: "#666", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>{exercise.defaultDuration || 30} min</span>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: "10px", color: "#888" }}>{exercise.defaultSets || 3} sets</span>
+                          <span style={{ fontSize: "10px", backgroundColor: "#eaf5ef", color: "#2d6a4f", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>
+                            {exercise.repsMin || 8}-{exercise.repsMax || exercise.defaultReps || 12} reps
+                          </span>
+                          {exercise.countPerSide && (
+                            <span style={{ fontSize: "10px", backgroundColor: "#f5f3ff", color: "#7c3aed", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>per side</span>
+                          )}
+                        </>
+                      )}
+                      {exercise.videoUrl && <span style={{ fontSize: "10px", backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>Video</span>}
+                      {exercise.coachingNotes && <span style={{ fontSize: "10px", backgroundColor: "#f3f4f6", color: "#666", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>Notes</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button onClick={() => handleEdit(exercise)} style={smallBtnStyle("#eaf5ef", "#2d6a4f")}>Edit</button>
+                    <button onClick={() => handleDelete(exercise.id)} style={smallBtnStyle("#fef2f2", "#dc2626")}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+const labelStyle = { display: "block", fontSize: "12px", fontWeight: 600, color: "#555", marginBottom: "6px", marginTop: "14px" };
+const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", color: "#111", backgroundColor: "#fafafa", boxSizing: "border-box" };
+const smallBtnStyle = (bg, color) => ({ backgroundColor: bg, color, border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer" });

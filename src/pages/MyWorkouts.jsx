@@ -313,4 +313,34 @@ export default function MyWorkouts() {
                     </Link>
                     <button
                       onClick={() => handleDelete(workout.id)}
-                      disabled={deletingId =
+                      disabled={deletingId === workout.id}
+                      style={{
+                        flex: 1,
+                        padding: "12px 0",
+                        border: "none",
+                        background: "none",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: isConfirmingDelete ? "#dc2626" : "#bbb",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {deletingId === workout.id ? "..." : isConfirmingDelete ? "Sure?" : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showGate && (
+        <PremiumGate
+          reason="workout_limit"
+          onClose={() => setShowGate(false)}
+        />
+      )}
+    </div>
+  );
+}

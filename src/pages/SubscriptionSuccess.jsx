@@ -146,4 +146,19 @@ export default function SubscriptionSuccess() {
             to="/check-in"
             style={{
               display: "block",
-              backgroundColor: "rgba(255,255
+              backgroundColor: "rgba(255,255,255,0.15)",
+              color: "#fff",
+              fontSize: "14px",
+              fontWeight: 600,
+              padding: "13px",
+              borderRadius: "12px",
+              textDecoration: "none",
+            }}
+          >
+            Submit Your First Check-in
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}

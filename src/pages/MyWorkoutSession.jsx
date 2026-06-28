@@ -541,4 +541,44 @@ export default function MyWorkoutSession() {
                 </div>
 
                 {/* Notes */}
-                {ex.notes && 
+                {ex.notes && (
+                  <div style={{ borderTop: "0.5px solid #f0f0f0", padding: "10px 16px" }}>
+                    <p style={{ fontSize: 12, color: "#888", margin: 0, fontStyle: "italic" }}>Note: {ex.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Finish button */}
+        <button
+          onClick={handleFinish}
+          disabled={saving}
+          style={{
+            width: "100%",
+            padding: "16px",
+            borderRadius: "14px",
+            border: "none",
+            backgroundColor: saving ? "#aaa" : completedSets > 0 ? "#2d6a4f" : "#e5e5e5",
+            color: completedSets > 0 || saving ? "#fff" : "#aaa",
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: saving || completedSets === 0 ? "default" : "pointer",
+            marginTop: 8,
+          }}
+        >
+          {saving ? "Saving..." : completedSets === 0 ? "Complete sets to finish" : `Finish Workout (${completedSets}/${totalSets} sets)`}
+        </button>
+      </div>
+
+      {/* Rest timer overlay */}
+      {restTimer && (
+        <RestTimer
+          seconds={restTimer.seconds}
+          onDismiss={() => setRestTimer(null)}
+        />
+      )}
+    </div>
+  );
+}
