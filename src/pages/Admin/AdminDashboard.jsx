@@ -299,4 +299,10 @@ export default function AdminDashboard() {
                 );
               })}
             </div>
-            <button onClick={() => setShowTierSheet(false)} style={{ width:
+            <button onClick={() => setShowTierSheet(false)} style={{ width: "100%", background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "16px", padding: "6px" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

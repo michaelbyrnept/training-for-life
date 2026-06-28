@@ -780,4 +780,111 @@ export default function Dashboard() {
                   <span style={{ fontSize: "13px", color: item.done >= item.target ? "#c5e8d8" : "rgba(255,255,255,0.7)", fontWeight: item.done >= item.target ? 700 : 400 }}>
                     {item.label} {item.comingSoon ? "(coming soon)" : ""}
                   </span>
-              
+                </div>
+                <div style={{ display: "flex", gap: "5px" }}>
+                  {Array.from({ length: item.target }).map((_, i) => (
+                    <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", backgroundColor: i < item.done ? "#4ade80" : "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {i < item.done && (
+                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                          <path d="M1.5 4.5l2 2 4-4" stroke="#1a3a2a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Link to="/training" style={{ display: "block", textAlign: "center", marginTop: "14px", fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none" }}>
+            Manage my programmes →
+          </Link>
+        </div>
+      </div>
+
+      {/* QUICK ACTIONS */}
+      <div style={{ padding: "16px 16px 0", display: "flex", gap: "10px" }}>
+        <Link to="/capability-score" style={{ flex: 1, backgroundColor: "#fff", border: "0.5px solid #e5e5e5", borderRadius: "12px", padding: "12px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#2d6a4f", textDecoration: "none" }}>
+          {capabilityScore ? "Retake Assessment" : "Take Assessment"}
+        </Link>
+        <Link to="/training" style={{ flex: 1, backgroundColor: "#2d6a4f", borderRadius: "12px", padding: "12px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#fff", textDecoration: "none" }}>
+          View Training
+        </Link>
+      </div>
+
+      {/* SCORE HISTORY MODAL */}
+      {showScoreModal && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowScoreModal(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px" }}>
+            <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Capability Score</h2>
+            <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>
+              {allScores.length > 1 ? `${allScores.length} assessments completed` : "Reassess every 30 days to track progress"}
+            </p>
+
+            {allScores.length > 1 ? (
+              /* REAL HISTORY GRAPH */
+              <div style={{ background: "#f7f5f2", borderRadius: "12px", padding: "16px", marginBottom: "16px" }}>
+                <svg viewBox="0 0 300 120" width="100%" style={{ display: "block", overflow: "visible" }}>
+                  {(() => {
+                    const vals = allScores.map(s => s.capabilityScore);
+                    const minV = Math.min(...vals);
+                    const maxV = Math.max(...vals);
+                    const range = maxV - minV || 1;
+                    const coords = vals.map((v, i) => ({
+                      x: 16 + (i / (vals.length - 1)) * 268,
+                      y: 100 - ((v - minV) / range) * 80,
+                      v,
+                      date: allScores[i].assessmentDate,
+                    }));
+                    const pts = coords.map(c => `${c.x},${c.y}`).join(" ");
+                    const fillPts = `${coords[0].x},110 ${pts} ${coords[coords.length - 1].x},110`;
+                    return (
+                      <>
+                        <defs>
+                          <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#2d6a4f" stopOpacity="0.2"/>
+                            <stop offset="100%" stopColor="#2d6a4f" stopOpacity="0"/>
+                          </linearGradient>
+                        </defs>
+                        <polygon points={fillPts} fill="url(#grad)"/>
+                        <polyline points={pts} fill="none" stroke="#2d6a4f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        {coords.map((c, i) => (
+                          <g key={i}>
+                            <circle cx={c.x} cy={c.y} r="4" fill="#2d6a4f" stroke="#fff" strokeWidth="2"/>
+                            <text x={c.x} y={c.y - 10} textAnchor="middle" fontSize="10" fill="#2d6a4f" fontWeight="700">{c.v}</text>
+                          </g>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </svg>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0 0" }}>
+                  {allScores.map((s, i) => (
+                    <span key={i} style={{ fontSize: "10px", color: "#aaa", fontWeight: 600, flex: 1, textAlign: "center" }}>
+                      {new Date(s.assessmentDate).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* ONLY ONE SCORE -- show current + prompt to retest */
+              <div style={{ background: "#f7f5f2", borderRadius: "12px", padding: "20px", marginBottom: "16px", textAlign: "center" }}>
+                <p style={{ fontSize: "48px", fontWeight: 700, color: "#2d6a4f", margin: "0 0 4px", lineHeight: 1 }}>{capabilityScore}</p>
+                <p style={{ fontSize: "14px", color: "#888", margin: "0 0 4px" }}>{category}</p>
+                <p style={{ fontSize: "12px", color: "#aaa", margin: 0 }}>
+                  Assessed {new Date(assessmentDate).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+                <p style={{ fontSize: "12px", color: "#aaa", margin: "12px 0 0" }}>Retake in 30 days to see your progress graph</p>
+              </div>
+            )}
+
+            <Link to="/capability-score" onClick={() => setShowScoreModal(false)} style={{ display: "block", textAlign: "center", background: "#2d6a4f", color: "#fff", borderRadius: "12px", padding: "13px", fontSize: "14px", fontWeight: 700, textDecoration: "none" }}>
+              {capabilityScore ? "Retake Assessment" : "Take Assessment"}
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
