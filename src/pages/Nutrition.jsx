@@ -78,6 +78,7 @@ function BarcodeScanner({ onResult, onClose }) {
   const [scannedFood, setScannedFood] = useState(null);
   const [amount, setAmount] = useState("100");
   const controlsRef = useRef(null);
+  const lookingUpRef = useRef(false);
 
   const startScan = async () => {
     setScanning(true);
@@ -90,10 +91,10 @@ function BarcodeScanner({ onResult, onClose }) {
         undefined,
         videoElement,
         (result, err) => {
-          if (result && !controlsRef.current?._looked) {
-            controlsRef.current._looked = true; // prevent double-fire
+          if (result && !lookingUpRef.current) {
+            lookingUpRef.current = true;
             controlsRef.current?.stop();
-            setSearching(true); // show overlay on camera while fetching
+            setSearching(true);
             lookupBarcode(result.getText());
           }
         }
@@ -113,6 +114,7 @@ function BarcodeScanner({ onResult, onClose }) {
   };
 
   const lookupBarcode = async (barcode) => {
+    setSearching(true);
     setError("");
     try {
       const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
@@ -140,6 +142,7 @@ function BarcodeScanner({ onResult, onClose }) {
     }
     setScanning(false);
     setSearching(false);
+    lookingUpRef.current = false;
   };
 
   const confirmLog = () => {
