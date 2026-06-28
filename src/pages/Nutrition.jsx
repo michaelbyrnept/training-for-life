@@ -90,9 +90,10 @@ function BarcodeScanner({ onResult, onClose }) {
         undefined,
         videoElement,
         (result, err) => {
-          if (result) {
+          if (result && !controlsRef.current?._looked) {
+            controlsRef.current._looked = true; // prevent double-fire
             controlsRef.current?.stop();
-            setScanning(false);
+            setSearching(true); // show overlay on camera while fetching
             lookupBarcode(result.getText());
           }
         }
@@ -112,7 +113,6 @@ function BarcodeScanner({ onResult, onClose }) {
   };
 
   const lookupBarcode = async (barcode) => {
-    setSearching(true);
     setError("");
     try {
       const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
@@ -138,6 +138,7 @@ function BarcodeScanner({ onResult, onClose }) {
     } catch (e) {
       setError("Could not connect. Check your internet connection.");
     }
+    setScanning(false);
     setSearching(false);
   };
 
@@ -208,6 +209,7 @@ function BarcodeScanner({ onResult, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", padding: "20px 20px 40px", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
         <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Scan Barcode</h2>
@@ -218,9 +220,16 @@ function BarcodeScanner({ onResult, onClose }) {
           <div style={{ marginBottom: "16px" }}>
             <div style={{ position: "relative", borderRadius: "12px", overflow: "hidden", backgroundColor: "#000", aspectRatio: "4/3" }}>
               <video id="barcode-video" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                <div style={{ width: "60%", height: "30%", border: "2px solid #4ade80", borderRadius: "8px", boxShadow: "0 0 0 9999px rgba(0,0,0,0.4)" }} />
-              </div>
+              {searching ? (
+                <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px" }}>
+                  <div style={{ width: 40, height: 40, border: "4px solid rgba(255,255,255,0.2)", borderTopColor: "#4ade80", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                  <p style={{ color: "#fff", fontWeight: 700, fontSize: "15px", margin: 0 }}>Looking up product...</p>
+                </div>
+              ) : (
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                  <div style={{ width: "60%", height: "30%", border: "2px solid #4ade80", borderRadius: "8px", boxShadow: "0 0 0 9999px rgba(0,0,0,0.4)" }} />
+                </div>
+              )}
             </div>
             <button onClick={stopScan} style={{ width: "100%", backgroundColor: "#f0f0f0", color: "#555", border: "none", borderRadius: "12px", padding: "14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", marginTop: "10px" }}>
               Stop Scanning
