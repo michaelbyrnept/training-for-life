@@ -589,9 +589,14 @@ export default function Nutrition() {
           <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Nutrition</p>
           <div style={{ display: "flex", gap: "8px" }}>
             {(user?.uid === "wKbgHNtTMtS01BQ4ddfAwTQaIgA3" || (userData?.subscription && userData.subscription !== "free")) && (
-              <Link to="/nutrition/grocery-list" style={{ fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none", backgroundColor: "rgba(255,255,255,0.12)", padding: "6px 12px", borderRadius: "20px" }}>
-                🛒 Grocery List
-              </Link>
+              <>
+                <Link to="/meal-ideas" style={{ fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none", backgroundColor: "rgba(255,255,255,0.12)", padding: "6px 12px", borderRadius: "20px" }}>
+                  🍽️ Meal Ideas
+                </Link>
+                <Link to="/nutrition/grocery-list" style={{ fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none", backgroundColor: "rgba(255,255,255,0.12)", padding: "6px 12px", borderRadius: "20px" }}>
+                  🛒 Grocery List
+                </Link>
+              </>
             )}
             <Link to="/nutrition/calculator" style={{ fontSize: "12px", fontWeight: 700, color: "#9fe1cb", textDecoration: "none", backgroundColor: "rgba(255,255,255,0.12)", padding: "6px 12px", borderRadius: "20px" }}>
               My Targets →

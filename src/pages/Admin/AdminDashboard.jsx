@@ -129,9 +129,15 @@ const sections = [
     highlight: true,
   },
   {
+    to: "/admin/nutrition",
+    label: "Client Nutrition",
+    description: "See what clients are logging and add food to their log.",
+    icon: "📋",
+  },
+  {
     to: "/admin/meals",
     label: "Meal Library",
-    description: "Build recommended meals clients can log with one tap.",
+    description: "Build meal ideas clients can browse for inspiration.",
     icon: "🍽️",
   },
   {

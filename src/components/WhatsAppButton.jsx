@@ -3,7 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 const WHATSAPP_NUMBER = "353852239897";
 const WHATSAPP_MESSAGE = "Hi Michael, I'm interested in personal training. Can we have a quick chat?";
 
-const HIDE_ON = ["/admin", "/dashboard", "/training", "/nutrition", "/habits", "/progress", "/programme", "/exercise", "/classes", "/check-in", "/profile", "/onboarding", "/my-workouts", "/my-programmes", "/integrations", "/strava"];
+const HIDE_ON = ["/admin", "/dashboard", "/training", "/nutrition", "/habits", "/progress", "/programme", "/exercise", "/classes", "/check-in", "/profile", "/onboarding", "/my-workouts", "/my-programmes", "/integrations", "/strava", "/meal-ideas", "/meal-plan", "/class-log", "/consultation", "/subscription", "/bundles", "/capability"];
 
 const btnBase = {
   display: "inline-flex",

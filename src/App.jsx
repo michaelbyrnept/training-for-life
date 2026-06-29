@@ -74,6 +74,9 @@ import MyProgrammeView from "./pages/MyProgrammeView";
 import Integrations from "./pages/Integrations";
 import StravaCallback from "./pages/StravaCallback";
 import AdminIntegrations from "./pages/Admin/AdminIntegrations";
+import AdminNutrition from "./pages/Admin/AdminNutrition";
+import AdminClientNutrition from "./pages/Admin/AdminClientNutrition";
+import MyMealIdeas from "./pages/MyMealIdeas";
 
 export default function App() {
   return (
@@ -117,6 +120,9 @@ export default function App() {
       <Route path="/admin/waitlist" element={<AdminRoute><AdminWaitlist /></AdminRoute>} />
       <Route path="/admin/check-ins" element={<AdminRoute><AdminCheckIns /></AdminRoute>} />
       <Route path="/admin/meals" element={<AdminRoute><AdminMeals /></AdminRoute>} />
+      <Route path="/admin/nutrition" element={<AdminRoute><AdminNutrition /></AdminRoute>} />
+      <Route path="/admin/nutrition/:clientUid" element={<AdminRoute><AdminClientNutrition /></AdminRoute>} />
+      <Route path="/meal-ideas" element={<MyMealIdeas />} />
       <Route path="/admin/bundles" element={<AdminRoute><AdminBundles /></AdminRoute>} />
       <Route path="/admin/sessions" element={<AdminRoute><AdminSessions /></AdminRoute>} />
       <Route path="/admin/revenue" element={<AdminRoute><AdminRevenue /></AdminRoute>} />
