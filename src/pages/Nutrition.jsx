@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, getDocs, collection, query, where } from "firebase
 import { Link, useNavigate } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
 
-const USDA_API_KEY = import.meta.env.VITE_USDA_API_KEY;
+const USDA_API_KEY = import.meta.env.VITE_USDA_API_KEY || "DEMO_KEY";
 
 // Common PT foods — show instantly before any API call
 const QUICK_PICKS = [
@@ -312,10 +312,10 @@ function FoodSearch({ onAdd, onClose }) {
       results = [...results, ...usdaFoods];
     } catch (e) { /* USDA unavailable */ }
 
-    // Open Food Facts \u2014 Ireland + UK products only, English language
+    // Open Food Facts \u2014 global search, English language
     try {
       const offRes = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(term)}&search_simple=1&action=process&json=1&page_size=20&fields=product_name,brands,nutriments&lc=en&countries_tags_en=ireland,united-kingdom`
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(term)}&search_simple=1&action=process&json=1&page_size=20&fields=product_name,brands,nutriments&lc=en`
       );
       const offData = await offRes.json();
       const offFoods = (offData.products || [])
