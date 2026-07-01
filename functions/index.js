@@ -14,6 +14,65 @@ const db = getFirestore();
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const zapierWebhookSecret = defineSecret("ZAPIER_WEBHOOK_SECRET");
+const brevoApiKey = defineSecret("BREVO_API_KEY");
+
+// ─── PASSWORD RESET EMAIL (via Brevo) ────────────────────────────────────────
+// Bypasses Firebase's built-in SMTP. Generates a reset link via Admin SDK,
+// then sends a clean branded email through Brevo from michael@trainingforlife.ie
+exports.sendPasswordReset = onCall(
+  { secrets: [brevoApiKey] },
+  async (request) => {
+    const { email } = request.data;
+    if (!email) throw new HttpsError("invalid-argument", "Email is required.");
+
+    const { getAuth } = require("firebase-admin/auth");
+
+    let resetLink;
+    try {
+      resetLink = await getAuth().generatePasswordResetLink(email);
+    } catch (err) {
+      // Don't reveal whether the email exists
+      logger.warn("sendPasswordReset: generatePasswordResetLink failed", err.code);
+      return { success: true };
+    }
+
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": brevoApiKey.value(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "Michael | Training for Life", email: "michael@trainingforlife.ie" },
+        to: [{ email }],
+        subject: "Reset your Training for Life password",
+        htmlContent: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+            <h2 style="margin:0 0 8px;font-size:22px;color:#2d6a4f;">Reset your password</h2>
+            <p style="margin:0 0 24px;font-size:15px;color:#444;">
+              Click the button below to set a new password. This link expires in 1 hour.
+            </p>
+            <a href="${resetLink}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;">
+              Reset password
+            </a>
+            <p style="margin:24px 0 0;font-size:13px;color:#888;">
+              If you didn't request this, ignore this email. Your password won't change.
+            </p>
+            <p style="margin:16px 0 0;font-size:13px;color:#888;">— Michael, Training for Life</p>
+          </div>
+        `,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      logger.error("sendPasswordReset: Brevo error", res.status, body);
+      throw new HttpsError("internal", "Failed to send email.");
+    }
+
+    return { success: true };
+  }
+);
 
 // Admin-only: export consented free users as CSV for Brevo import
 exports.exportConsentedUsers = onCall(async (request) => {

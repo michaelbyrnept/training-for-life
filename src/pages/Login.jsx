@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "../firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -35,7 +36,9 @@ export default function Login() {
     e.preventDefault();
     setForgotStatus("sending");
     try {
-      await sendPasswordResetEmail(auth, forgotEmail);
+      const functions = getFunctions();
+      const sendPasswordReset = httpsCallable(functions, "sendPasswordReset");
+      await sendPasswordReset({ email: forgotEmail });
       setForgotStatus("sent");
     } catch (err) {
       setForgotStatus("error");
