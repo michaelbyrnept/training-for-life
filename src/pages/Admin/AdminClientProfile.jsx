@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, getDocs, collection, query, where, updateDoc, addDoc, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "../../firebase";
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { getAuth } from "firebase/auth";
 import { Link, useParams, useNavigate } from "react-router-dom";
 
 const TIERS = [
@@ -368,11 +367,20 @@ export default function AdminClientProfile() {
     setSendingReply(false);
   };
 
+  const callPasswordReset = async (email) => {
+    const res = await fetch("https://sendpasswordreset-2dksgd24ea-uc.a.run.app", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error("Failed");
+  };
+
   const sendWelcomeEmail = async () => {
     if (!client.email) return;
     setResendStatus("sending");
     try {
-      await sendPasswordResetEmail(getAuth(), client.email);
+      await callPasswordReset(client.email);
       await updateDoc(doc(db, "users", uid), { welcomeSent: true, welcomeSentAt: new Date().toISOString() });
       setClient(prev => ({ ...prev, welcomeSent: true, welcomeSentAt: new Date().toISOString() }));
       setResendStatus("sent");
@@ -387,7 +395,7 @@ export default function AdminClientProfile() {
     if (!client.email) return;
     setResetEmailStatus("sending");
     try {
-      await sendPasswordResetEmail(getAuth(), client.email);
+      await callPasswordReset(client.email);
       setResetEmailStatus("sent");
       setTimeout(() => setResetEmailStatus(""), 3000);
     } catch (e) {
