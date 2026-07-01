@@ -368,7 +368,7 @@ export default function AdminClientProfile() {
   };
 
   const callPasswordReset = async (email) => {
-    const res = await fetch("https://sendpasswordreset-2dksgd24ea-uc.a.run.app", {
+    const res = await fetch("https://us-central1-trainingforlife-1422f.cloudfunctions.net/sendPasswordReset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -409,7 +409,7 @@ export default function AdminClientProfile() {
     setCopyLinkStatus("loading");
     try {
       const idToken = await getAuth().currentUser.getIdToken();
-      const res = await fetch("https://admingenerateresetlink-2dksgd24ea-uc.a.run.app", {
+      const res = await fetch("https://us-central1-trainingforlife-1422f.cloudfunctions.net/adminGenerateResetLink", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
         body: JSON.stringify({ email: client.email }),
@@ -430,7 +430,7 @@ export default function AdminClientProfile() {
     setDeleteError("");
     try {
       const idToken = await getAuth().currentUser.getIdToken();
-      const res = await fetch("https://admindeleteclient-2dksgd24ea-uc.a.run.app", {
+      const res = await fetch("https://us-central1-trainingforlife-1422f.cloudfunctions.net/adminDeleteClient", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
         body: JSON.stringify({ uid }),

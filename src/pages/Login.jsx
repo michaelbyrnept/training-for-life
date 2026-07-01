@@ -35,7 +35,7 @@ export default function Login() {
     e.preventDefault();
     setForgotStatus("sending");
     try {
-      const res = await fetch("https://sendpasswordreset-2dksgd24ea-uc.a.run.app", {
+      const res = await fetch("https://us-central1-trainingforlife-1422f.cloudfunctions.net/sendPasswordReset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
