@@ -15,10 +15,10 @@ const PAR_Q_QUESTIONS = [
   { id: "other", question: "Do you know of any other reason why you should not do physical activity?" },
 ];
 
-function ProgressBar({ step }) {
+function ProgressBar({ step, total }) {
   return (
     <div style={{ height: "3px", backgroundColor: "#e5e5e5", margin: "0 24px" }}>
-      <div style={{ height: "3px", backgroundColor: "#2d6a4f", borderRadius: "2px", width: `${(step / TOTAL_STEPS) * 100}%`, transition: "width 0.3s ease" }} />
+      <div style={{ height: "3px", backgroundColor: "#2d6a4f", borderRadius: "2px", width: `${(step / total) * 100}%`, transition: "width 0.3s ease" }} />
     </div>
   );
 }
@@ -91,6 +91,10 @@ export default function Onboarding() {
 
   const [nickname, setNickname] = useState(auth.currentUser?.displayName || "");
   const [gender, setGender] = useState("");
+  // DOB as three separate dropdowns
+  const [dobDay, setDobDay] = useState("");
+  const [dobMonth, setDobMonth] = useState("");
+  const [dobYear, setDobYear] = useState("");
   const [dob, setDob] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
@@ -118,6 +122,18 @@ export default function Onboarding() {
   const next = () => setStep(s => s + 1);
   const back = () => setStep(s => s - 1);
 
+  // Keep dob string in sync with the three dropdowns
+  const handleDobChange = (day, month, year) => {
+    if (day && month && year) {
+      // zero-pad day and month for ISO format
+      const mm = month.padStart(2, "0");
+      const dd = day.padStart(2, "0");
+      setDob(`${year}-${mm}-${dd}`);
+    } else {
+      setDob("");
+    }
+  };
+
   const getAge = () => {
     if (!dob) return 45;
     const today = new Date();
@@ -130,6 +146,7 @@ export default function Onboarding() {
     const w = parseFloat(weight) || 80;
     const gw = parseFloat(goalWeight) || w;
     const targetWeight = (!weightPrivate && !noGoalWeight && gw < w) ? gw : w;
+    // prefer_not_to_say defaults to male standards (more conservative)
     const isFemale = gender === "female";
     const bench = isFemale ? Math.round(targetWeight * 0.55) : Math.round(targetWeight);
     const deadlift = isFemale ? Math.round(targetWeight * 0.9) : Math.round(targetWeight * 1.5);
@@ -214,7 +231,8 @@ export default function Onboarding() {
   ];
 
   const standards = getStandards();
-  const totalScreens = 7;
+  // 6 data-entry steps (steps 2-7) so counter reads "1 of 6" through "6 of 6"
+  const totalScreens = 6;
   const hasFlag = Object.values(parqAnswers).some(a => a === "yes");
   const currentQuestion = PAR_Q_QUESTIONS[parqCurrentQ];
   const currentAnswer = parqAnswers[currentQuestion?.id];
@@ -234,7 +252,7 @@ export default function Onboarding() {
         </div>
       )}
 
-      {step > 1 && step < 8 && <ProgressBar step={step - 1} />}
+      {step > 1 && step < 8 && <ProgressBar step={step - 1} total={totalScreens} />}
 
       {/* SCREEN 1 -- Welcome */}
       {step === 1 && (
@@ -245,8 +263,8 @@ export default function Onboarding() {
             <Title>Welcome to your capability journey</Title>
             <Subtitle>We'll build your personalised profile in about 2 minutes. This helps us tailor your training and capability standards to you.</Subtitle>
             <NextButton onClick={next} label="Let's go" />
-            <button onClick={() => navigate("/dashboard")} style={{ background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "14px", display: "block", width: "100%" }}>
-              Skip for now
+            <button onClick={() => navigate("/onboarding/programme")} style={{ background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", marginTop: "14px", display: "block", width: "100%" }}>
+              Skip -- I'll fill this in later
             </button>
           </div>
         </Screen>
@@ -267,16 +285,20 @@ export default function Onboarding() {
       {step === 3 && (
         <Screen>
           <Label>Step 2</Label>
-          <Title>What best describes you?</Title>
-          <Subtitle>We use this to set appropriate capability standards for your physiology.</Subtitle>
+          <Title>Which standards should we use?</Title>
+          <Subtitle>We use this to set appropriate capability targets for your physiology.</Subtitle>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {[{ id: "male", icon: "♂", label: "Male" }, { id: "female", icon: "♀", label: "Female" }].map(g => (
+            {[
+              { id: "male", icon: "♂", label: "Male" },
+              { id: "female", icon: "♀", label: "Female" },
+              { id: "prefer_not_to_say", icon: "–", label: "Prefer not to say" },
+            ].map(g => (
               <div key={g.id} onClick={() => setGender(g.id)} style={{
                 backgroundColor: gender === g.id ? "#eaf5ef" : "#fff",
                 border: gender === g.id ? "2px solid #2d6a4f" : "1.5px solid #e5e5e5",
                 borderRadius: "14px", padding: "20px", display: "flex", alignItems: "center", gap: "16px", cursor: "pointer",
               }}>
-                <span style={{ fontSize: "28px", color: gender === g.id ? "#2d6a4f" : "#aaa" }}>{g.icon}</span>
+                <span style={{ fontSize: "22px", color: gender === g.id ? "#2d6a4f" : "#aaa", minWidth: "28px", textAlign: "center" }}>{g.icon}</span>
                 <p style={{ fontSize: "17px", fontWeight: 700, color: gender === g.id ? "#2d6a4f" : "#111", margin: 0 }}>{g.label}</p>
                 {gender === g.id && (
                   <div style={{ marginLeft: "auto" }}>
@@ -299,7 +321,50 @@ export default function Onboarding() {
           <Label>Step 3</Label>
           <Title>When were you born?</Title>
           <Subtitle>We use this to personalise your capability standards to your age group.</Subtitle>
-          <Input type="date" value={dob} onChange={e => setDob(e.target.value)} />
+          <div style={{ display: "flex", gap: "10px", marginBottom: "24px" }}>
+            {/* Day */}
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Day</p>
+              <select
+                value={dobDay}
+                onChange={e => { setDobDay(e.target.value); handleDobChange(e.target.value, dobMonth, dobYear); }}
+                style={{ width: "100%", padding: "14px 10px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "16px", color: dobDay ? "#111" : "#aaa", backgroundColor: "#fff", outline: "none", boxSizing: "border-box", appearance: "none" }}
+              >
+                <option value="">DD</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={String(d)}>{d}</option>
+                ))}
+              </select>
+            </div>
+            {/* Month */}
+            <div style={{ flex: 1.4 }}>
+              <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Month</p>
+              <select
+                value={dobMonth}
+                onChange={e => { setDobMonth(e.target.value); handleDobChange(dobDay, e.target.value, dobYear); }}
+                style={{ width: "100%", padding: "14px 10px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "16px", color: dobMonth ? "#111" : "#aaa", backgroundColor: "#fff", outline: "none", boxSizing: "border-box", appearance: "none" }}
+              >
+                <option value="">Month</option>
+                {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                  <option key={m} value={String(i + 1)}>{m}</option>
+                ))}
+              </select>
+            </div>
+            {/* Year */}
+            <div style={{ flex: 1.2 }}>
+              <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 6px" }}>Year</p>
+              <select
+                value={dobYear}
+                onChange={e => { setDobYear(e.target.value); handleDobChange(dobDay, dobMonth, e.target.value); }}
+                style={{ width: "100%", padding: "14px 10px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "16px", color: dobYear ? "#111" : "#aaa", backgroundColor: "#fff", outline: "none", boxSizing: "border-box", appearance: "none" }}
+              >
+                <option value="">Year</option>
+                {Array.from({ length: 90 }, (_, i) => new Date().getFullYear() - 15 - i).map(y => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <NextButton onClick={next} disabled={!dob} />
         </Screen>
       )}
@@ -375,18 +440,20 @@ export default function Onboarding() {
           <Label>Step 6</Label>
           <Title>How many days per week can you train?</Title>
           <Subtitle>Be realistic. Consistency beats intensity every time.</Subtitle>
-          <div style={{ display: "flex", gap: "10px", justifyContent: "center", margin: "8px 0 0" }}>
-            {[2, 3, 4, 5].map(d => (
-              <div key={d} onClick={() => setDaysPerWeek(d)} style={{ width: "64px", height: "64px", borderRadius: "16px", backgroundColor: daysPerWeek === d ? "#2d6a4f" : "#fff", border: daysPerWeek === d ? "none" : "1.5px solid #e5e5e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", fontWeight: 700, color: daysPerWeek === d ? "#fff" : "#111", cursor: "pointer" }}>
+          <div style={{ display: "flex", gap: "8px", justifyContent: "center", margin: "8px 0 0", flexWrap: "wrap" }}>
+            {[1, 2, 3, 4, 5, 6].map(d => (
+              <div key={d} onClick={() => setDaysPerWeek(d)} style={{ width: "56px", height: "56px", borderRadius: "14px", backgroundColor: daysPerWeek === d ? "#2d6a4f" : "#fff", border: daysPerWeek === d ? "none" : "1.5px solid #e5e5e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", fontWeight: 700, color: daysPerWeek === d ? "#fff" : "#111", cursor: "pointer" }}>
                 {d}
               </div>
             ))}
           </div>
           <p style={{ textAlign: "center", fontSize: "13px", color: "#888", marginTop: "12px" }}>
+            {daysPerWeek === 1 && "1 session per week -- a great start. Consistency is everything."}
             {daysPerWeek === 2 && "2 sessions per week -- a solid, sustainable start"}
             {daysPerWeek === 3 && "3 sessions per week -- the sweet spot for most people"}
             {daysPerWeek === 4 && "4 sessions per week -- strong commitment, great results"}
             {daysPerWeek === 5 && "5 sessions per week -- high commitment, make sure to recover"}
+            {daysPerWeek === 6 && "6 sessions per week -- dedicated. Prioritise your rest days."}
           </p>
           <NextButton onClick={next} />
         </Screen>
@@ -402,7 +469,7 @@ export default function Onboarding() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "32px" }}>
             {[
-              { icon: "🏋️", label: "Bench Press", target: `${standards.bench}kg`, sub: gender === "female" ? "Female capability standard" : "Bodyweight standard" },
+              { icon: "🏋️", label: "Bench Press", target: `${standards.bench}kg`, sub: gender === "female" ? "Your first milestone target" : "Your first milestone target" },
               { icon: "💪", label: "Deadlift", target: `${standards.deadlift}kg`, sub: gender === "female" ? "Female capability standard" : "1.5x bodyweight standard" },
               { icon: "🏃", label: "5k Run", target: standards.run5k, sub: "Age-adjusted standard" },
             ].map(s => (

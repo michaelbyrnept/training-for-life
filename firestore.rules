@@ -151,6 +151,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── IN-APP MESSAGING ──────────────────────────────────────────────────────
+    // participants: [fromUid, toUid] array on every document enables array-contains queries.
+    match /messages/{messageId} {
+      // Any participant can read their own messages; admin can read all.
+      allow read: if isAuthenticated() &&
+        (request.auth.uid in resource.data.participants || isAdmin());
+      // Sender must be the authenticated user; participants must include their uid.
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.fromUid &&
+        request.auth.uid in request.resource.data.participants;
+      // Only the recipient (or admin) can mark messages read.
+      allow update: if isAuthenticated() &&
+        (request.auth.uid == resource.data.toUid || isAdmin());
+      allow delete: if false;
+    }
+
     // ─── LEAD / INTAKE ─────────────────────────────────────────────────────────
     match /consultations/{doc} {
       allow read, write: if isAdmin();

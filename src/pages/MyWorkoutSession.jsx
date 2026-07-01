@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { doc, getDoc, getDocs, collection, addDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, getDocs, collection, addDoc, updateDoc, arrayUnion, serverTimestamp, query, where, orderBy, limit } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db, auth } from "../firebase";
@@ -91,15 +91,105 @@ function RestTimer({ seconds: defaultSeconds, onDismiss }) {
 
 // ─── Completion screen ────────────────────────────────────────────────────────
 
-function CompletionScreen({ workout, durationSeconds, setsCompleted, navigate, programmeId }) {
+function useShareCard(workout, durationSeconds, setsCompleted) {
+  const [sharing, setSharing] = useState(false);
+
+  const share = async () => {
+    setSharing(true);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext("2d");
+
+      // Background gradient
+      const grad = ctx.createLinearGradient(0, 0, 1080, 1080);
+      grad.addColorStop(0, "#1a3a2a");
+      grad.addColorStop(1, "#2d6a4f");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // Subtle grid pattern
+      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 1080; i += 60) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1080); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(1080, i); ctx.stroke();
+      }
+
+      // Trophy emoji
+      ctx.font = "160px serif";
+      ctx.textAlign = "center";
+      ctx.fillText("🏆", 540, 320);
+
+      // Workout name
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 72px system-ui, sans-serif";
+      ctx.fillText(workout?.name || "Workout Complete", 540, 460);
+
+      // Stats row
+      const mins = Math.floor(durationSeconds / 60);
+      const secs = durationSeconds % 60;
+      const duration = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.font = "48px system-ui, sans-serif";
+      ctx.fillText(`${duration}  ·  ${setsCompleted} sets`, 540, 560);
+
+      // Divider
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(200, 620); ctx.lineTo(880, 620); ctx.stroke();
+
+      // Branding
+      ctx.fillStyle = "#9fe1cb";
+      ctx.font = "bold 40px system-ui, sans-serif";
+      ctx.fillText("Training for Life", 540, 700);
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.font = "32px system-ui, sans-serif";
+      ctx.fillText("trainingforlife.ie", 540, 755);
+
+      // Date
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      ctx.font = "28px system-ui, sans-serif";
+      ctx.fillText(new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" }), 540, 860);
+
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], "workout.png", { type: "image/png" });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: `${workout?.name || "Workout"} complete` });
+        } else {
+          // Fallback: download
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "workout.png"; a.click();
+          URL.revokeObjectURL(url);
+        }
+        setSharing(false);
+      }, "image/png");
+    } catch (e) {
+      console.error(e);
+      setSharing(false);
+    }
+  };
+
+  return { share, sharing };
+}
+
+function CompletionScreen({ workout, durationSeconds, setsCompleted, navigate, programmeId, isFirstEver }) {
   const mins = Math.floor(durationSeconds / 60);
   const secs = durationSeconds % 60;
+  const { share, sharing } = useShareCard(workout, durationSeconds, setsCompleted);
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", paddingBottom: "calc(100px + env(safe-area-inset-bottom))" }}>
-      <div style={{ fontSize: 64, marginBottom: 16 }}>🏆</div>
-      <h1 style={{ fontSize: 28, fontWeight: 800, color: "#1a3a2a", margin: "0 0 8px", textAlign: "center" }}>Workout Complete</h1>
-      <p style={{ fontSize: 15, color: "#888", textAlign: "center", margin: "0 0 32px" }}>{workout?.name || "Custom workout"}</p>
+      <div style={{ fontSize: 64, marginBottom: 16 }}>{isFirstEver ? "🎉" : "🏆"}</div>
+      <h1 style={{ fontSize: 28, fontWeight: 800, color: "#1a3a2a", margin: "0 0 8px", textAlign: "center" }}>
+        {isFirstEver ? "First session done!" : "Workout Complete"}
+      </h1>
+      <p style={{ fontSize: 15, color: "#888", textAlign: "center", margin: "0 0 32px" }}>
+        {isFirstEver ? "You just started something. Keep it going." : (workout?.name || "Custom workout")}
+      </p>
 
       <div style={{ display: "flex", gap: 16, marginBottom: 32 }}>
         <div style={{ backgroundColor: "#fff", borderRadius: "16px", padding: "16px 24px", textAlign: "center", border: "0.5px solid #e5e5e5" }}>
@@ -113,6 +203,15 @@ function CompletionScreen({ workout, durationSeconds, setsCompleted, navigate, p
           <p style={{ fontSize: 11, color: "#aaa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", margin: "4px 0 0" }}>Sets done</p>
         </div>
       </div>
+
+      <button
+        onClick={share}
+        disabled={sharing}
+        style={{ width: "100%", maxWidth: 340, padding: "14px", borderRadius: "14px", border: "1.5px solid #e5e5e5", backgroundColor: "#fff", color: "#2d6a4f", fontSize: 14, fontWeight: 700, cursor: sharing ? "default" : "pointer", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+      >
+        <span>📤</span>
+        {sharing ? "Generating..." : "Share this workout"}
+      </button>
 
       {programmeId && (
         <button
@@ -151,6 +250,7 @@ export default function MyWorkoutSession() {
   const [user, setUser] = useState(null);
   const [workout, setWorkout] = useState(null);
   const [exerciseDetails, setExerciseDetails] = useState({});
+  const [previousLog, setPreviousLog] = useState({}); // { [exerciseId]: { reps, weight } }
   const [loading, setLoading] = useState(true);
 
   // Sets log: { [exerciseIndex]: [{ reps, weight, completed }] }
@@ -158,8 +258,16 @@ export default function MyWorkoutSession() {
   const [restTimer, setRestTimer] = useState(null); // { seconds }
   const [startTime] = useState(() => new Date());
   const [finished, setFinished] = useState(false);
+  const [isFirstEver, setIsFirstEver] = useState(false);
   const [saving, setSaving] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Elapsed timer
+  useEffect(() => {
+    const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -194,6 +302,35 @@ export default function MyWorkoutSession() {
         })
       );
       setExerciseDetails(details);
+
+      // Fetch most recent log for this workout to show "Last time" hints
+      try {
+        const prevSnap = await getDocs(
+          query(
+            collection(db, "workoutLogs"),
+            where("userId", "==", u.uid),
+            where("workoutId", "==", workoutId),
+            orderBy("completedAt", "desc"),
+            limit(1)
+          )
+        );
+        if (!prevSnap.empty) {
+          const prevExercises = prevSnap.docs[0].data().exercises || [];
+          const prevMap = {};
+          prevExercises.forEach((ex) => {
+            if (!ex.exerciseId) return;
+            // Find the heaviest completed set
+            const completedSets = (ex.sets || []).filter((s) => s.completed && (s.reps || s.weight));
+            if (completedSets.length === 0) return;
+            const best = completedSets.reduce((a, b) => ((b.weight || 0) > (a.weight || 0) ? b : a));
+            prevMap[ex.exerciseId] = { reps: best.reps, weight: best.weight };
+          });
+          setPreviousLog(prevMap);
+        }
+      } catch (_) {
+        // Non-critical — ignore errors fetching previous log
+      }
+
       setLoading(false);
     });
     return () => unsub();
@@ -290,6 +427,12 @@ export default function MyWorkoutSession() {
         });
       }
 
+      // Check if this is their first ever completed workout log
+      const allLogsSnap = await getDocs(
+        query(collection(db, "workoutLogs"), where("userId", "==", user.uid), limit(2))
+      );
+      setIsFirstEver(allLogsSnap.size <= 1);
+
       setFinished(true);
     } catch (e) {
       console.error(e);
@@ -320,6 +463,7 @@ export default function MyWorkoutSession() {
           setsCompleted={completedSets}
           navigate={navigate}
           programmeId={programmeId}
+          isFirstEver={isFirstEver}
         />
       </>
     );
@@ -342,9 +486,14 @@ export default function MyWorkoutSession() {
             Workout
           </p>
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#fff", margin: "0 0 8px" }}>
-          {workout?.name || "Workout"}
-        </h1>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#fff", margin: 0 }}>
+            {workout?.name || "Workout"}
+          </h1>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#9fe1cb", fontVariantNumeric: "tabular-nums" }}>
+            {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, "0")}
+          </span>
+        </div>
         <p style={{ fontSize: 13, color: "#9fe1cb", margin: "0 0 16px" }}>
           {completedSets} of {totalSets} sets complete
         </p>
@@ -403,6 +552,17 @@ export default function MyWorkoutSession() {
                         {ex.weight && ex.weight !== "" ? ` • ${ex.weight}kg` : ""}
                         {ex.restSeconds ? ` • ${ex.restSeconds}s rest` : ""}
                       </p>
+                      {previousLog[ex.exerciseId] && (() => {
+                        const prev = previousLog[ex.exerciseId];
+                        const parts = [];
+                        if (prev.reps) parts.push(`${prev.reps} reps`);
+                        if (prev.weight) parts.push(`${prev.weight}kg`);
+                        return parts.length > 0 ? (
+                          <p style={{ fontSize: 12, color: "#2d6a4f", fontWeight: 600, margin: "3px 0 0" }}>
+                            Last time: {parts.join(" @ ")}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
 
@@ -497,6 +657,7 @@ export default function MyWorkoutSession() {
                       {/* Complete toggle */}
                       <button
                         onClick={() => toggleSet(exIdx, setIdx)}
+                        aria-label={s.completed ? "Mark set incomplete" : "Mark set complete"}
                         style={{
                           width: 44,
                           height: 36,
@@ -524,6 +685,7 @@ export default function MyWorkoutSession() {
                   {/* Add set button */}
                   <button
                     onClick={() => addSet(exIdx)}
+                    aria-label={`Add set to ${ex.exerciseName}`}
                     style={{
                       width: "100%",
                       padding: "10px",
@@ -551,7 +713,7 @@ export default function MyWorkoutSession() {
           );
         })}
 
-        {/* Finish button */}
+        {/* Finish button — always visible */}
         <button
           onClick={handleFinish}
           disabled={saving}
@@ -560,15 +722,16 @@ export default function MyWorkoutSession() {
             padding: "16px",
             borderRadius: "14px",
             border: "none",
-            backgroundColor: saving ? "#aaa" : completedSets > 0 ? "#2d6a4f" : "#e5e5e5",
-            color: completedSets > 0 || saving ? "#fff" : "#aaa",
+            backgroundColor: saving ? "#aaa" : "#2d6a4f",
+            color: "#fff",
             fontSize: 16,
             fontWeight: 700,
-            cursor: saving || completedSets === 0 ? "default" : "pointer",
+            cursor: saving ? "default" : "pointer",
             marginTop: 8,
+            opacity: completedSets === 0 ? 0.5 : 1,
           }}
         >
-          {saving ? "Saving..." : completedSets === 0 ? "Complete sets to finish" : `Finish Workout (${completedSets}/${totalSets} sets)`}
+          {saving ? "Saving..." : completedSets === 0 ? "Finish Workout" : `Finish Workout (${completedSets}/${totalSets} sets)`}
         </button>
       </div>
 

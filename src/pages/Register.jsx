@@ -29,14 +29,19 @@ async function subscribeToBrevo(firstName, email) {
 }
 
 export default function Register() {
-const [searchParams] = useSearchParams();
-const [firstName, setFirstName] = useState(searchParams.get("first_name") || "");
-const [email, setEmail] = useState(searchParams.get("email") || "");
+  const [searchParams] = useSearchParams();
+  const [firstName, setFirstName] = useState(searchParams.get("first_name") || "");
+  const [email, setEmail] = useState(searchParams.get("email") || "");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Google users get a consent step before onboarding
+  const [googleUser, setGoogleUser] = useState(null);
+  const [showGoogleConsent, setShowGoogleConsent] = useState(false);
+  const [googleConsent, setGoogleConsent] = useState(false);
   const navigate = useNavigate();
 
   const handleGoogleRegister = async () => {
@@ -49,16 +54,9 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       if (!snap.exists()) {
-        const parts = (user.displayName || "").split(" ");
-        const first = parts[0] || "";
-        await setDoc(userRef, {
-          firstName: first,
-          email: user.email.toLowerCase(),
-          subscription: "free",
-          marketingConsent: false,
-          createdAt: new Date().toISOString(),
-        });
-        navigate("/onboarding");
+        // New Google user: show consent step before creating profile
+        setGoogleUser(user);
+        setShowGoogleConsent(true);
       } else {
         navigate("/dashboard");
       }
@@ -68,6 +66,23 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
       }
     }
     setGoogleLoading(false);
+  };
+
+  const handleGoogleConsentSubmit = async () => {
+    if (!googleUser) return;
+    const parts = (googleUser.displayName || "").split(" ");
+    const first = parts[0] || "";
+    await setDoc(doc(db, "users", googleUser.uid), {
+      firstName: first,
+      email: googleUser.email.toLowerCase(),
+      subscription: "free",
+      marketingConsent: googleConsent,
+      createdAt: new Date().toISOString(),
+    });
+    if (googleConsent) {
+      await subscribeToBrevo(first, googleUser.email.toLowerCase());
+    }
+    navigate("/onboarding");
   };
 
   const handleRegister = async (e) => {
@@ -85,7 +100,6 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
         createdAt: new Date().toISOString(),
       });
 
-      // Only subscribe to Brevo if they opted in
       if (marketingConsent) {
         await subscribeToBrevo(firstName, email.toLowerCase());
       }
@@ -103,6 +117,54 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
     }
     setLoading(false);
   };
+
+  // Google consent overlay
+  if (showGoogleConsent) {
+    return (
+      <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div style={{ backgroundColor: "#fff", borderRadius: "20px", padding: "32px 24px", width: "100%", maxWidth: "420px", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "8px" }}>
+            One last thing
+          </p>
+          <h2 style={{ fontSize: "22px", fontWeight: 800, color: "#111", margin: "0 0 8px" }}>
+            Stay in the loop?
+          </h2>
+          <p style={{ fontSize: "15px", color: "#555", marginBottom: "24px", lineHeight: 1.6 }}>
+            Get weekly training tips from Michael. Unsubscribe any time.
+          </p>
+
+          <div
+            onClick={() => setGoogleConsent(c => !c)}
+            style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "12px 14px", borderRadius: "10px", backgroundColor: googleConsent ? "#eaf5ef" : "#f7f5f2", border: `1.5px solid ${googleConsent ? "#2d6a4f" : "#e5e5e5"}`, cursor: "pointer", marginBottom: "20px" }}
+          >
+            <div style={{ width: 20, height: 20, borderRadius: "5px", backgroundColor: googleConsent ? "#2d6a4f" : "#fff", border: `2px solid ${googleConsent ? "#2d6a4f" : "#ccc"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+              {googleConsent && (
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <path d="M1.5 5.5l3 3 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+            <p style={{ fontSize: "13px", color: "#555", margin: 0, lineHeight: 1.5 }}>
+              Yes, send me weekly training tips from Michael.
+            </p>
+          </div>
+
+          <button
+            onClick={handleGoogleConsentSubmit}
+            style={{ backgroundColor: "#2d6a4f", color: "#fff", border: "none", borderRadius: "12px", padding: "15px", fontSize: "15px", fontWeight: 700, cursor: "pointer", width: "100%", marginBottom: "12px" }}
+          >
+            Continue
+          </button>
+          <button
+            onClick={handleGoogleConsentSubmit}
+            style={{ backgroundColor: "transparent", color: "#888", border: "none", fontSize: "13px", cursor: "pointer", width: "100%", padding: "8px" }}
+          >
+            No thanks, continue without
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", display: "flex", flexDirection: "column" }}>
@@ -127,6 +189,12 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
       {/* Form card */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px", marginTop: -24 }}>
         <div style={{ backgroundColor: "#fff", borderRadius: "20px", padding: "28px 24px 32px", width: "100%", maxWidth: "420px", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
+
+          {/* Already have an account — top of card */}
+          <p style={{ textAlign: "center", fontSize: "13px", color: "#888", margin: "0 0 20px" }}>
+            Already have an account?{" "}
+            <Link to="/login" style={{ color: "#2d6a4f", fontWeight: 700, textDecoration: "none" }}>Log in</Link>
+          </p>
 
           {error && (
             <div style={{ backgroundColor: "#fef2f2", border: "0.5px solid #fecaca", borderRadius: "10px", padding: "12px 14px", marginBottom: "16px" }}>
@@ -183,14 +251,23 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
 
             <div>
               <label style={{ fontSize: "12px", fontWeight: 700, color: "#555", display: "block", marginBottom: "6px" }}>Password</label>
-              <input
-                type="password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={{ width: "100%", padding: "13px 14px", borderRadius: "10px", border: "1px solid #e5e5e5", fontSize: "15px", color: "#111", backgroundColor: "#fafafa", outline: "none", boxSizing: "border-box" }}
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="At least 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ width: "100%", padding: "13px 44px 13px 14px", borderRadius: "10px", border: "1px solid #e5e5e5", fontSize: "15px", color: "#111", backgroundColor: "#fafafa", outline: "none", boxSizing: "border-box" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#999", fontSize: "13px", fontWeight: 600, padding: "4px" }}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             {/* Marketing consent */}
@@ -205,8 +282,8 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
                   </svg>
                 )}
               </div>
-              <p style={{ fontSize: "12px", color: "#555", margin: 0, lineHeight: 1.5 }}>
-                I'd like to receive training tips, programme updates and coaching advice from Michael Byrne. You can unsubscribe at any time.
+              <p style={{ fontSize: "13px", color: "#555", margin: 0, lineHeight: 1.5 }}>
+                Yes, send me weekly training tips from Michael. (You can unsubscribe any time.)
               </p>
             </div>
 
@@ -220,15 +297,13 @@ const [email, setEmail] = useState(searchParams.get("email") || "");
 
           </form>
 
-          <p style={{ textAlign: "center", fontSize: "13px", color: "#888", margin: "20px 0 0" }}>
-            Already have an account?{" "}
-            <Link to="/login" style={{ color: "#2d6a4f", fontWeight: 700, textDecoration: "none" }}>Log in</Link>
-          </p>
-
         </div>
 
-        <p style={{ fontSize: "11px", color: "#aaa", textAlign: "center", margin: "20px 0 0", maxWidth: "320px", lineHeight: 1.6 }}>
-          By creating an account you agree to our terms of service and privacy policy.
+        <p style={{ fontSize: "13px", color: "#aaa", textAlign: "center", margin: "20px 0 0", maxWidth: "320px", lineHeight: 1.6 }}>
+          By creating an account you agree to our{" "}
+          <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#2d6a4f" }}>terms of service</a>
+          {" "}and{" "}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#2d6a4f" }}>privacy policy</a>.
         </p>
       </div>
     </div>

@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
 import { useFeatures } from "../hooks/useFeatures";
 
 const ADMIN_UID = "wKbgHNtTMtS01BQ4ddfAwTQaIgA3";
-const WEEKLY_TARGETS = { strength: 3, cardio: 2, mobility: 1 };
-const TOTAL_TARGET = 6;
+const WEEKLY_TARGETS = { strength: 3, cardio: 2 };
+const TOTAL_TARGET = 5;
 
 function getWeekRange() {
   const now = new Date();
@@ -41,7 +41,6 @@ export default function Dashboard() {
   const [category, setCategory] = useState("");
   const [assessmentDate, setAssessmentDate] = useState("");
   const [strengthScore, setStrengthScore] = useState(0);
-  const [mobilityScore, setMobilityScore] = useState(0);
   const [energyScore, setEnergyScore] = useState(0);
   const [confidenceScore, setConfidenceScore] = useState(0);
   const [consistencyScore, setConsistencyScore] = useState(0);
@@ -52,8 +51,11 @@ export default function Dashboard() {
 
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [todayProgramme, setTodayProgramme] = useState(null);
-  const [weeklyDone, setWeeklyDone] = useState({ strength: 0, cardio: 0, mobility: 0 });
+  const [weeklyDone, setWeeklyDone] = useState({ strength: 0, cardio: 0 });
+  const [totalLogCount, setTotalLogCount] = useState(null); // null = still loading
+  const [nudgeDismissed, setNudgeDismissed] = useState(() => !!sessionStorage.getItem("tfl_nudge_dismissed"));
   const [weeklyLogs, setWeeklyLogs] = useState([]);
+  const [lastLog, setLastLog] = useState(null); // most recent log across all time
   const [streakWeeks, setStreakWeeks] = useState(0);
   const [walletBalance, setWalletBalance] = useState(null);
   const [nextSession, setNextSession] = useState(null);
@@ -123,14 +125,14 @@ export default function Dashboard() {
         setCategory(latest.category);
         setAssessmentDate(latest.assessmentDate);
         setStrengthScore(latest.strengthScore || 0);
-        setMobilityScore(latest.mobilityScore || 0);
         setEnergyScore(latest.energyScore || 0);
         setConfidenceScore(latest.confidenceScore || 0);
         setConsistencyScore(latest.consistencyScore || 0);
       }
 
       const { monday, sunday } = getWeekRange();
-      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", user.uid)));
+      // limit(100) prevents full-table scans as logs grow over time
+      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", user.uid), orderBy("completedAt", "desc"), limit(100)));
       const allMyLogs = logsSnap.docs
         .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
         .filter(l => l.completedAt);
@@ -149,7 +151,9 @@ export default function Dashboard() {
         ? thisWeekLogs.filter(l => l.programmeId === uData.cardioProgrammeId).length
         : 0;
 
-      setWeeklyDone({ strength: strengthDone, cardio: cardioDone, mobility: 0 });
+      setTotalLogCount(allMyLogs.length);
+      setLastLog(allMyLogs[0] || null); // allMyLogs is ordered by completedAt desc
+      setWeeklyDone({ strength: strengthDone, cardio: cardioDone });
 
       const weekMap = {};
       allMyLogs.forEach(l => {
@@ -274,13 +278,12 @@ export default function Dashboard() {
 
   const breakdown = [
     { label: "Strength", value: strengthScore, max: 10 },
-    { label: "Mobility", value: mobilityScore, max: 10 },
     { label: "Energy", value: energyScore, max: 10 },
     { label: "Confidence", value: confidenceScore, max: 10 },
     { label: "Consistency", value: consistencyScore, max: 10 },
   ];
 
-  const totalDone = weeklyDone.strength + weeklyDone.cardio + weeklyDone.mobility;
+  const totalDone = weeklyDone.strength + weeklyDone.cardio;
   const strengthRemaining = Math.max(0, WEEKLY_TARGETS.strength - weeklyDone.strength);
   const cardioRemaining = Math.max(0, WEEKLY_TARGETS.cardio - weeklyDone.cardio);
   const weekComplete = totalDone >= TOTAL_TARGET;
@@ -331,19 +334,13 @@ export default function Dashboard() {
       {/* HEADER */}
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px", position: "relative", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Training for Life</p>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Training for Life</p>
           <div style={{ display: "flex", gap: "10px" }}>
             {isAdmin && (
-              <Link to="/admin" style={{ height: 36, borderRadius: "20px", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", padding: "0 12px", fontSize: "11px", fontWeight: 700, color: "#9fe1cb", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              <Link to="/admin" style={{ height: 36, borderRadius: "20px", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", padding: "0 12px", fontSize: "13px", fontWeight: 700, color: "#9fe1cb", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                 Admin
               </Link>
             )}
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M9 2a5 5 0 015 5c0 3 1.5 4 2 5H2c.5-1 2-2 2-5a5 5 0 015-5z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round"/>
-                <path d="M7.5 15a1.5 1.5 0 003 0" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </div>
             <Link to="/profile" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <circle cx="9" cy="6" r="3" stroke="#fff" strokeWidth="1.5"/>
@@ -357,7 +354,9 @@ export default function Dashboard() {
           <div>
             <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: "0 0 3px" }}>Welcome back,</p>
             <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.2 }}>{firstName || "..."}</h1>
-            <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0, fontStyle: "italic" }}>Build Strength For Life</p>
+            {streakWeeks > 0 && (
+              <p style={{ fontSize: "12px", color: "#9fe1cb", margin: 0 }}>{streakWeeks} week streak 🔥 Keep it going</p>
+            )}
           </div>
 
           <div onClick={() => capabilityScore && setShowScoreModal(true)} style={{ position: "relative", width: 72, height: 72, cursor: capabilityScore ? "pointer" : "default", flexShrink: 0 }}>
@@ -524,7 +523,7 @@ export default function Dashboard() {
             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
               {/* Credit balance */}
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Session Credits</p>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Session Credits</p>
                 <p style={{ fontSize: "32px", fontWeight: 700, color: walletBalance <= 2 ? "#f87171" : "#fff", lineHeight: 1, margin: "0 0 4px" }}>
                   {walletBalance}
                 </p>
@@ -538,7 +537,7 @@ export default function Dashboard() {
 
               {/* Next session */}
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Next Session</p>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Next Session</p>
                 {nextSession ? (
                   <>
                     <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 2px", lineHeight: 1.2 }}>
@@ -610,7 +609,7 @@ export default function Dashboard() {
               <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: t.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>{t.icon}</div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Next Class</p>
+                  <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Next Class</p>
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{nextClass.title}</p>
                   <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>{dateLabel} · {nextClass.duration} min</p>
                 </div>
@@ -626,7 +625,7 @@ export default function Dashboard() {
 
       {/* TODAY'S PLAN */}
       <div style={{ padding: "0 16px", marginTop: 4 }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>Today's Plan</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>Today's Plan</p>
 
         {weekComplete ? (
           <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
@@ -640,7 +639,7 @@ export default function Dashboard() {
           <Link to={`/programme/${todayProgramme.id}/${todayWorkout.weekId}/${todayWorkout.id}`} style={{ textDecoration: "none", display: "block" }}>
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 3px" }}>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 3px" }}>
                   {strengthRemaining > 0 ? "Strength" : "Cardio"} · {todayProgramme.name}
                 </p>
                 <p style={{ fontSize: "16px", fontWeight: 700, color: "#111", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{todayWorkout.displayName || todayWorkout.name}</p>
@@ -654,17 +653,17 @@ export default function Dashboard() {
         ) : userData && !userData.strengthProgrammeId && !userData.cardioProgrammeId ? (
           <Link to="/training" style={{ textDecoration: "none", display: "block" }}>
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "1.5px dashed #e5e5e5", padding: "16px", textAlign: "center" }}>
-              <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>No programme selected</p>
-              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 10px" }}>Choose your strength and cardio programmes to get started.</p>
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f" }}>Go to Training →</span>
+                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Pick your first programme</p>
+              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 10px" }}>Your workouts will appear here once you choose a programme. Takes 30 seconds.</p>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f" }}>Choose a programme →</span>
             </div>
           </Link>
         ) : (
           <Link to="/training" style={{ textDecoration: "none", display: "block" }}>
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
-                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>Loading your plan...</p>
-                <p style={{ fontSize: "12px", color: "#888", margin: "3px 0 0" }}>Tap to go to Training</p>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>Your plan is ready</p>
+                <p style={{ fontSize: "12px", color: "#888", margin: "3px 0 0" }}>Tap to open Training</p>
               </div>
               <div style={{ backgroundColor: "#2d6a4f", color: "#fff", borderRadius: "10px", padding: "8px 14px", fontSize: "13px", fontWeight: 700 }}>Training →</div>
             </div>
@@ -674,14 +673,14 @@ export default function Dashboard() {
 
       {/* CAPABILITY SCORE CARD */}
       <div style={{ padding: "16px 16px 0" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>Capability Score</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>Capability Score</p>
 
         {!capabilityScore ? (
           /* NO SCORE YET -- big prompt */
           <Link to="/capability-score" style={{ textDecoration: "none", display: "block" }}>
             <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "24px 20px", textAlign: "center" }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>🎯</div>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px" }}>2 minute assessment</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px" }}>2 minute assessment</p>
               <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 8px", lineHeight: 1.2 }}>Find out your Capability Score</h2>
               <p style={{ fontSize: "14px", color: "#9fe1cb", margin: "0 0 20px", lineHeight: 1.6 }}>
                 Get your personalised strength and fitness standards based on your age, weight and goals.
@@ -700,7 +699,7 @@ export default function Dashboard() {
                   <span style={{ fontSize: "48px", fontWeight: 700, color: "#2d6a4f", lineHeight: 1 }}>{capabilityScore}</span>
                   <span style={{ fontSize: "16px", color: "#aaa" }}>/ 65</span>
                 </div>
-                <span style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "20px", display: "inline-block", marginTop: "6px" }}>
+                <span style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", fontSize: "13px", fontWeight: 700, padding: "3px 10px", borderRadius: "20px", display: "inline-block", marginTop: "6px" }}>
                   {category}
                 </span>
               </div>
@@ -723,26 +722,77 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <p style={{ fontSize: "11px", color: "#aaa", margin: "12px 0 0" }}>
+            <p style={{ fontSize: "13px", color: "#aaa", margin: "12px 0 0" }}>
               Last assessed: {new Date(assessmentDate).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
         )}
       </div>
 
+      {/* NEW USER — single action card */}
+      {totalLogCount === 0 && (
+        <div style={{ padding: "0 16px 16px" }}>
+          <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", borderRadius: "20px", padding: "24px 20px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 6px" }}>Welcome to Training for Life</p>
+            <p style={{ fontSize: "20px", fontWeight: 700, color: "#fff", margin: "0 0 8px", lineHeight: 1.25 }}>
+              Your training starts here, {firstName || "let's go"}.
+            </p>
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)", margin: "0 0 20px", lineHeight: 1.5 }}>
+              Pick a programme and log your first session. Everything else follows from that.
+            </p>
+            <Link to="/training" style={{ display: "block", textAlign: "center", backgroundColor: "#4ade80", color: "#1a3a2a", borderRadius: "12px", padding: "14px", fontSize: "15px", fontWeight: 700, textDecoration: "none" }}>
+              Pick your first programme →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* LAPSED USER NUDGE — 3+ days since last workout */}
+      {(() => {
+        if (nudgeDismissed || totalLogCount === 0 || totalLogCount === null) return null;
+        if (!lastLog?.completedAt) return null;
+        const daysSince = Math.floor((Date.now() - new Date(lastLog.completedAt)) / 86400000);
+        if (daysSince < 3) return null;
+        return (
+          <div style={{ padding: "0 16px 12px" }}>
+            <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "22px", flexShrink: 0 }}>⏰</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>
+                  {daysSince} days since your last session
+                </p>
+                <p style={{ fontSize: "12px", color: "#888", margin: 0 }}>Ready to get back at it?</p>
+              </div>
+              <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                <button
+                  onClick={() => { sessionStorage.setItem("tfl_nudge_dismissed", "1"); setNudgeDismissed(true); }}
+                  style={{ background: "none", border: "none", fontSize: "13px", color: "#aaa", cursor: "pointer", padding: "4px 8px", fontWeight: 600 }}
+                >
+                  Dismiss
+                </button>
+                <Link to="/training" style={{ backgroundColor: "#2d6a4f", color: "#fff", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
+                  Train →
+                </Link>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* WEEKLY */}
+      {totalLogCount !== 0 && (
       <div style={{ padding: "16px 16px 0" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>This Week</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>This Week</p>
         <div style={{ background: "#1a3a2a", borderRadius: "20px", padding: "18px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
             <div>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>
                 {streakWeeks > 0 ? "Weekly Streak" : "This Week"}
               </p>
               <p style={{ fontSize: "26px", fontWeight: 700, color: "#fff", margin: "0 0 2px", lineHeight: 1 }}>
                 {streakWeeks > 0 ? `🔥 ${streakWeeks} ${streakWeeks === 1 ? "week" : "weeks"}` : `${totalDone} / ${TOTAL_TARGET}`}
               </p>
-              <p style={{ fontSize: "11px", color: "#9fe1cb", margin: 0 }}>
+              <p style={{ fontSize: "13px", color: "#9fe1cb", margin: 0 }}>
                 {weekComplete ? "Perfect week. Well done."
                   : strengthRemaining > 0 ? `${strengthRemaining} more strength session${strengthRemaining > 1 ? "s" : ""} needed`
                   : cardioRemaining > 0 ? `${cardioRemaining} more cardio session${cardioRemaining > 1 ? "s" : ""} needed`
@@ -756,8 +806,6 @@ export default function Dashboard() {
                 <circle cx="40" cy="40" r="34" fill="none" stroke="#4ade80" strokeWidth="6" strokeLinecap="round" strokeDasharray="213" strokeDashoffset={213 - (213 * Math.min(weeklyDone.strength / WEEKLY_TARGETS.strength, 1))}/>
                 <circle cx="40" cy="40" r="25" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6"/>
                 <circle cx="40" cy="40" r="25" fill="none" stroke="#34d399" strokeWidth="6" strokeLinecap="round" strokeDasharray="157" strokeDashoffset={157 - (157 * Math.min(weeklyDone.cardio / WEEKLY_TARGETS.cardio, 1))}/>
-                <circle cx="40" cy="40" r="16" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6"/>
-                <circle cx="40" cy="40" r="16" fill="none" stroke="#6ee7b7" strokeWidth="6" strokeLinecap="round" strokeDasharray="100" strokeDashoffset={100 - (100 * Math.min(weeklyDone.mobility / WEEKLY_TARGETS.mobility, 1))}/>
               </svg>
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center" }}>
@@ -772,13 +820,12 @@ export default function Dashboard() {
             {[
               { icon: "🏋️", label: "Strength", done: weeklyDone.strength, target: WEEKLY_TARGETS.strength },
               { icon: "🏃", label: "Cardio", done: weeklyDone.cardio, target: WEEKLY_TARGETS.cardio },
-              { icon: "🧘", label: "Mobility", done: weeklyDone.mobility, target: WEEKLY_TARGETS.mobility, comingSoon: true },
             ].map(item => (
               <div key={item.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ fontSize: "14px" }}>{item.icon}</span>
                   <span style={{ fontSize: "13px", color: item.done >= item.target ? "#c5e8d8" : "rgba(255,255,255,0.7)", fontWeight: item.done >= item.target ? 700 : 400 }}>
-                    {item.label} {item.comingSoon ? "(coming soon)" : ""}
+                    {item.label}
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: "5px" }}>
@@ -801,6 +848,7 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+      )}
 
       {/* QUICK ACTIONS */}
       <div style={{ padding: "16px 16px 0", display: "flex", gap: "10px" }}>

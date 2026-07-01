@@ -22,6 +22,57 @@ function normalizeDate(val) {
   if (val.seconds) return new Date(val.seconds * 1000).toISOString(); // raw Timestamp-like object
   return null;
 }
+function linearRegression(coords) {
+  const n = coords.length;
+  if (n < 2) return null;
+  const meanX = coords.reduce((s, c) => s + c.x, 0) / n;
+  const meanY = coords.reduce((s, c) => s + c.y, 0) / n;
+  const num = coords.reduce((s, c) => s + (c.x - meanX) * (c.y - meanY), 0);
+  const den = coords.reduce((s, c) => s + (c.x - meanX) ** 2, 0);
+  const slope = den !== 0 ? num / den : 0;
+  const intercept = meanY - slope * meanX;
+  return { slope, intercept };
+}
+
+function TrendLineGraph({ data, color = "#3b82f6", height = 80 }) {
+  if (!data || data.length < 2) return null;
+  const vals = data.map(d => d.value);
+  const spread = Math.max(...vals) - Math.min(...vals);
+  const pad_val = spread < 2 ? 1 : spread * 0.1;
+  const min = Math.min(...vals) - pad_val;
+  const max = Math.max(...vals) + pad_val;
+  const range = max - min || 1;
+  const w = 300; const px = 10; const py = 12;
+  const innerW = w - px * 2; const innerH = height - py * 2;
+  const coords = data.map((d, i) => ({
+    x: px + (i / (data.length - 1)) * innerW,
+    y: py + (1 - (d.value - min) / range) * innerH,
+  }));
+  const pts = coords.map(c => `${c.x},${c.y}`).join(" ");
+  const fillPts = `${coords[0].x},${height - py} ${pts} ${coords[coords.length - 1].x},${height - py}`;
+  const reg = linearRegression(coords);
+  return (
+    <svg viewBox={`0 0 ${w} ${height}`} width="100%" style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id={`tgrad_${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={fillPts} fill={`url(#tgrad_${color.replace("#","")})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {reg && (
+        <line
+          x1={coords[0].x} y1={reg.slope * coords[0].x + reg.intercept}
+          x2={coords[coords.length - 1].x} y2={reg.slope * coords[coords.length - 1].x + reg.intercept}
+          stroke={color} strokeWidth="1.5" strokeDasharray="5 3" opacity="0.45"
+        />
+      )}
+      {coords.map((c, i) => <circle key={i} cx={c.x} cy={c.y} r="3" fill={color} stroke="#fff" strokeWidth="1.5" />)}
+    </svg>
+  );
+}
+
 function MiniLineGraph({ data, color = "#2d6a4f", height = 60 }) {
   if (!data || data.length < 2) return null;
   const vals = data.map(d => d.value);
@@ -60,9 +111,9 @@ function StatCard({ icon, label, value, sub, color = "#2d6a4f" }) {
         {icon}
       </div>
       <div style={{ flex: 1 }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>{label}</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>{label}</p>
         <p style={{ fontSize: "22px", fontWeight: 700, color, margin: 0, lineHeight: 1 }}>{value}</p>
-        {sub && <p style={{ fontSize: "11px", color: "#aaa", margin: "3px 0 0" }}>{sub}</p>}
+        {sub && <p style={{ fontSize: "13px", color: "#aaa", margin: "3px 0 0" }}>{sub}</p>}
       </div>
     </div>
   );
@@ -106,6 +157,7 @@ export default function Progress() {
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [newWeight, setNewWeight] = useState("");
+  const [newBodyFat, setNewBodyFat] = useState("");
   const [savingWeight, setSavingWeight] = useState(false);
 
   useEffect(() => {
@@ -145,7 +197,7 @@ export default function Progress() {
       if (wlData.length === 0 && uData.weight && !uData.weightPrivate) {
         setWeightLogs([{ value: parseFloat(uData.weight), date: uData.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0] }]);
       } else {
-        setWeightLogs(wlData.map(l => ({ id: l.id, value: l.weight, date: l.date })));
+        setWeightLogs(wlData.map(l => ({ id: l.id, value: l.weight, date: l.date, bodyFat: l.bodyFat ?? null })));
       }
       setLoading(false);
     });
@@ -156,9 +208,11 @@ export default function Progress() {
     if (!newWeight || !user) return;
     setSavingWeight(true);
     const entry = { userId: user.uid, weight: parseFloat(newWeight), date: new Date().toISOString().split("T")[0], loggedAt: new Date().toISOString() };
+    if (newBodyFat) entry.bodyFat = parseFloat(newBodyFat);
     const ref = await addDoc(collection(db, "weightLogs"), entry);
-    setWeightLogs(prev => [...prev, { id: ref.id, value: parseFloat(newWeight), date: entry.date }]);
+    setWeightLogs(prev => [...prev, { id: ref.id, value: parseFloat(newWeight), date: entry.date, bodyFat: entry.bodyFat ?? null }]);
     setNewWeight("");
+    setNewBodyFat("");
     setShowWeightModal(false);
     setSavingWeight(false);
   };
@@ -299,7 +353,7 @@ export default function Progress() {
       <PortalNav />
 
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 16px" }}>Progress</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 16px" }}>Progress</p>
         <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>
           {totalSessions === 0 ? "Your journey starts here" : `${totalSessions} sessions and counting`}
         </h1>
@@ -332,7 +386,7 @@ export default function Progress() {
 
           {capabilityScore && (
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "16px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>Capability Score</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>Capability Score</p>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
                 <div>
                   <span style={{ fontSize: "44px", fontWeight: 700, color: "#2d6a4f", lineHeight: 1 }}>{capabilityScore.capabilityScore}</span>
@@ -348,7 +402,7 @@ export default function Progress() {
 
           {standardsProgress.length > 0 && (
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "16px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Capability Targets</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Capability Targets</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 {standardsProgress.map(s => {
                   const pct = s.target > 0 ? Math.min((s.current / s.target) * 100, 100) : 0;
@@ -377,7 +431,7 @@ export default function Progress() {
 
           {workoutLogs.length > 0 && (
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "16px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>Recent Sessions</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>Recent Sessions</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {[...workoutLogs].reverse().slice(0, 8).map(log => {
                   const workout = workouts[log.workoutId];
@@ -386,11 +440,11 @@ export default function Progress() {
                     <div key={log.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "0.5px solid #f5f5f5" }}>
                       <div>
                         <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{workout?.name || "Workout"}</p>
-                        <p style={{ fontSize: "11px", color: "#aaa", margin: "2px 0 0" }}>{new Date(log.completedAt).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}</p>
+                        <p style={{ fontSize: "13px", color: "#aaa", margin: "2px 0 0" }}>{new Date(log.completedAt).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}</p>
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <p style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", margin: 0 }}>{setCount} sets</p>
-                        <p style={{ fontSize: "11px", color: "#aaa", margin: "2px 0 0" }}>{timeAgo(log.completedAt)}</p>
+                        <p style={{ fontSize: "13px", color: "#aaa", margin: "2px 0 0" }}>{timeAgo(log.completedAt)}</p>
                       </div>
                     </div>
                   );
@@ -431,7 +485,7 @@ export default function Progress() {
           </div>
 
           {/* Free badges */}
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>Badges</p>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>Badges</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
             {BADGES.filter(b => b.tier === "free").map(badge => {
               const earned = badge.check(stats);
@@ -439,7 +493,7 @@ export default function Progress() {
                 <div key={badge.id} style={{ backgroundColor: "#fff", borderRadius: "14px", border: `0.5px solid ${earned ? "#86efac" : "#e5e5e5"}`, padding: "14px", textAlign: "center", opacity: earned ? 1 : 0.5 }}>
                   <div style={{ fontSize: "32px", marginBottom: "6px", filter: earned ? "none" : "grayscale(1)" }}>{badge.icon}</div>
                   <p style={{ fontSize: "13px", fontWeight: 700, color: earned ? "#111" : "#aaa", margin: "0 0 2px" }}>{badge.label}</p>
-                  <p style={{ fontSize: "11px", color: "#aaa", margin: 0 }}>{badge.desc}</p>
+                  <p style={{ fontSize: "13px", color: "#aaa", margin: 0 }}>{badge.desc}</p>
                   {earned && <div style={{ marginTop: "6px", fontSize: "10px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "2px 8px", borderRadius: "10px", display: "inline-block" }}>Earned</div>}
                 </div>
               );
@@ -447,7 +501,7 @@ export default function Progress() {
           </div>
 
           {/* Top PRs -- free shows 3, premium shows all */}
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>Personal Records</p>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>Personal Records</p>
           {loggedExercises.length === 0 ? (
             <div style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "20px", textAlign: "center", marginBottom: "16px" }}>
               <p style={{ fontSize: "13px", color: "#aaa", margin: 0 }}>Log workouts with weights to see your PRs here</p>
@@ -462,12 +516,12 @@ export default function Progress() {
                   <div key={ex.id} style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{ex.name}</p>
-                      <p style={{ fontSize: "11px", color: "#aaa", margin: "2px 0 0" }}>{ex.history.length} sessions</p>
+                      <p style={{ fontSize: "13px", color: "#aaa", margin: "2px 0 0" }}>{ex.history.length} sessions</p>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <p style={{ fontSize: "20px", fontWeight: 700, color: "#2d6a4f", margin: 0 }}>{ex.pb}kg</p>
                       {ex.history.length > 1 && (
-                        <p style={{ fontSize: "11px", color: ex.pb > ex.history[0].value ? "#2d6a4f" : "#aaa", margin: "2px 0 0", fontWeight: 700 }}>
+                        <p style={{ fontSize: "13px", color: ex.pb > ex.history[0].value ? "#2d6a4f" : "#aaa", margin: "2px 0 0", fontWeight: 700 }}>
                           {ex.pb > ex.history[0].value ? `+${(ex.pb - ex.history[0].value).toFixed(1)}kg` : "—"}
                         </p>
                       )}
@@ -480,8 +534,8 @@ export default function Progress() {
           {/* Premium badges -- locked for free users */}
           <div style={{ backgroundColor: isPremium ? "#fff" : "#f7f5f2", borderRadius: "16px", border: `0.5px solid ${isPremium ? "#e5e5e5" : "#e5e5e5"}`, padding: "16px", marginBottom: "16px", position: "relative", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Premium Badges</p>
-              {!isPremium && <span style={{ fontSize: "11px", fontWeight: 700, color: "#b45309", backgroundColor: "#fffbeb", padding: "3px 10px", borderRadius: "20px" }}>Premium</span>}
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Premium Badges</p>
+              {!isPremium && <span style={{ fontSize: "13px", fontWeight: 700, color: "#b45309", backgroundColor: "#fffbeb", padding: "3px 10px", borderRadius: "20px" }}>Premium</span>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", filter: isPremium ? "none" : "blur(3px)", pointerEvents: isPremium ? "auto" : "none" }}>
               {BADGES.filter(b => b.tier === "premium").map(badge => {
@@ -511,7 +565,7 @@ export default function Progress() {
           {/* Premium volume stats */}
           {isPremium ? (
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>All Time Stats</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>All Time Stats</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {[
                   { label: "Total volume lifted", value: `${Math.round(totalVolume / 1000)}t` },
@@ -529,7 +583,7 @@ export default function Progress() {
             </div>
           ) : (
             <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", position: "relative", overflow: "hidden" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>All Time Stats</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>All Time Stats</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", filter: "blur(4px)" }}>
                 {["Total volume lifted", "Best session volume", "Longest streak", "Exercises tracked", "Capability score change"].map(label => (
                   <div key={label} style={{ display: "flex", justifyContent: "space-between", paddingBottom: "10px", borderBottom: "0.5px solid #f5f5f5" }}>
@@ -550,7 +604,7 @@ export default function Progress() {
       {/* STRENGTH TAB */}
       {activeTab === "strength" && (
         <div style={{ padding: "0 16px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>
             {loggedExercises.length} exercises tracked
           </p>
           <div style={{ position: "relative", marginBottom: "14px" }}>
@@ -572,7 +626,7 @@ export default function Progress() {
                 <p style={{ fontSize: "13px", color: "#888", margin: "0 0 16px" }}>{selectedExercise.history.length} sessions logged</p>
                 <div style={{ backgroundColor: "#eaf5ef", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Personal Best</p>
+                    <p style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Personal Best</p>
                     <p style={{ fontSize: "28px", fontWeight: 700, color: "#1a3a2a", margin: 0, lineHeight: 1 }}>{Math.max(...selectedExercise.history.map(h => h.value))}kg</p>
                   </div>
                   <span style={{ fontSize: "32px" }}>🏆</span>
@@ -635,12 +689,18 @@ export default function Progress() {
       )}
 
       {/* BODY TAB */}
-      {activeTab === "body" && (
+      {activeTab === "body" && (() => {
+        const bfLogs = weightLogs.filter(l => l.bodyFat != null);
+        const currentBF = bfLogs.length > 0 ? bfLogs[bfLogs.length - 1].bodyFat : null;
+        const currentWt = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].value : null;
+        const leanMass = currentWt && currentBF ? (currentWt * (1 - currentBF / 100)).toFixed(1) : null;
+        const fatMass = currentWt && currentBF ? (currentWt * currentBF / 100).toFixed(1) : null;
+        return (
         <div style={{ padding: "0 16px" }}>
           <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "16px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Body Weight</p>
-              <button onClick={() => setShowWeightModal(true)} style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Log weight</button>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Body Weight</p>
+              <button onClick={() => setShowWeightModal(true)} style={{ backgroundColor: "#eaf5ef", color: "#2d6a4f", border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Log</button>
             </div>
             {weightLogs.length === 0 ? (
               <div style={{ textAlign: "center", padding: "24px 0" }}>
@@ -649,10 +709,10 @@ export default function Progress() {
               </div>
             ) : (
               <>
-                <div style={{ display: "flex", gap: "16px", marginBottom: "14px" }}>
+                <div style={{ display: "flex", gap: "20px", marginBottom: "14px" }}>
                   <div>
                     <p style={{ fontSize: "10px", color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Current</p>
-                    <p style={{ fontSize: "24px", fontWeight: 700, color: "#2d6a4f", margin: 0 }}>{weightLogs[weightLogs.length - 1].value}kg</p>
+                    <p style={{ fontSize: "24px", fontWeight: 700, color: "#3b82f6", margin: 0 }}>{weightLogs[weightLogs.length - 1].value}kg</p>
                   </div>
                   {userData?.goalWeight && !userData?.noGoalWeight && (
                     <div>
@@ -664,25 +724,29 @@ export default function Progress() {
                     <div>
                       <p style={{ fontSize: "10px", color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Change</p>
                       <p style={{ fontSize: "24px", fontWeight: 700, color: weightLogs[weightLogs.length - 1].value <= weightLogs[0].value ? "#2d6a4f" : "#ef4444", margin: 0 }}>
-                        {(weightLogs[weightLogs.length - 1].value - weightLogs[0].value).toFixed(1)}kg
+                        {(weightLogs[weightLogs.length - 1].value - weightLogs[0].value) >= 0 ? "+" : ""}{(weightLogs[weightLogs.length - 1].value - weightLogs[0].value).toFixed(1)}kg
                       </p>
                     </div>
                   )}
                 </div>
                 {weightLogs.length >= 2 && (
                   <div style={{ marginBottom: "14px" }}>
-                    <MiniLineGraph data={weightLogs} color="#3b82f6" />
+                    <TrendLineGraph data={weightLogs} color="#3b82f6" />
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
                       <span style={{ fontSize: "10px", color: "#aaa" }}>{new Date(weightLogs[0].date).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</span>
+                      <span style={{ fontSize: "10px", color: "#aaa" }}>Dashed = trend</span>
                       <span style={{ fontSize: "10px", color: "#aaa" }}>{new Date(weightLogs[weightLogs.length - 1].date).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</span>
                     </div>
                   </div>
                 )}
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {[...weightLogs].reverse().slice(0, 8).map((l, i) => (
+                  {[...weightLogs].reverse().slice(0, 6).map((l, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "0.5px solid #f5f5f5" }}>
                       <span style={{ fontSize: "13px", color: "#888" }}>{new Date(l.date).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}</span>
-                      <span style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{l.value}kg</span>
+                      <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                        {l.bodyFat != null && <span style={{ fontSize: "12px", color: "#f97316", fontWeight: 600 }}>{l.bodyFat}% BF</span>}
+                        <span style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{l.value}kg</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -690,8 +754,68 @@ export default function Progress() {
             )}
           </div>
 
+          {/* Body Fat % card */}
+          <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Body Fat %</p>
+              <button onClick={() => setShowWeightModal(true)} style={{ backgroundColor: "#fff4ed", color: "#f97316", border: "none", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Log</button>
+            </div>
+            {bfLogs.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Track body fat % over time</p>
+                <p style={{ fontSize: "13px", color: "#888", margin: "0 0 14px" }}>Add your body fat % when logging weight to see your composition change.</p>
+                <button onClick={() => setShowWeightModal(true)} style={{ backgroundColor: "#f97316", color: "#fff", border: "none", borderRadius: "10px", padding: "10px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Log weight + body fat</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: "20px", marginBottom: "14px" }}>
+                  <div>
+                    <p style={{ fontSize: "10px", color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Current</p>
+                    <p style={{ fontSize: "24px", fontWeight: 700, color: "#f97316", margin: 0 }}>{currentBF}%</p>
+                  </div>
+                  {bfLogs.length > 1 && (
+                    <div>
+                      <p style={{ fontSize: "10px", color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 2px" }}>Change</p>
+                      <p style={{ fontSize: "24px", fontWeight: 700, color: bfLogs[bfLogs.length - 1].bodyFat <= bfLogs[0].bodyFat ? "#2d6a4f" : "#ef4444", margin: 0 }}>
+                        {(bfLogs[bfLogs.length - 1].bodyFat - bfLogs[0].bodyFat) >= 0 ? "+" : ""}{(bfLogs[bfLogs.length - 1].bodyFat - bfLogs[0].bodyFat).toFixed(1)}%
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {bfLogs.length >= 2 && (
+                  <div style={{ marginBottom: "14px" }}>
+                    <TrendLineGraph data={bfLogs.map(l => ({ value: l.bodyFat, date: l.date }))} color="#f97316" />
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+                      <span style={{ fontSize: "10px", color: "#aaa" }}>{new Date(bfLogs[0].date).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</span>
+                      <span style={{ fontSize: "10px", color: "#aaa" }}>Dashed = trend</span>
+                      <span style={{ fontSize: "10px", color: "#aaa" }}>{new Date(bfLogs[bfLogs.length - 1].date).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Lean mass card -- only show when we have both metrics */}
+          {leanMass && (
+            <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px", marginBottom: "16px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Body Composition</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "12px", padding: "12px 14px" }}>
+                  <p style={{ fontSize: "10px", color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px" }}>Lean Mass</p>
+                  <p style={{ fontSize: "22px", fontWeight: 700, color: "#4ade80", margin: 0 }}>{leanMass}kg</p>
+                </div>
+                <div style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "12px", padding: "12px 14px" }}>
+                  <p style={{ fontSize: "10px", color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px" }}>Fat Mass</p>
+                  <p style={{ fontSize: "22px", fontWeight: 700, color: "#f97316", margin: 0 }}>{fatMass}kg</p>
+                </div>
+              </div>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", margin: "10px 0 0", textAlign: "center" }}>Based on {currentWt}kg at {currentBF}% body fat</p>
+            </div>
+          )}
+
           <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px" }}>
-            <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Health Integrations</p>
+            <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Health Integrations</p>
             {[
               { icon: "🍏", name: "Apple Health", sub: "Steps, heart rate, VO2 max" },
               { icon: "🟠", name: "Strava", sub: "Runs, rides and activities" },
@@ -703,12 +827,13 @@ export default function Progress() {
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>{item.name}</p>
                   <p style={{ fontSize: "12px", color: "#aaa", margin: "2px 0 0" }}>{item.sub}</p>
                 </div>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", backgroundColor: "#f0f0f0", padding: "4px 10px", borderRadius: "20px" }}>Coming soon</span>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", backgroundColor: "#f0f0f0", padding: "4px 10px", borderRadius: "20px" }}>Coming soon</span>
               </div>
             ))}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {showWeightModal && (
         <div onClick={(e) => { if (e.target === e.currentTarget) setShowWeightModal(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
@@ -716,8 +841,10 @@ export default function Progress() {
             <div style={{ width: 36, height: 4, background: "#e5e5e5", borderRadius: 2, margin: "0 auto 16px" }} />
             <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111", margin: "0 0 4px" }}>Log Weight</h2>
             <p style={{ fontSize: "13px", color: "#888", margin: "0 0 20px" }}>{new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" })}</p>
-            <input type="number" placeholder={`e.g. ${userData?.weight || "80"}`} value={newWeight} onChange={e => setNewWeight(e.target.value)} autoFocus style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1.5px solid #2d6a4f", fontSize: "24px", fontWeight: 700, outline: "none", textAlign: "center", boxSizing: "border-box", marginBottom: "12px" }} />
-            <p style={{ textAlign: "center", fontSize: "12px", color: "#aaa", margin: "0 0 16px" }}>{userData?.units === "imperial" ? "lbs" : "kg"}</p>
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Weight ({userData?.units === "imperial" ? "lbs" : "kg"})</p>
+            <input type="number" placeholder={`e.g. ${userData?.weight || "80"}`} value={newWeight} onChange={e => setNewWeight(e.target.value)} autoFocus style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: "1.5px solid #2d6a4f", fontSize: "22px", fontWeight: 700, outline: "none", textAlign: "center", boxSizing: "border-box", marginBottom: "16px" }} />
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Body Fat % <span style={{ fontWeight: 400, textTransform: "none" }}>(optional)</span></p>
+            <input type="number" placeholder="e.g. 18" value={newBodyFat} onChange={e => setNewBodyFat(e.target.value)} style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: "1.5px solid #e5e5e5", fontSize: "22px", fontWeight: 700, outline: "none", textAlign: "center", boxSizing: "border-box", marginBottom: "16px" }} />
             <button onClick={logWeight} disabled={!newWeight || savingWeight} style={{ width: "100%", backgroundColor: !newWeight || savingWeight ? "#e5e5e5" : "#2d6a4f", color: !newWeight || savingWeight ? "#aaa" : "#fff", border: "none", borderRadius: "12px", padding: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", marginBottom: "10px" }}>
               {savingWeight ? "Saving..." : "Save"}
             </button>

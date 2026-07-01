@@ -2,24 +2,46 @@ import { Link } from "react-router-dom";
 
 const services = [
   {
-    tag: "Most Popular",
+    tag: "Most Personal",
     tagColor: "#2d6a4f",
-    title: "In-Person Coaching",
-    subtitle: "South Dublin",
-    price: "From €55",
-    priceNote: "/session",
+    title: "Elite Coaching",
+    subtitle: "Unlimited Access · South Dublin or Remote",
+    price: "€999",
+    priceNote: "/4 weeks",
+    bestFor: "Professionals who want to move fast with zero guesswork.",
     description:
-      "Private, in-person coaching, from a 6-session Starter Package through to ongoing 1:1, 1:2, or small group coaching.",
+      "Michael manages everything — programming, nutrition strategy, recovery. Daily check-ins, unlimited sessions, same-day responses. This is the full-service option.",
     features: [
-      "Starter Package (6 sessions)",
-      "1:1, 1:2 & small group options",
-      "Fully personalised, in person",
-      "South Dublin based",
+      "Daily check-ins, Michael responds same day",
+      "Unlimited in-person or remote sessions",
+      "Fully managed programming and nutrition strategy",
+      "Direct phone access",
     ],
-    cta: "See In-Person Options",
-    ctaHref: "/coaching/in-person",
+    cta: "Apply for Elite",
+    ctaHref: "/consultation",
     external: false,
     dark: true,
+  },
+  {
+    tag: "Most Popular",
+    tagColor: "#2d6a4f",
+    title: "Hybrid Coaching",
+    subtitle: "Online + In-Person · South Dublin",
+    price: "From €249",
+    priceNote: "/4 weeks",
+    bestFor: "South Dublin clients who want online accountability and the option to train in person.",
+    description:
+      "Everything in Online Coaching, plus in-person sessions when you want them. The closest thing to a dedicated personal trainer, at a fraction of the cost.",
+    features: [
+      "Weekly check-in and personal Sunday video from Michael",
+      "Optional in-person sessions each month",
+      "In-person form checks and faster adjustments",
+      "Priority response time",
+    ],
+    cta: "Book a Consultation",
+    ctaHref: "/consultation",
+    external: false,
+    dark: false,
   },
   {
     tag: "Remote",
@@ -27,14 +49,15 @@ const services = [
     title: "Online Coaching",
     subtitle: "Anywhere · Fully Remote",
     price: "From €149",
-    priceNote: "/month",
+    priceNote: "/4 weeks",
+    bestFor: "People who want expert direction and never want to guess what to do next.",
     description:
-      "Check in every Friday. Every Sunday, Michael records a personalised video reviewing your week and laying out exactly what to focus on next.",
+      "Every Friday you check in. Every Sunday, Michael sends a personal video reviewing your week and laying out exactly what to do next. You just show up and do the work.",
     features: [
       "Weekly Friday check-in",
-      "Personal Sunday video review from Michael",
-      "Your next week planned out for you",
-      "Everything in Premium",
+      "Personal Sunday video from Michael every week",
+      "Fully personalised programming, updated weekly",
+      "Everything in Premium included",
     ],
     cta: "Book a Consultation",
     ctaHref: "/consultation",
@@ -42,39 +65,20 @@ const services = [
     dark: false,
   },
   {
-    tag: "Flexible",
-    tagColor: "#2d6a4f",
-    title: "Hybrid Coaching",
-    subtitle: "Online + Optional In Person",
-    price: "From €199",
-    priceNote: "/month",
-    description:
-      "Everything in Online Coaching, plus the option to add a monthly in-person session if you're based near South Dublin.",
-    features: [
-      "Everything in Online Coaching",
-      "Optional monthly in-person session",
-      "Personalised adjustments in person",
-      "South Dublin based",
-    ],
-    cta: "Book a Consultation",
-    ctaHref: "/consultation",
-    external: false,
-    dark: false,
-  },
-  {
-    tag: "Self-Serve",
+    tag: "Self-Directed",
     tagColor: "#0369a1",
     title: "Premium Membership",
-    subtitle: "Train at Your Own Pace",
+    subtitle: "Train on Your Own Terms",
     price: "€19.99",
-    priceNote: "/month",
+    priceNote: "/4 weeks",
+    bestFor: "Motivated people who train independently and want the best tools to do it.",
     description:
-      "Full access to training programmes, habit and progress tracking, and educational content. No 1-to-1 access included.",
+      "Full access to the Training for Life app. Build custom workouts, follow programmes, track progress, and measure your Capability Score. No coach access included.",
     features: [
-      "All training programmes",
-      "Habit tracking",
-      "Progress tracking",
-      "Educational content",
+      "Unlimited custom workouts and programmes",
+      "Full workout history and personal bests",
+      "Capability Score and progress tracking",
+      "Coach-published programme templates",
     ],
     cta: "Join Premium",
     ctaHref: "/register",
@@ -82,18 +86,19 @@ const services = [
     dark: false,
   },
   {
-    tag: "Free to Join",
-    tagColor: "#0369a1",
+    tag: "Free",
+    tagColor: "#888",
     title: "Free App",
-    subtitle: "Start Training Today",
+    subtitle: "Get Started",
     price: "Free",
     priceNote: null,
+    bestFor: "Anyone who wants to start before committing.",
     description:
-      "Access the exercise library, follow structured workouts, and start tracking. The first step into Training For Life.",
+      "Access the exercise library, log workouts, and see what the app can do. Upgrade any time.",
     features: [
       "Exercise library",
-      "Structured workouts",
-      "Basic tracking",
+      "Basic workout logging",
+      "1 saved custom workout",
     ],
     cta: "Get the Free App",
     ctaHref: "/register",
@@ -110,13 +115,13 @@ export default function Services() {
         {/* Header */}
         <div className="mb-16 max-w-2xl">
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.25em] text-emerald-700">
-            Personal Training &amp; Online Coaching Options
+            Personal Training &amp; Online Coaching
           </p>
           <h2 className="text-4xl font-semibold leading-tight tracking-tight text-zinc-900 md:text-5xl">
-            In-person training, online coaching and more.
+            Every level of support, from free to fully managed.
           </h2>
           <p className="mt-6 text-lg leading-8 text-zinc-600">
-            Whether you want hands-on personal training in South Dublin, fully remote online coaching from anywhere in Ireland, or a free way to start, there's an option that fits your life.
+            Start free and track your training, upgrade to Premium for the full app experience, or work directly with Michael through online or in-person coaching. Pick the level that matches how seriously you want to take this.
           </p>
         </div>
 
@@ -142,9 +147,14 @@ export default function Services() {
               <h3 style={{ fontSize: "22px", fontWeight: 700, color: s.dark ? "#fff" : "#111", margin: "0 0 4px", lineHeight: 1.2 }}>
                 {s.title}
               </h3>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: s.dark ? "#9fe1cb" : "#2d6a4f", margin: "0 0 16px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: s.dark ? "#9fe1cb" : "#2d6a4f", margin: "0 0 6px" }}>
                 {s.subtitle}
               </p>
+              {s.bestFor && (
+                <p style={{ fontSize: "13px", color: s.dark ? "rgba(255,255,255,0.55)" : "#888", margin: "0 0 16px", lineHeight: 1.5 }}>
+                  Best for: {s.bestFor}
+                </p>
+              )}
 
               <div style={{ display: "flex", alignItems: "baseline", gap: "4px", margin: "0 0 16px" }}>
                 <span style={{ fontSize: "26px", fontWeight: 700, color: s.dark ? "#fff" : "#111" }}>

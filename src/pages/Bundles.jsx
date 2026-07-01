@@ -12,17 +12,22 @@ const THEME = {
   bg: "#f7f5f2",
 };
 
-const SUBSCRIPTION_TIERS = [
+const SELF_DIRECTED_TIERS = [
   {
     id: "premium",
-    name: "Premium App",
+    name: "Premium",
     price: "€19.99",
     period: "every 4 weeks",
     priceId: "price_1Tn3fsPojX8gToKVeUfENsCZ",
     successTier: "premium",
     badge: null,
-    description: "Full access to custom workouts, programmes, and progress tracking.",
-    highlight: false,
+    bestFor: "Self-motivated people who want the best tools to train on their own terms.",
+    features: [
+      "Unlimited custom workouts and programmes",
+      "Full workout history and personal bests",
+      "Capability Score and progress tracking",
+      "Coach-published templates",
+    ],
   },
   {
     id: "premium_annual",
@@ -32,9 +37,16 @@ const SUBSCRIPTION_TIERS = [
     priceId: "price_1Tn40bPojX8gToKVOEJmvZyI",
     successTier: "premium_annual",
     badge: "Save €111",
-    description: "Everything in Premium, billed once a year. Best value for the app.",
-    highlight: false,
+    bestFor: "Same as Premium monthly, billed once a year. Saves you €111.",
+    features: [
+      "Everything in Premium",
+      "Billed once — no monthly charge",
+      "Equivalent to €2.87 per week",
+    ],
   },
+];
+
+const COACHING_TIERS = [
   {
     id: "online",
     name: "Online Coaching",
@@ -43,8 +55,14 @@ const SUBSCRIPTION_TIERS = [
     priceId: "price_1Tn3ngPojX8gToKV9Dl3G76f",
     successTier: "online",
     badge: null,
-    description: "Weekly check-ins, personalised programming, and direct coach access.",
-    highlight: false,
+    bestFor: "People who want expert direction without going near a gym with a stranger.",
+    features: [
+      "Weekly Friday check-in — you report in, Michael adapts your plan",
+      "Personal Sunday video from Michael: exactly what to focus on next week",
+      "Fully personalised programming, updated every week",
+      "Everything in Premium included",
+    ],
+    dark: false,
   },
   {
     id: "hybrid",
@@ -54,8 +72,14 @@ const SUBSCRIPTION_TIERS = [
     priceId: "price_1Tn3uQPojX8gToKVImRx15ZL",
     successTier: "hybrid",
     badge: "Most Popular",
-    description: "Online coaching plus optional in-person sessions if you're in South Dublin. Priority response and speed of results.",
-    highlight: true,
+    bestFor: "South Dublin clients who want online accountability plus the option to train in person.",
+    features: [
+      "Everything in Online Coaching",
+      "Optional monthly in-person session with Michael",
+      "Faster results — in-person form checks and adjustments",
+      "Priority response time",
+    ],
+    dark: false,
   },
   {
     id: "elite",
@@ -64,9 +88,16 @@ const SUBSCRIPTION_TIERS = [
     period: "every 4 weeks",
     priceId: "price_1Tn3w6PojX8gToKVtG5WeC7f",
     successTier: "elite",
-    badge: "Premium Service",
-    description: "Unlimited access, daily check-ins, and fully managed programming. For those who want maximum results.",
-    highlight: false,
+    badge: "Exclusive",
+    bestFor: "Professionals who want to move fast and have zero guesswork left in their training.",
+    features: [
+      "Daily check-ins — Michael is available every day",
+      "Unlimited in-person sessions",
+      "Michael manages everything — programming, nutrition, recovery",
+      "Same-day response, always",
+      "Priority booking and direct phone access",
+    ],
+    dark: true,
   },
 ];
 
@@ -103,7 +134,7 @@ function BundleCard({ bundle, buying, onBuy }) {
           left: 20,
           background: THEME.accent,
           color: "#fff",
-          fontSize: "11px",
+          fontSize: "13px",
           fontWeight: 700,
           padding: "3px 10px",
           borderRadius: "0 0 8px 8px",
@@ -120,7 +151,7 @@ function BundleCard({ bundle, buying, onBuy }) {
           left: 20,
           background: "#e8f5ee",
           color: THEME.accent,
-          fontSize: "11px",
+          fontSize: "13px",
           fontWeight: 700,
           padding: "3px 10px",
           borderRadius: "0 0 8px 8px",
@@ -353,78 +384,133 @@ export default function Bundles() {
 
         {/* MEMBERSHIPS TAB */}
         {activeTab === "memberships" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {SUBSCRIPTION_TIERS.map((tier) => {
-              const isLoading = buyingSub === tier.id;
-              return (
-                <div
-                  key={tier.id}
-                  style={{
-                    background: "#fff",
-                    borderRadius: "16px",
-                    padding: "20px",
-                    boxShadow: tier.highlight ? "0 4px 16px rgba(45,106,79,0.18)" : "0 2px 8px rgba(0,0,0,0.06)",
-                    border: tier.highlight ? `2px solid ${THEME.accent}` : "2px solid #f0ede9",
-                    position: "relative",
-                  }}
-                >
-                  {tier.badge && (
-                    <div style={{
-                      position: "absolute",
-                      top: -1,
-                      left: 20,
-                      background: tier.highlight ? THEME.accent : "#e8f5ee",
-                      color: tier.highlight ? "#fff" : THEME.accent,
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      padding: "3px 10px",
-                      borderRadius: "0 0 8px 8px",
-                      letterSpacing: "0.5px",
-                      textTransform: "uppercase",
-                      border: tier.highlight ? "none" : `1px solid ${THEME.light}`,
-                      borderTop: "none",
-                    }}>
-                      {tier.badge}
-                    </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: tier.badge ? "10px" : 0 }}>
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: "0 0 4px", fontSize: "17px", fontWeight: 700, color: THEME.dark }}>
-                        {tier.name}
-                      </h3>
-                      <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#666", lineHeight: 1.45 }}>
-                        {tier.description}
-                      </p>
-                      <span style={{ fontSize: "12px", color: "#999" }}>{tier.period}</span>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "16px" }}>
-                      <div style={{ fontSize: "28px", fontWeight: 800, color: THEME.dark, lineHeight: 1 }}>
-                        {tier.price}
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+
+            {/* Self-directed section */}
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#aaa", margin: "0 0 4px" }}>Train independently</p>
+              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 14px" }}>All the tools. You make the decisions.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {SELF_DIRECTED_TIERS.map((tier) => {
+                  const isLoading = buyingSub === tier.id;
+                  return (
+                    <div key={tier.id} style={{ background: "#fff", borderRadius: "16px", padding: "18px", border: "1.5px solid #e5e5e5", position: "relative" }}>
+                      {tier.badge && (
+                        <span style={{ position: "absolute", top: 14, right: 14, background: "#eaf5ef", color: THEME.accent, fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "20px" }}>
+                          {tier.badge}
+                        </span>
+                      )}
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "6px" }}>
+                        <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: THEME.dark }}>{tier.name}</h3>
+                        <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "12px" }}>
+                          <span style={{ fontSize: "22px", fontWeight: 800, color: THEME.dark }}>{tier.price}</span>
+                          <span style={{ fontSize: "11px", color: "#aaa", marginLeft: "4px" }}>{tier.period}</span>
+                        </div>
                       </div>
+                      <p style={{ fontSize: "12px", color: "#888", margin: "0 0 12px", lineHeight: 1.5 }}>{tier.bestFor}</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "14px" }}>
+                        {tier.features.map((f) => (
+                          <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
+                              <circle cx="7" cy="7" r="7" fill="#eaf5ef"/>
+                              <path d="M4 7l2 2 4-4" stroke="#2d6a4f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <span style={{ fontSize: "13px", color: "#444" }}>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => handleBuySub(tier)}
+                        disabled={!!buyingSub}
+                        style={{ width: "100%", padding: "12px", background: isLoading ? "#ccc" : THEME.accent, color: "#fff", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: isLoading ? "not-allowed" : "pointer" }}
+                      >
+                        {isLoading ? "Redirecting..." : "Get started"}
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => handleBuySub(tier)}
-                    disabled={!!buyingSub}
-                    style={{
-                      marginTop: "16px",
-                      width: "100%",
-                      padding: "14px",
-                      background: isLoading ? "#ccc" : tier.highlight ? THEME.dark : THEME.accent,
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "12px",
-                      fontSize: "15px",
-                      fontWeight: 700,
-                      cursor: isLoading ? "not-allowed" : "pointer",
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    {isLoading ? "Redirecting..." : "Get Started"}
-                  </button>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Coached by Michael section */}
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#aaa", margin: "0 0 4px" }}>Coached by Michael</p>
+              <p style={{ fontSize: "13px", color: "#888", margin: "0 0 14px" }}>Michael does the thinking. You just show up and do the work.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {COACHING_TIERS.map((tier) => {
+                  const isLoading = buyingSub === tier.id;
+                  const isElite = tier.dark;
+                  return (
+                    <div
+                      key={tier.id}
+                      style={{
+                        background: isElite ? "#111" : "#fff",
+                        borderRadius: "16px",
+                        padding: "20px",
+                        border: isElite ? "none" : tier.badge === "Most Popular" ? `2px solid ${THEME.accent}` : "1.5px solid #e5e5e5",
+                        position: "relative",
+                        boxShadow: isElite ? "0 8px 32px rgba(0,0,0,0.25)" : tier.badge === "Most Popular" ? "0 4px 16px rgba(45,106,79,0.15)" : "none",
+                      }}
+                    >
+                      {tier.badge && (
+                        <div style={{
+                          position: "absolute",
+                          top: -1,
+                          left: 20,
+                          background: isElite ? "#c9a84c" : THEME.accent,
+                          color: "#fff",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          padding: "3px 10px",
+                          borderRadius: "0 0 8px 8px",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                        }}>
+                          {tier.badge}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: tier.badge ? "10px" : 0, marginBottom: "6px" }}>
+                        <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: isElite ? "#fff" : THEME.dark }}>{tier.name}</h3>
+                        <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "12px" }}>
+                          <span style={{ fontSize: "24px", fontWeight: 800, color: isElite ? "#fff" : THEME.dark }}>{tier.price}</span>
+                          <span style={{ fontSize: "11px", color: isElite ? "rgba(255,255,255,0.4)" : "#aaa", marginLeft: "4px" }}>{tier.period}</span>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: "12px", color: isElite ? "rgba(255,255,255,0.55)" : "#888", margin: "0 0 14px", lineHeight: 1.5 }}>{tier.bestFor}</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                        {tier.features.map((f) => (
+                          <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginTop: 2, flexShrink: 0 }}>
+                              <circle cx="7" cy="7" r="7" fill={isElite ? "rgba(201,168,76,0.2)" : "#eaf5ef"}/>
+                              <path d="M4 7l2 2 4-4" stroke={isElite ? "#c9a84c" : "#2d6a4f"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <span style={{ fontSize: "13px", color: isElite ? "rgba(255,255,255,0.8)" : "#444" }}>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => handleBuySub(tier)}
+                        disabled={!!buyingSub}
+                        style={{
+                          width: "100%",
+                          padding: "14px",
+                          background: isLoading ? "#666" : isElite ? "#c9a84c" : tier.badge === "Most Popular" ? THEME.dark : THEME.accent,
+                          color: isElite ? "#111" : "#fff",
+                          border: "none",
+                          borderRadius: "10px",
+                          fontSize: "15px",
+                          fontWeight: 700,
+                          cursor: isLoading ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {isLoading ? "Redirecting..." : isElite ? "Apply for Elite" : "Get started"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -440,7 +526,7 @@ export default function Bundles() {
             {starterBundles.length > 0 && (
               <>
                 <div style={{ marginBottom: "14px" }}>
-                  <p style={{ margin: 0, fontSize: "11px", fontWeight: 700, color: THEME.accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>Get Started</p>
+                  <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: THEME.accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>Get Started</p>
                   <h2 style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 700, color: THEME.dark }}>Starter Bundle</h2>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "28px" }}>
@@ -454,7 +540,7 @@ export default function Bundles() {
             {packBundles.length > 0 && (
               <>
                 <div style={{ marginBottom: "14px" }}>
-                  <p style={{ margin: 0, fontSize: "11px", fontWeight: 700, color: THEME.accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>All Options</p>
+                  <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: THEME.accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>All Options</p>
                   <h2 style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 700, color: THEME.dark }}>All Bundles</h2>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>

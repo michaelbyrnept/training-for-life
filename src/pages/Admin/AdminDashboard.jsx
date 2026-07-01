@@ -45,6 +45,13 @@ const sections = [
     highlight: false,
   },
   {
+    to: "/admin/messages",
+    label: "Messages",
+    description: "Direct messages with clients. Reply to questions, send check-ins.",
+    icon: "💬",
+    highlight: true,
+  },
+  {
     to: "/admin/broadcast",
     label: "Broadcast",
     description: "Send a message to all clients or a filtered group.",

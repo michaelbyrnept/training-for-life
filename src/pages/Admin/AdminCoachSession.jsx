@@ -84,7 +84,7 @@ export default function AdminCoachSession() {
   const [restTimer, setRestTimer] = useState(null);
 
   // Tap-to-log sheet
-  const [logSheet, setLogSheet] = useState(null); // { exerciseId, setIndex, field }
+  const [logSheet, setLogSheet] = useState(null); // { slotKey, setIndex, field }
 
   // Swap sheet
   const [swapSheet, setSwapSheet] = useState(null); // { exercise, index }
@@ -111,11 +111,12 @@ export default function AdminCoachSession() {
     setWorkout(workoutData);
 
     const rawExercises = workoutData.exercises || [];
-    const enriched = await Promise.all(rawExercises.map(async (ex) => {
+    const enriched = await Promise.all(rawExercises.map(async (ex, i) => {
       const exSnap = await getDoc(doc(db, "exercises", ex.exerciseId));
       const exData = exSnap.exists() ? exSnap.data() : {};
       return {
         ...ex,
+        slotKey: `slot_${i}`,         // stable key — never changes even if exercise is swapped
         name: exData.name || ex.exerciseId,
         description: exData.description || "",
         muscleGroup: exData.muscleGroup || exData.muscles || "",
@@ -131,9 +132,9 @@ export default function AdminCoachSession() {
     const initialLogs = {};
     enriched.forEach(ex => {
       if (ex.type === "cardio") {
-        initialLogs[ex.exerciseId] = { duration: ex.defaultDuration || 30, distance: "", done: false };
+        initialLogs[ex.slotKey] = { duration: ex.defaultDuration || 30, distance: "", done: false };
       } else {
-        initialLogs[ex.exerciseId] = Array.from({ length: ex.sets || 3 }, () => ({
+        initialLogs[ex.slotKey] = Array.from({ length: ex.sets || 3 }, () => ({
           reps: null, weight: null, done: false,
         }));
       }
@@ -157,7 +158,9 @@ export default function AdminCoachSession() {
   // ─── Exercise actions ──────────────────────────────────────────────────────
 
   function addExercise(ex) {
+    const slotKey = `slot_extra_${Date.now()}`;
     const newEx = {
+      slotKey,
       exerciseId: ex.id,
       name: ex.name,
       description: ex.description || "",
@@ -174,21 +177,21 @@ export default function AdminCoachSession() {
     setExercises(prev => [...prev, newEx]);
     setLogs(prev => ({
       ...prev,
-      [ex.id]: Array.from({ length: 3 }, () => ({ reps: null, weight: null, done: false })),
+      [slotKey]: Array.from({ length: 3 }, () => ({ reps: null, weight: null, done: false })),
     }));
     setAddSheet(false);
     setAddSearch("");
     setAddResults([]);
   }
 
-  function removeExercise(exerciseId) {
-    setExercises(prev => prev.filter(e => e.exerciseId !== exerciseId));
-    setLogs(prev => { const n = { ...prev }; delete n[exerciseId]; return n; });
+  function removeExercise(slotKey) {
+    setExercises(prev => prev.filter(e => e.slotKey !== slotKey));
+    setLogs(prev => { const n = { ...prev }; delete n[slotKey]; return n; });
   }
 
   function doTempSwap(newEx) {
     const idx = swapSheet.index;
-    const oldId = swapSheet.exercise.exerciseId;
+    // Only update exercise metadata — slotKey stays the same so log data is preserved
     setExercises(prev => prev.map((e, i) => i !== idx ? e : {
       ...e,
       exerciseId: newEx.id,
@@ -197,13 +200,6 @@ export default function AdminCoachSession() {
       muscleGroup: newEx.muscleGroup || newEx.muscles || "",
       swapType: "temp",
     }));
-    setLogs(prev => {
-      const existing = prev[oldId];
-      const n = { ...prev };
-      delete n[oldId];
-      n[newEx.id] = existing || Array.from({ length: 3 }, () => ({ reps: null, weight: null, done: false }));
-      return n;
-    });
     closeSwapSheet();
   }
 
@@ -218,8 +214,7 @@ export default function AdminCoachSession() {
     await updateDoc(doc(db, "workouts", workoutId), { exercises: updatedExercises });
     setWorkout(prev => ({ ...prev, exercises: updatedExercises }));
 
-    // Update session state
-    const sessionOldId = swapSheet.exercise.exerciseId;
+    // Only update exercise metadata — slotKey stays the same so log data is preserved
     setExercises(prev => prev.map((e, i) => i !== idx ? e : {
       ...e,
       exerciseId: newEx.id,
@@ -230,13 +225,6 @@ export default function AdminCoachSession() {
       originalName: newEx.name,
       swapType: "perm",
     }));
-    setLogs(prev => {
-      const existing = prev[sessionOldId];
-      const n = { ...prev };
-      delete n[sessionOldId];
-      n[newEx.id] = existing || Array.from({ length: 3 }, () => ({ reps: null, weight: null, done: false }));
-      return n;
-    });
     closeSwapSheet();
   }
 
@@ -250,29 +238,29 @@ export default function AdminCoachSession() {
 
   function saveLogValue(value) {
     if (!logSheet) return;
-    const { exerciseId, setIndex, field } = logSheet;
+    const { slotKey, setIndex, field } = logSheet;
     setLogs(prev => {
-      const sets = Array.isArray(prev[exerciseId]) ? [...prev[exerciseId]] : [];
+      const sets = Array.isArray(prev[slotKey]) ? [...prev[slotKey]] : [];
       sets[setIndex] = { ...sets[setIndex], [field]: value };
-      return { ...prev, [exerciseId]: sets };
+      return { ...prev, [slotKey]: sets };
     });
     setLogSheet(null);
   }
 
-  function toggleDone(exerciseId, setIndex) {
+  function toggleDone(slotKey, setIndex) {
     setLogs(prev => {
-      const sets = [...(prev[exerciseId] || [])];
+      const sets = [...(prev[slotKey] || [])];
       const wasDone = sets[setIndex]?.done;
       sets[setIndex] = { ...sets[setIndex], done: !wasDone };
       if (!wasDone) setTimeout(() => setRestTimer({ defaultSeconds: 120 }), 300);
-      return { ...prev, [exerciseId]: sets };
+      return { ...prev, [slotKey]: sets };
     });
   }
 
-  function addSet(exerciseId) {
+  function addSet(slotKey) {
     setLogs(prev => ({
       ...prev,
-      [exerciseId]: [...(prev[exerciseId] || []), { reps: null, weight: null, done: false }],
+      [slotKey]: [...(prev[slotKey] || []), { reps: null, weight: null, done: false }],
     }));
   }
 
@@ -296,7 +284,7 @@ export default function AdminCoachSession() {
       const writes = exercises
         .filter(ex => ex.type !== "cardio")
         .map(ex => {
-          const sets = (logs[ex.exerciseId] || []).filter(s => s.done && s.weight && parseFloat(s.weight) > 0);
+          const sets = (logs[ex.slotKey] || []).filter(s => s.done && s.weight && parseFloat(s.weight) > 0);
           if (!sets.length) return null;
           const bestSet = sets.reduce((a, b) =>
             parseFloat(b.weight) > parseFloat(a.weight) ? b : a
@@ -406,12 +394,12 @@ export default function AdminCoachSession() {
       <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
         {exercises.map((ex, idx) => {
           const isCardio = ex.type === "cardio";
-          const sets = isCardio ? [] : (logs[ex.exerciseId] || []);
+          const sets = isCardio ? [] : (logs[ex.slotKey] || []);
           const doneCount = sets.filter(s => s.done).length;
 
           return (
             <div
-              key={`${ex.exerciseId}_${idx}`}
+              key={ex.slotKey}
               style={{
                 backgroundColor: "#fff",
                 borderRadius: "16px",
@@ -466,7 +454,7 @@ export default function AdminCoachSession() {
                       🔄 Swap
                     </button>
                     <button
-                      onClick={() => removeExercise(ex.exerciseId)}
+                      onClick={() => removeExercise(ex.slotKey)}
                       style={{
                         padding: "6px 10px", borderRadius: "8px",
                         border: "0.5px solid #fca5a5", backgroundColor: "#fef2f2",
@@ -525,7 +513,7 @@ export default function AdminCoachSession() {
                       <span style={{ fontSize: "13px", fontWeight: 700, color: "#ccc" }}>{si + 1}</span>
 
                       <div
-                        onClick={() => setLogSheet({ exerciseId: ex.exerciseId, setIndex: si, field: "reps" })}
+                        onClick={() => setLogSheet({ slotKey: ex.slotKey, setIndex: si, field: "reps" })}
                         style={{
                           backgroundColor: s.reps ? "#eaf5ef" : "#f7f5f2",
                           border: `0.5px solid ${s.reps ? "#2d6a4f" : "#e5e5e5"}`,
@@ -538,7 +526,7 @@ export default function AdminCoachSession() {
                       </div>
 
                       <div
-                        onClick={() => setLogSheet({ exerciseId: ex.exerciseId, setIndex: si, field: "weight" })}
+                        onClick={() => setLogSheet({ slotKey: ex.slotKey, setIndex: si, field: "weight" })}
                         style={{
                           backgroundColor: s.weight ? "#eaf5ef" : "#f7f5f2",
                           border: `0.5px solid ${s.weight ? "#2d6a4f" : "#e5e5e5"}`,
@@ -551,7 +539,7 @@ export default function AdminCoachSession() {
                       </div>
 
                       <div
-                        onClick={() => toggleDone(ex.exerciseId, si)}
+                        onClick={() => toggleDone(ex.slotKey, si)}
                         style={{
                           width: 32, height: 32, borderRadius: "50%",
                           border: s.done ? "none" : "1.5px solid #e5e5e5",
@@ -568,7 +556,7 @@ export default function AdminCoachSession() {
                   ))}
 
                   <button
-                    onClick={() => addSet(ex.exerciseId)}
+                    onClick={() => addSet(ex.slotKey)}
                     style={{
                       background: "none", border: "none", color: "#2d6a4f",
                       fontSize: "13px", fontWeight: 700, cursor: "pointer",
@@ -590,10 +578,10 @@ export default function AdminCoachSession() {
                       </label>
                       <input
                         type="number"
-                        value={logs[ex.exerciseId]?.duration || ""}
+                        value={logs[ex.slotKey]?.duration || ""}
                         onChange={e => setLogs(prev => ({
                           ...prev,
-                          [ex.exerciseId]: { ...prev[ex.exerciseId], duration: e.target.value },
+                          [ex.slotKey]: { ...prev[ex.slotKey], duration: e.target.value },
                         }))}
                         style={{
                           width: "100%", padding: "10px 12px", borderRadius: "10px",
@@ -608,10 +596,10 @@ export default function AdminCoachSession() {
                       </label>
                       <input
                         type="text"
-                        value={logs[ex.exerciseId]?.distance || ""}
+                        value={logs[ex.slotKey]?.distance || ""}
                         onChange={e => setLogs(prev => ({
                           ...prev,
-                          [ex.exerciseId]: { ...prev[ex.exerciseId], distance: e.target.value },
+                          [ex.slotKey]: { ...prev[ex.slotKey], distance: e.target.value },
                         }))}
                         placeholder="e.g. 3km"
                         style={{

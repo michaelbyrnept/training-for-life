@@ -7,7 +7,7 @@ import PortalNav from "../components/PortalNav";
 import PremiumGate from "../components/PremiumGate";
 import { useFeatures } from "../hooks/useFeatures";
 
-const WEEKLY_TARGETS = { strength: 3, cardio: 2, mobility: 1 };
+const WEEKLY_TARGETS = { strength: 3, cardio: 2 };
 
 function getWeekRange() {
   const now = new Date();
@@ -344,7 +344,7 @@ export default function Training() {
   const [programmes, setProgrammes] = useState([]);
   const [userData, setUserData] = useState(null);
   const [user, setUser] = useState(null);
-  const [weeklyLogs, setWeeklyLogs] = useState({ strength: 0, cardio: 0, mobility: 0 });
+  const [weeklyLogs, setWeeklyLogs] = useState({ strength: 0, cardio: 0 });
   const [weeklyClassCount, setWeeklyClassCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectingType, setSelectingType] = useState(null);
@@ -382,7 +382,7 @@ export default function Training() {
       const cardioCount = uData.cardioProgrammeId
         ? myLogs.filter((l) => l.programmeId === uData.cardioProgrammeId).length
         : 0;
-      setWeeklyLogs({ strength: strengthCount, cardio: cardioCount, mobility: 0 });
+      setWeeklyLogs({ strength: strengthCount, cardio: cardioCount });
 
       const classSnap = await getDocs(collection(db, "classes"));
       const today = new Date();
@@ -450,6 +450,11 @@ export default function Training() {
       (p.tag || "").toLowerCase() === "cardio" || (p.tag || "").toLowerCase() === "walk"
   );
 
+  // Free programmes — p.free !== false means it's available to all users
+  const freeProgs = programmes.filter((p) => p.free !== false);
+  const hasNoProgramme = !userData?.strengthProgrammeId && !userData?.cardioProgrammeId;
+  const showFreeHook = !isPremium && hasNoProgramme && freeProgs.length > 0;
+
   const weekStatus = [
     {
       type: "strength",
@@ -468,15 +473,6 @@ export default function Training() {
       programme: cardioProgramme,
     },
     {
-      type: "mobility",
-      icon: "🧘",
-      label: "Mobility",
-      done: weeklyLogs.mobility,
-      target: WEEKLY_TARGETS.mobility,
-      programme: null,
-      comingSoon: true,
-    },
-    {
       type: "classes",
       icon: "🏛️",
       label: "Classes",
@@ -487,8 +483,8 @@ export default function Training() {
     },
   ];
 
-  const totalDone = weeklyLogs.strength + weeklyLogs.cardio + weeklyLogs.mobility + weeklyClassCount;
-  const totalTarget = WEEKLY_TARGETS.strength + WEEKLY_TARGETS.cardio + WEEKLY_TARGETS.mobility + 2;
+  const totalDone = weeklyLogs.strength + weeklyLogs.cardio + weeklyClassCount;
+  const totalTarget = WEEKLY_TARGETS.strength + WEEKLY_TARGETS.cardio + 2;
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "140px" }}>
@@ -503,7 +499,7 @@ export default function Training() {
       >
         <p
           style={{
-            fontSize: "11px",
+            fontSize: "13px",
             fontWeight: 700,
             color: "rgba(255,255,255,0.5)",
             letterSpacing: "0.1em",
@@ -530,10 +526,57 @@ export default function Training() {
         }}
       />
 
+      {/* ── Free Programme Hook (free users, no programme selected) ─────── */}
+      {showFreeHook && (
+        <div style={{ padding: "0 16px 16px" }}>
+          <div style={{ backgroundColor: "#1a3a2a", borderRadius: "20px", overflow: "hidden" }}>
+            <div style={{ padding: "20px 20px 16px" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                Free to start
+              </span>
+              <p style={{ fontSize: "18px", fontWeight: 700, color: "#fff", margin: "4px 0 4px" }}>
+                {freeProgs.length} programmes included for free
+              </p>
+              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", margin: 0 }}>
+                Pick one and get going. No upgrade needed.
+              </p>
+            </div>
+            <div style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "12px 16px", display: "flex", flexDirection: "column", gap: "8px" }}>
+              {freeProgs.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectingType("strength")}
+                  style={{
+                    width: "100%",
+                    backgroundColor: "rgba(255,255,255,0.07)",
+                    border: "none",
+                    borderRadius: "12px",
+                    padding: "12px 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <div>
+                    <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: 0 }}>{p.name}</p>
+                    {p.description && (
+                      <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: "2px 0 0" }}>{p.description}</p>
+                    )}
+                  </div>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#4ade80", flexShrink: 0, marginLeft: 12 }}>Start →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Custom Workouts (top position — if user has saved workouts) ───── */}
       {customWorkoutCount > 0 && (
       <div style={{ padding: "0 16px 16px" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 10px" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 10px" }}>
           Custom Workouts
         </p>
         <Link to="/my-workouts" style={{ textDecoration: "none", display: "block" }}>
@@ -577,7 +620,7 @@ export default function Training() {
         >
           <p
             style={{
-              fontSize: "11px",
+              fontSize: "13px",
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
@@ -691,7 +734,7 @@ export default function Training() {
                           <p style={{ fontSize: "12px", fontWeight: 700, color: "#111", margin: 0 }}>
                             {item.programme.name}
                           </p>
-                          <p style={{ fontSize: "11px", color: "#888", margin: "2px 0 0" }}>
+                          <p style={{ fontSize: "13px", color: "#888", margin: "2px 0 0" }}>
                             Active programme
                           </p>
                         </div>
@@ -750,7 +793,7 @@ export default function Training() {
 
       {/* ── Custom Workouts (lower position — no saved workouts yet) ─────── */}
       {customWorkoutCount === 0 && <div style={{ padding: "0 16px 16px" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 10px" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 10px" }}>
           Custom Workouts
         </p>
         {features.isPremium ? (
@@ -851,7 +894,7 @@ export default function Training() {
         <div style={{ padding: "0 16px 16px" }}>
           <p
             style={{
-              fontSize: "11px",
+              fontSize: "13px",
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
@@ -924,7 +967,7 @@ export default function Training() {
                   ) : (
                     <span
                       style={{
-                        fontSize: "11px",
+                        fontSize: "13px",
                         fontWeight: 700,
                         color: "#aaa",
                         backgroundColor: "#f0f0f0",
@@ -957,7 +1000,7 @@ export default function Training() {
       <div style={{ padding: "0 16px 16px" }}>
         <p
           style={{
-            fontSize: "11px",
+            fontSize: "13px",
             fontWeight: 700,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
@@ -1056,7 +1099,7 @@ export default function Training() {
               style={{
                 backgroundColor: "rgba(255,255,255,0.15)",
                 color: "#fff",
-                fontSize: "11px",
+                fontSize: "13px",
                 fontWeight: 700,
                 padding: "6px 12px",
                 borderRadius: "8px",
@@ -1073,7 +1116,7 @@ export default function Training() {
       <div style={{ padding: "0 16px 16px" }}>
         <p
           style={{
-            fontSize: "11px",
+            fontSize: "13px",
             fontWeight: 700,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
@@ -1099,7 +1142,7 @@ export default function Training() {
               title="Strength"
               programmes={strengthProgs}
               isPremiumUser={isPremium}
-              defaultOpen={!!userData?.strengthProgrammeId}
+              defaultOpen={!!userData?.strengthProgrammeId || hasNoProgramme}
             />
             {strengthProgs.length > 0 && cardioProgs.length > 0 && (
               <div style={{ height: "0.5px", backgroundColor: "#f0f0f0" }} />
@@ -1108,7 +1151,7 @@ export default function Training() {
               title="Cardio & Walking"
               programmes={cardioProgs}
               isPremiumUser={isPremium}
-              defaultOpen={!!userData?.cardioProgrammeId && !userData?.strengthProgrammeId}
+              defaultOpen={!!userData?.cardioProgrammeId || (hasNoProgramme && !userData?.strengthProgrammeId)}
             />
           </div>
         )}
@@ -1126,7 +1169,7 @@ export default function Training() {
         >
           <p
             style={{
-              fontSize: "11px",
+              fontSize: "13px",
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
@@ -1138,7 +1181,7 @@ export default function Training() {
           </p>
           <span
             style={{
-              fontSize: "11px",
+              fontSize: "13px",
               fontWeight: 700,
               color: "#b45309",
               backgroundColor: "#fffbeb",
@@ -1245,7 +1288,7 @@ export default function Training() {
                       {isLocked && (
                         <p
                           style={{
-                            fontSize: "11px",
+                            fontSize: "13px",
                             color: "#b45309",
                             fontWeight: 700,
                             margin: "4px 0 0",

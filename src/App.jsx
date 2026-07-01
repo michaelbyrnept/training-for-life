@@ -77,6 +77,8 @@ import AdminIntegrations from "./pages/Admin/AdminIntegrations";
 import AdminNutrition from "./pages/Admin/AdminNutrition";
 import AdminClientNutrition from "./pages/Admin/AdminClientNutrition";
 import MyMealIdeas from "./pages/MyMealIdeas";
+import Messages from "./pages/Messages";
+import AdminMessages from "./pages/Admin/AdminMessages";
 
 export default function App() {
   return (
@@ -160,6 +162,8 @@ export default function App() {
       <Route path="/integrations" element={<Integrations />} />
       <Route path="/strava/callback" element={<StravaCallback />} />
       <Route path="/admin/integrations" element={<AdminRoute><AdminIntegrations /></AdminRoute>} />
+      <Route path="/messages" element={<Messages />} />
+      <Route path="/admin/messages" element={<AdminRoute><AdminMessages /></AdminRoute>} />
     </Routes>
     </>
   )

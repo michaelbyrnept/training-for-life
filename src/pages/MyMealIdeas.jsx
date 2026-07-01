@@ -74,7 +74,7 @@ export default function MyMealIdeas() {
 
       {/* Header */}
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 28px" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Meal Ideas</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Meal Ideas</p>
         <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>Build Your Day</h1>
         <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", margin: 0 }}>
           Browse meal ideas from your coach and see how they fit your goals. This is for inspiration only.
@@ -105,7 +105,7 @@ export default function MyMealIdeas() {
 
       <div style={{ padding: "16px" }}>
         {/* My day slots */}
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 10px" }}>My day</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 10px" }}>My day</p>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px" }}>
           {MEAL_SLOTS.map(slot => {
             const chosen = slots[slot.id];
@@ -119,7 +119,7 @@ export default function MyMealIdeas() {
                       {chosen ? (
                         <>
                           <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chosen.name}</p>
-                          <p style={{ fontSize: "11px", color: "#2d6a4f", fontWeight: 700, margin: "1px 0 0" }}>{chosen.totals?.calories || 0} kcal · P: {chosen.totals?.protein || 0}g</p>
+                          <p style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 700, margin: "1px 0 0" }}>{chosen.totals?.calories || 0} kcal · P: {chosen.totals?.protein || 0}g</p>
                         </>
                       ) : (
                         <p style={{ fontSize: "13px", color: "#ccc", margin: 0 }}>No idea chosen yet</p>
@@ -149,7 +149,7 @@ export default function MyMealIdeas() {
         </div>
 
         {/* Meal ideas library */}
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 10px" }}>Meal ideas</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 10px" }}>Meal ideas</p>
 
         {/* Type filter */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto" }}>
@@ -193,11 +193,11 @@ export default function MyMealIdeas() {
                   {/* Ingredients preview */}
                   {meal.ingredients && meal.ingredients.length > 0 && (
                     <div style={{ backgroundColor: "#f7f5f2", borderRadius: "8px", padding: "8px 10px", marginBottom: "10px" }}>
-                      <p style={{ fontSize: "11px", color: "#888", margin: "0 0 4px", fontWeight: 700 }}>Ingredients</p>
+                      <p style={{ fontSize: "13px", color: "#888", margin: "0 0 4px", fontWeight: 700 }}>Ingredients</p>
                       {meal.ingredients.slice(0, 4).map((ing, i) => (
                         <p key={i} style={{ fontSize: "12px", color: "#555", margin: "1px 0" }}>{ing.name} — {ing.amount}g</p>
                       ))}
-                      {meal.ingredients.length > 4 && <p style={{ fontSize: "11px", color: "#aaa", margin: "2px 0 0" }}>+{meal.ingredients.length - 4} more</p>}
+                      {meal.ingredients.length > 4 && <p style={{ fontSize: "13px", color: "#aaa", margin: "2px 0 0" }}>+{meal.ingredients.length - 4} more</p>}
                     </div>
                   )}
 
@@ -246,9 +246,9 @@ export default function MyMealIdeas() {
                         <span style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f" }}>{t.calories || 0} kcal</span>
                       </div>
                       <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
-                        <span style={{ fontSize: "11px", color: "#3b82f6" }}>P: {t.protein || 0}g</span>
-                        <span style={{ fontSize: "11px", color: "#888" }}>C: {t.carbs || 0}g</span>
-                        <span style={{ fontSize: "11px", color: "#888" }}>F: {t.fat || 0}g</span>
+                        <span style={{ fontSize: "13px", color: "#3b82f6" }}>P: {t.protein || 0}g</span>
+                        <span style={{ fontSize: "13px", color: "#888" }}>C: {t.carbs || 0}g</span>
+                        <span style={{ fontSize: "13px", color: "#888" }}>F: {t.fat || 0}g</span>
                       </div>
                     </div>
                   );

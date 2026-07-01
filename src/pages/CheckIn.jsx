@@ -47,8 +47,8 @@ function SliderQuestion({ question, value, onChange }) {
         style={{ width: "100%", accentColor: getColor(value) }}
       />
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
-        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>{question.lowLabel}</span>
-        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>{question.highLabel}</span>
+        <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>{question.lowLabel}</span>
+        <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>{question.highLabel}</span>
       </div>
     </div>
   );
@@ -128,7 +128,7 @@ export default function CheckIn() {
         <PortalNav />
         <div style={{ padding: "16px 20px" }}>
           <button onClick={() => setViewing(null)} style={{ background: "none", border: "none", fontSize: "13px", fontWeight: 700, color: "#9fe1cb", cursor: "pointer", padding: 0, marginBottom: "16px" }}>← Back</button>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 4px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 4px" }}>
             Week of {new Date(viewing.weekOf + "T12:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
           </p>
           <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 20px" }}>
@@ -145,7 +145,7 @@ export default function CheckIn() {
                 return (
                   <div key={key} style={{ textAlign: "center" }}>
                     <p style={{ fontSize: "28px", fontWeight: 700, color, margin: 0, lineHeight: 1 }}>{val}</p>
-                    <p style={{ fontSize: "11px", color: "#9fe1cb", margin: "3px 0 0", textTransform: "capitalize" }}>{key}</p>
+                    <p style={{ fontSize: "13px", color: "#9fe1cb", margin: "3px 0 0", textTransform: "capitalize" }}>{key}</p>
                   </div>
                 );
               })}
@@ -159,7 +159,7 @@ export default function CheckIn() {
             if (!val) return null;
             return (
               <div key={key} style={{ backgroundColor: "rgba(255,255,255,0.06)", borderRadius: "12px", padding: "14px 16px", marginBottom: "8px" }}>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>{q.label}</p>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>{q.label}</p>
                 <p style={{ fontSize: "14px", color: "#fff", margin: 0, lineHeight: 1.5 }}>{val}</p>
               </div>
             );
@@ -168,9 +168,9 @@ export default function CheckIn() {
           {/* Coach reply */}
           {viewing.coachReply && !viewing.coachVideoUrl && (
             <div style={{ backgroundColor: "#2d6a4f", borderRadius: "14px", padding: "16px", marginTop: "16px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>💬 Reply from Michael</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>💬 Reply from Michael</p>
               <p style={{ fontSize: "15px", color: "#fff", margin: "0 0 8px", lineHeight: 1.6 }}>{viewing.coachReply}</p>
-              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", margin: 0 }}>
+              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)", margin: 0 }}>
                 {viewing.replyAt ? new Date(viewing.replyAt).toLocaleDateString("en-IE", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : ""}
               </p>
             </div>
@@ -215,7 +215,7 @@ export default function CheckIn() {
     return (
       <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #0d2b1f 0%, #1a3a2a 60%, #2d6a4f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
         <div style={{ fontSize: "64px", marginBottom: "20px" }}>✅</div>
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 12px" }}>Check-in submitted</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 12px" }}>Check-in submitted</p>
         <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#fff", margin: "0 0 12px", lineHeight: 1.2 }}>Thanks for checking in</h1>
         <p style={{ fontSize: "15px", color: "#9fe1cb", margin: "0 0 32px", lineHeight: 1.6, maxWidth: "320px" }}>
           I'll review your check-in and get back to you with feedback. You'll see my reply right here in the app.
@@ -247,16 +247,16 @@ export default function CheckIn() {
                         {c.coachInitiated ? "Message from Michael" : `Week of ${new Date(c.weekOf + "T12:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "long" })}`}
                       </p>
                       {c.coachInitiated && (
-                        <p style={{ fontSize: "11px", color: "#9fe1cb", margin: "2px 0 0" }}>
+                        <p style={{ fontSize: "13px", color: "#9fe1cb", margin: "2px 0 0" }}>
                           {new Date(c.replyAt).toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
                         </p>
                       )}
                     </div>
                     {!c.coachInitiated && c.coachReply && (
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#4ade80", backgroundColor: "rgba(74,222,128,0.15)", padding: "3px 8px", borderRadius: "10px" }}>Reply received</span>
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "#4ade80", backgroundColor: "rgba(74,222,128,0.15)", padding: "3px 8px", borderRadius: "10px" }}>Reply received</span>
                     )}
                     {c.coachInitiated && (
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", backgroundColor: "rgba(159,225,203,0.15)", padding: "3px 8px", borderRadius: "10px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", backgroundColor: "rgba(159,225,203,0.15)", padding: "3px 8px", borderRadius: "10px" }}>
                         {c.coachVideoUrl ? "Video" : "Note"}
                       </span>
                     )}
@@ -287,7 +287,7 @@ export default function CheckIn() {
 
       {/* Header */}
       <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em", textTransform: "uppercase", margin: 0 }}>Weekly Check-in</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em", textTransform: "uppercase", margin: 0 }}>Weekly Check-in</p>
         <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", fontWeight: 600, margin: 0 }}>{step + 1} of {QUESTIONS.length}</p>
       </div>
 

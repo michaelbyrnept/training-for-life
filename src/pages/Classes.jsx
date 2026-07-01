@@ -152,7 +152,7 @@ export default function Classes() {
 
       {/* HEADER */}
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 16px" }}>Training for Life</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 16px" }}>Training for Life</p>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>Classes</h1>
@@ -190,7 +190,7 @@ export default function Classes() {
           ) : (
             upcomingGroups.map(group => (
               <div key={group.monday.toISOString()} style={{ marginBottom: "24px" }}>
-                <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 10px" }}>
+                <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 10px" }}>
                   {weekLabel(group.monday)}
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -216,7 +216,7 @@ export default function Classes() {
           {/* User-created class logs */}
           {customLogs.length > 0 && (
             <>
-              <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 2px" }}>Your logged classes</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "0 0 2px" }}>Your logged classes</p>
               {customLogs.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)).map(log => {
                 const t = CLASS_TYPES[log.classType] || CLASS_TYPES.other;
                 const dateLabel = new Date(log.completedAt).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" });
@@ -233,7 +233,7 @@ export default function Classes() {
                   </div>
                 );
               })}
-              {past.length > 0 && <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "8px 0 2px" }}>TFL classes</p>}
+              {past.length > 0 && <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", margin: "8px 0 2px" }}>TFL classes</p>}
             </>
           )}
 
@@ -355,7 +355,7 @@ function ClassCard({ cls, attended, past, marking, onMarkAttended }) {
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMarkAttended(); }}
           disabled={marking}
-          style={{ backgroundColor: marking ? "#f0f0f0" : type.bg, color: marking ? "#aaa" : type.color, border: `1.5px solid ${type.border}`, fontSize: "11px", fontWeight: 700, padding: "6px 10px", borderRadius: "8px", cursor: marking ? "not-allowed" : "pointer", flexShrink: 0 }}
+          style={{ backgroundColor: marking ? "#f0f0f0" : type.bg, color: marking ? "#aaa" : type.color, border: `1.5px solid ${type.border}`, fontSize: "13px", fontWeight: 700, padding: "6px 10px", borderRadius: "8px", cursor: marking ? "not-allowed" : "pointer", flexShrink: 0 }}
         >
           {marking ? "..." : "Attended"}
         </button>
@@ -363,7 +363,7 @@ function ClassCard({ cls, attended, past, marking, onMarkAttended }) {
     }
     // Upcoming non-strength — show type label
     return (
-      <span style={{ fontSize: "11px", fontWeight: 700, color: type.color, backgroundColor: type.bg, padding: "4px 10px", borderRadius: "20px", flexShrink: 0 }}>
+      <span style={{ fontSize: "13px", fontWeight: 700, color: type.color, backgroundColor: type.bg, padding: "4px 10px", borderRadius: "20px", flexShrink: 0 }}>
         {type.label}
       </span>
     );

@@ -182,7 +182,7 @@ export default function PremiumGate({ reason = "generic", onClose, onUpgrade }) 
               <p style={{ fontSize: 22, fontWeight: 800, color: "#1a3a2a", margin: 0 }}>
                 €19.99
               </p>
-              <p style={{ fontSize: 11, color: "#888", margin: 0 }}>per month</p>
+              <p style={{ fontSize: 11, color: "#888", margin: 0 }}>per 4 weeks</p>
             </div>
           </div>
         </div>

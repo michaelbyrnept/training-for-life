@@ -66,6 +66,7 @@ export default function Profile() {
   const [achievements, setAchievements] = useState([]);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [myGroups, setMyGroups] = useState([]);
   const [groupSessions, setGroupSessions] = useState([]);
   const [stravaConnected, setStravaConnected] = useState(null); // null=loading
@@ -175,6 +176,19 @@ export default function Profile() {
     setSaving(false);
   };
 
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const fn = httpsCallable(functions, "createPortalSession");
+      const result = await fn({ returnUrl: window.location.href });
+      window.location.href = result.data.url;
+    } catch (err) {
+      console.error(err);
+      alert("Could not open billing portal. Please try again.");
+    }
+    setPortalLoading(false);
+  };
+
   const handleCancelSubscription = async () => {
     if (!cancelConfirm) {
       setCancelConfirm(true);
@@ -245,7 +259,7 @@ export default function Profile() {
         padding: "16px 20px 48px",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>
             Profile
           </p>
           <Link to="/dashboard" style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", fontWeight: 600, textDecoration: "none" }}>
@@ -278,7 +292,7 @@ export default function Profile() {
           <div style={{ textAlign: "center" }}>
             <p style={{ fontSize: "22px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>{displayName}</p>
             <p style={{ fontSize: "12px", color: "#9fe1cb", margin: "0 0 6px" }}>{user?.email}</p>
-            <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", margin: 0 }}>Member since {memberSince}</p>
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", margin: 0 }}>Member since {memberSince}</p>
           </div>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: "6px",
@@ -316,7 +330,7 @@ export default function Profile() {
 
       {/* ACHIEVEMENT WALL */}
       <div style={{ padding: "16px 16px 0" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
           Achievement Wall
         </p>
       </div>
@@ -348,7 +362,7 @@ export default function Profile() {
 
       {/* PROGRESS PHOTOS */}
       <div style={{ padding: "16px 16px 0" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
           Progress Photos
         </p>
         <div style={{ display: "flex", gap: "0", background: "#e5e5e5", borderRadius: "10px", padding: "3px", marginBottom: "12px" }}>
@@ -396,7 +410,7 @@ export default function Profile() {
 
         {photos[activePhotoAngle].length === 0 ? (
           <div style={{ flexShrink: 0, width: 110, height: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <p style={{ fontSize: "11px", color: "#bbb", textAlign: "center", padding: "0 8px" }}>No {activePhotoAngle} photos yet</p>
+            <p style={{ fontSize: "13px", color: "#bbb", textAlign: "center", padding: "0 8px" }}>No {activePhotoAngle} photos yet</p>
           </div>
         ) : (
           photos[activePhotoAngle].map((p) => (
@@ -424,7 +438,7 @@ export default function Profile() {
       {/* CAPABILITY STANDARDS */}
       {userData?.capabilityStandards && (
         <div style={{ padding: "16px 16px 0" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
             Capability Standards
           </p>
           <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "14px 16px", display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -438,7 +452,7 @@ export default function Profile() {
                   <span style={{ fontSize: "18px" }}>{s.icon}</span>
                   <div>
                     <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: 0 }}>{s.label}</p>
-                    <p style={{ fontSize: "11px", color: "#888", margin: "1px 0 0" }}>Target: {s.target}</p>
+                    <p style={{ fontSize: "13px", color: "#888", margin: "1px 0 0" }}>Target: {s.target}</p>
                   </div>
                 </div>
                 <span style={{ fontSize: "13px", fontWeight: 700, color: "#aaa" }}>{s.current}</span>
@@ -448,10 +462,27 @@ export default function Profile() {
         </div>
       )}
 
+      {/* FREE USER UPGRADE NUDGE */}
+      {(!userData?.subscription || userData.subscription === "free") && (
+        <div style={{ padding: "16px 16px 0" }}>
+          <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "20px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9fe1cb", margin: "0 0 6px" }}>Premium</p>
+            <p style={{ fontSize: "16px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>Upgrade for €19.99/4 weeks</p>
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)", margin: "0 0 14px" }}>Unlimited workouts, full history, personal bests, and more.</p>
+            <Link
+              to="/bundles"
+              style={{ display: "block", textAlign: "center", backgroundColor: "#fff", color: "#1a3a2a", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 700, textDecoration: "none" }}
+            >
+              See what's included
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* SUBSCRIPTION */}
       {userData?.subscription && userData.subscription !== "free" && (
         <div style={{ padding: "16px 16px 0" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
             Subscription
           </p>
           <div style={{ backgroundColor: "#fff", borderRadius: "14px", border: "0.5px solid #e5e5e5", padding: "14px 16px" }}>
@@ -466,7 +497,7 @@ export default function Profile() {
                   : "In-Person Coaching"}
               </p>
               <span style={{
-                fontSize: "11px", fontWeight: 700,
+                fontSize: "13px", fontWeight: 700,
                 color: userData.subscriptionCancelAtPeriodEnd ? "#dc2626" : "#2d6a4f",
                 backgroundColor: userData.subscriptionCancelAtPeriodEnd ? "#fef2f2" : "#eaf5ef",
                 padding: "4px 10px", borderRadius: "20px",
@@ -482,21 +513,38 @@ export default function Profile() {
               </p>
             )}
             {!userData.subscriptionCancelAtPeriodEnd && (
-              <button
-                onClick={handleCancelSubscription}
-                disabled={cancelLoading}
-                style={{
-                  width: "100%",
-                  backgroundColor: cancelConfirm ? "#dc2626" : "#f0f0f0",
-                  color: cancelConfirm ? "#fff" : "#888",
-                  border: "none", borderRadius: "8px",
-                  padding: "10px", fontSize: "13px", fontWeight: 700,
-                  cursor: cancelLoading ? "default" : "pointer",
-                  opacity: cancelLoading ? 0.6 : 1,
-                }}
-              >
-                {cancelLoading ? "Cancelling..." : cancelConfirm ? "Tap again to confirm" : "Cancel subscription"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <button
+                  onClick={handleManageSubscription}
+                  disabled={portalLoading}
+                  style={{
+                    width: "100%",
+                    backgroundColor: "#2d6a4f",
+                    color: "#fff",
+                    border: "none", borderRadius: "8px",
+                    padding: "10px", fontSize: "13px", fontWeight: 700,
+                    cursor: portalLoading ? "default" : "pointer",
+                    opacity: portalLoading ? 0.6 : 1,
+                  }}
+                >
+                  {portalLoading ? "Opening..." : "Manage subscription"}
+                </button>
+                <button
+                  onClick={handleCancelSubscription}
+                  disabled={cancelLoading}
+                  style={{
+                    width: "100%",
+                    backgroundColor: cancelConfirm ? "#dc2626" : "#f0f0f0",
+                    color: cancelConfirm ? "#fff" : "#888",
+                    border: "none", borderRadius: "8px",
+                    padding: "10px", fontSize: "13px", fontWeight: 700,
+                    cursor: cancelLoading ? "default" : "pointer",
+                    opacity: cancelLoading ? 0.6 : 1,
+                  }}
+                >
+                  {cancelLoading ? "Cancelling..." : cancelConfirm ? "Tap again to confirm" : "Cancel subscription"}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -505,7 +553,7 @@ export default function Profile() {
       {/* GROUP MEMBERSHIP */}
       {myGroups.length > 0 && (
         <div style={{ padding: "16px 16px 0" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
             My Groups
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -521,7 +569,7 @@ export default function Profile() {
                       <span style={{ fontSize: "12px", fontWeight: 700, color: (group.credits || 0) <= 2 ? "#dc2626" : "#2d6a4f", backgroundColor: (group.credits || 0) <= 2 ? "#fee2e2" : "#eaf5ef", padding: "2px 10px", borderRadius: "10px" }}>
                         {group.credits || 0} credit{(group.credits || 0) !== 1 ? "s" : ""}
                       </span>
-                      <span style={{ fontSize: "11px", color: "#aaa" }}>
+                      <span style={{ fontSize: "13px", color: "#aaa" }}>
                         {(group.memberIds || []).length} member{(group.memberIds || []).length !== 1 ? "s" : ""}
                       </span>
                     </div>
@@ -539,7 +587,7 @@ export default function Profile() {
                           </div>
                           <div>
                             <p style={{ fontSize: "13px", fontWeight: 700, color: "#111", margin: "0 0 1px" }}>{s.type || "Group Session"}</p>
-                            <p style={{ fontSize: "11px", color: "#888", margin: 0 }}>{d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" })} — {s.durationMins || 60} min</p>
+                            <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>{d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" })} — {s.durationMins || 60} min</p>
                           </div>
                         </div>
                       );
@@ -555,7 +603,7 @@ export default function Profile() {
       {/* PERSONAL BESTS */}
       {personalBests.length > 0 && (
         <div style={{ padding: "16px 16px 0" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
             Personal Bests
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -574,7 +622,7 @@ export default function Profile() {
                     </p>
                   </div>
                 </div>
-                <p style={{ fontSize: "11px", color: "#bbb", margin: 0 }}>
+                <p style={{ fontSize: "13px", color: "#bbb", margin: 0 }}>
                   {pb.achievedAt?.toDate
                     ? pb.achievedAt.toDate().toLocaleDateString("en-IE", { day: "numeric", month: "short" })
                     : ""}
@@ -587,7 +635,7 @@ export default function Profile() {
 
       {/* CONNECTED DEVICES */}
       <div style={{ padding: "16px 16px 0" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
           Connected Devices
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -638,7 +686,7 @@ export default function Profile() {
 
       {/* SETTINGS */}
       <div style={{ padding: "16px 16px 0" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" }}>
           Settings
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>

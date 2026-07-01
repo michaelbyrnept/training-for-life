@@ -189,7 +189,7 @@ export default function Habits() {
 
       {/* HEADER */}
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 36px" }}>
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 16px" }}>Habits</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 16px" }}>Habits</p>
         <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>
           {allDone ? "Perfect day. 🔥" : "Build your daily habits"}
         </h1>
@@ -203,7 +203,7 @@ export default function Habits() {
       <div style={{ padding: "0 16px" }}>
 
         {/* TODAY'S HABITS */}
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>Today</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>Today</p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "24px" }}>
           {habits.map(habit => {
@@ -237,7 +237,7 @@ export default function Habits() {
                     <p style={{ fontSize: "15px", fontWeight: 700, color: isDone ? habit.color : "#111", margin: "0 0 2px" }}>{habit.label}</p>
                     <p style={{ fontSize: "13px", color: isDone ? habit.color : "#888", margin: 0, opacity: isDone ? 0.8 : 1 }}>{habit.description}</p>
                     {habit.detail && (
-                      <p style={{ fontSize: "11px", color: isDone ? habit.color : "#aaa", margin: "3px 0 0", opacity: 0.8 }}>{habit.detail}</p>
+                      <p style={{ fontSize: "13px", color: isDone ? habit.color : "#aaa", margin: "3px 0 0", opacity: 0.8 }}>{habit.detail}</p>
                     )}
                   </div>
 
@@ -279,7 +279,7 @@ export default function Habits() {
                         +
                       </button>
                     </div>
-                    <p style={{ fontSize: "11px", color: "#aaa", margin: "6px 0 0", textAlign: "center" }}>
+                    <p style={{ fontSize: "13px", color: "#aaa", margin: "6px 0 0", textAlign: "center" }}>
                       {waterGlasses >= 8 ? "🎉 Hydration goal hit!" : `${8 - waterGlasses} more to go`}
                     </p>
                   </div>
@@ -296,7 +296,7 @@ export default function Habits() {
                       <div style={{ height: "6px", backgroundColor: proteinAuto ? "#4ade80" : "#2d6a4f", borderRadius: "3px", width: `${proteinPct}%`, transition: "width 0.5s ease" }} />
                     </div>
                     {!proteinAuto && (
-                      <p style={{ fontSize: "11px", color: "#aaa", margin: "6px 0 0", textAlign: "center" }}>
+                      <p style={{ fontSize: "13px", color: "#aaa", margin: "6px 0 0", textAlign: "center" }}>
                         Log food in Nutrition to track automatically
                       </p>
                     )}
@@ -308,7 +308,7 @@ export default function Habits() {
         </div>
 
         {/* WEEKLY VIEW */}
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>This Week</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>This Week</p>
         <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px", marginBottom: "16px" }}>
           {/* Day headers */}
           <div style={{ display: "grid", gridTemplateColumns: "80px repeat(7, 1fr)", gap: "4px", marginBottom: "10px" }}>
@@ -318,7 +318,7 @@ export default function Habits() {
               return (
                 <div key={i} style={{ textAlign: "center" }}>
                   <p style={{ fontSize: "10px", fontWeight: 700, color: isToday ? "#2d6a4f" : "#aaa", margin: 0 }}>{DAYS[i]}</p>
-                  <p style={{ fontSize: "11px", fontWeight: isToday ? 700 : 400, color: isToday ? "#2d6a4f" : "#888", margin: "2px 0 0" }}>
+                  <p style={{ fontSize: "13px", fontWeight: isToday ? 700 : 400, color: isToday ? "#2d6a4f" : "#888", margin: "2px 0 0" }}>
                     {new Date(date).getDate()}
                   </p>
                 </div>
@@ -331,7 +331,7 @@ export default function Habits() {
             <div key={habit.id} style={{ display: "grid", gridTemplateColumns: "80px repeat(7, 1fr)", gap: "4px", marginBottom: "8px", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ fontSize: "14px" }}>{habit.icon}</span>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#555" }}>{habit.label}</span>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: "#555" }}>{habit.label}</span>
               </div>
               {weekDates.map((date, i) => {
                 const log = habitLogs[date] || {};
@@ -359,7 +359,7 @@ export default function Habits() {
         </div>
 
         {/* STREAKS */}
-        <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>Streaks</p>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>Streaks</p>
         <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
           {habits.map(habit => {
             const streak = getStreak(habitLogs, habit.id);
@@ -378,7 +378,7 @@ export default function Habits() {
 
         {/* Coaching tip */}
         <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "16px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>Coach's Note</p>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>Coach's Note</p>
           <p style={{ fontSize: "14px", color: "#fff", margin: 0, lineHeight: 1.6 }}>
             {allDone
               ? "Brilliant. You've nailed all three today. These small daily wins are what build lasting capability. Keep it going."

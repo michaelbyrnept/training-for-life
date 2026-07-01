@@ -201,7 +201,7 @@ function BarcodeScanner({ onResult, onClose }) {
             ].map(({ label, value }) => (
               <div key={label} style={{ backgroundColor: "#f7f5f2", borderRadius: "10px", padding: "10px 8px", textAlign: "center" }}>
                 <p style={{ fontSize: "16px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{value}</p>
-                <p style={{ fontSize: "11px", color: "#888", margin: 0 }}>{label}</p>
+                <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>{label}</p>
               </div>
             ))}
           </div>
@@ -402,25 +402,25 @@ function FoodSearch({ onAdd, onClose }) {
         {!selected && (
           <>
             {query.trim().length === 0 && (
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Common Foods</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Common Foods</p>
             )}
             {query.trim().length >= 2 && matchedQuickPicks.length > 0 && (
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>Common Foods</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>Common Foods</p>
             )}
             {displayResults.map((product, i) => {
               const isQuickPick = matchedQuickPicks.includes(product);
               const showApiLabel = i === matchedQuickPicks.slice(0, 4).length && filteredApi.length > 0 && query.trim().length >= 2;
               return (
                 <div key={i}>
-                  {showApiLabel && <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "12px 0 8px" }}>Search Results</p>}
+                  {showApiLabel && <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "12px 0 8px" }}>Search Results</p>}
                   <div onClick={() => setSelected(product)} style={{ padding: "12px 14px", borderRadius: "10px", border: `0.5px solid ${isQuickPick ? "#e5e5e5" : "#e5e5e5"}`, marginBottom: "8px", cursor: "pointer", backgroundColor: isQuickPick ? "#f7f5f2" : "#fff" }}>
                     <p style={{ fontWeight: 700, fontSize: "14px", color: "#111", margin: "0 0 2px" }}>{product.product_name}</p>
-                    <p style={{ fontSize: "11px", color: "#888", margin: "0 0 4px" }}>{product.brands}</p>
+                    <p style={{ fontSize: "13px", color: "#888", margin: "0 0 4px" }}>{product.brands}</p>
                     <div style={{ display: "flex", gap: "10px" }}>
-                      <span style={{ fontSize: "11px", color: "#2d6a4f", fontWeight: 700 }}>{product.nutriments?.["energy-kcal_100g"] || 0} kcal</span>
-                      <span style={{ fontSize: "11px", color: "#888" }}>P: {product.nutriments?.proteins_100g || 0}g</span>
-                      <span style={{ fontSize: "11px", color: "#888" }}>C: {product.nutriments?.carbohydrates_100g || 0}g</span>
-                      <span style={{ fontSize: "11px", color: "#888" }}>F: {product.nutriments?.fat_100g || 0}g</span>
+                      <span style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 700 }}>{product.nutriments?.["energy-kcal_100g"] || 0} kcal</span>
+                      <span style={{ fontSize: "13px", color: "#888" }}>P: {product.nutriments?.proteins_100g || 0}g</span>
+                      <span style={{ fontSize: "13px", color: "#888" }}>C: {product.nutriments?.carbohydrates_100g || 0}g</span>
+                      <span style={{ fontSize: "13px", color: "#888" }}>F: {product.nutriments?.fat_100g || 0}g</span>
                     </div>
                     <p style={{ fontSize: "10px", color: "#aaa", margin: "2px 0 0" }}>per 100g</p>
                   </div>
@@ -586,7 +586,7 @@ export default function Nutrition() {
       {/* HEADER */}
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Nutrition</p>
+          <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Nutrition</p>
           <div style={{ display: "flex", gap: "8px" }}>
             {(user?.uid === "wKbgHNtTMtS01BQ4ddfAwTQaIgA3" || (userData?.subscription && userData.subscription !== "free")) && (
               <>
@@ -633,7 +633,7 @@ export default function Nutrition() {
           <div style={{ backgroundColor: "#fff", borderRadius: "16px", border: "0.5px solid #e5e5e5", padding: "16px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
               <div>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 2px" }}>Calories Today</p>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 2px" }}>Calories Today</p>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
                   <span style={{ fontSize: "32px", fontWeight: 700, color: "#2d6a4f", lineHeight: 1 }}>{totals.calories}</span>
                   <span style={{ fontSize: "14px", color: "#aaa" }}>/ {nutritionTargets.calories} kcal</span>
@@ -673,7 +673,7 @@ export default function Nutrition() {
             <div style={{ padding: "0 16px 16px" }}>
               <div style={{ backgroundColor: "#1a3a2a", borderRadius: "16px", padding: "20px", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: -20, right: -20, fontSize: "80px", opacity: 0.08 }}>🍽️</div>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 6px" }}>Premium Feature</p>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#9fe1cb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 6px" }}>Premium Feature</p>
                 <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#fff", margin: "0 0 6px" }}>Meal Plans + Grocery Lists</h3>
                 <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: "0 0 14px", lineHeight: 1.5 }}>
                   Get coach-recommended meals built around your targets, and auto-generate your weekly shopping list.
@@ -785,10 +785,10 @@ export default function Nutrition() {
                         <div style={{ flex: 1 }}>
                           <p style={{ fontSize: "13px", fontWeight: 600, color: "#111", margin: 0 }}>{food.name}</p>
                           <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
-                            <span style={{ fontSize: "11px", color: "#2d6a4f", fontWeight: 700 }}>{food.calories} kcal</span>
-                            <span style={{ fontSize: "11px", color: "#888" }}>P:{food.protein}g</span>
-                            <span style={{ fontSize: "11px", color: "#888" }}>C:{food.carbs}g</span>
-                            <span style={{ fontSize: "11px", color: "#888" }}>F:{food.fat}g</span>
+                            <span style={{ fontSize: "13px", color: "#2d6a4f", fontWeight: 700 }}>{food.calories} kcal</span>
+                            <span style={{ fontSize: "13px", color: "#888" }}>P:{food.protein}g</span>
+                            <span style={{ fontSize: "13px", color: "#888" }}>C:{food.carbs}g</span>
+                            <span style={{ fontSize: "13px", color: "#888" }}>F:{food.fat}g</span>
                           </div>
                           {food.amount && <p style={{ fontSize: "10px", color: "#aaa", margin: "2px 0 0" }}>{food.amount}</p>}
                         </div>
@@ -837,7 +837,7 @@ export default function Nutrition() {
                 <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#111", margin: "0 0 2px" }}>{viewingMeal.name}</h2>
                 {viewingMeal.description && <p style={{ fontSize: "13px", color: "#888", margin: 0 }}>{viewingMeal.description}</p>}
               </div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "4px 10px", borderRadius: "10px", textTransform: "capitalize", flexShrink: 0 }}>{viewingMeal.type}</span>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", padding: "4px 10px", borderRadius: "10px", textTransform: "capitalize", flexShrink: 0 }}>{viewingMeal.type}</span>
             </div>
             {/* Totals */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px", marginBottom: "16px" }}>
@@ -854,17 +854,17 @@ export default function Nutrition() {
               ))}
             </div>
             {/* Ingredients */}
-            <p style={{ fontSize: "11px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Ingredients</p>
+            <p style={{ fontSize: "13px", fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Ingredients</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "20px" }}>
               {(viewingMeal.ingredients || []).map((ing, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", backgroundColor: "#f7f5f2", borderRadius: "10px" }}>
                   <div>
                     <p style={{ fontSize: "14px", fontWeight: 600, color: "#111", margin: 0 }}>{ing.name}</p>
-                    <p style={{ fontSize: "11px", color: "#888", margin: "2px 0 0" }}>{ing.amount}g</p>
+                    <p style={{ fontSize: "13px", color: "#888", margin: "2px 0 0" }}>{ing.amount}g</p>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <p style={{ fontSize: "12px", fontWeight: 700, color: "#2d6a4f", margin: 0 }}>{ing.calories} kcal</p>
-                    <p style={{ fontSize: "11px", color: "#888", margin: "2px 0 0" }}>P:{ing.protein}g</p>
+                    <p style={{ fontSize: "13px", color: "#888", margin: "2px 0 0" }}>P:{ing.protein}g</p>
                   </div>
                 </div>
               ))}
@@ -873,7 +873,7 @@ export default function Nutrition() {
             <p style={{ fontSize: "12px", fontWeight: 700, color: "#555", margin: "0 0 8px" }}>Add to:</p>
             <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
               {[{ id: "breakfast", label: "Breakfast" }, { id: "lunch", label: "Lunch" }, { id: "dinner", label: "Dinner" }, { id: "snacks", label: "Snacks" }].map(m => (
-                <button key={m.id} onClick={() => setMealAddTarget(m.id)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: mealAddTarget === m.id ? "2px solid #2d6a4f" : "1px solid #e5e5e5", backgroundColor: mealAddTarget === m.id ? "#eaf5ef" : "#f7f5f2", color: mealAddTarget === m.id ? "#2d6a4f" : "#888", fontWeight: 700, fontSize: "11px", cursor: "pointer" }}>
+                <button key={m.id} onClick={() => setMealAddTarget(m.id)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: mealAddTarget === m.id ? "2px solid #2d6a4f" : "1px solid #e5e5e5", backgroundColor: mealAddTarget === m.id ? "#eaf5ef" : "#f7f5f2", color: mealAddTarget === m.id ? "#2d6a4f" : "#888", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
                   {m.label}
                 </button>
               ))}
