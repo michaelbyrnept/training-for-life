@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "../firebase";
-import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -36,9 +35,12 @@ export default function Login() {
     e.preventDefault();
     setForgotStatus("sending");
     try {
-      const functions = getFunctions();
-      const sendPasswordReset = httpsCallable(functions, "sendPasswordReset");
-      await sendPasswordReset({ email: forgotEmail });
+      const res = await fetch("https://sendpasswordreset-2dksgd24ea-uc.a.run.app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      if (!res.ok) throw new Error("Failed");
       setForgotStatus("sent");
     } catch (err) {
       setForgotStatus("error");

@@ -17,13 +17,19 @@ const zapierWebhookSecret = defineSecret("ZAPIER_WEBHOOK_SECRET");
 const brevoApiKey = defineSecret("BREVO_API_KEY");
 
 // ─── PASSWORD RESET EMAIL (via Brevo) ────────────────────────────────────────
-// Bypasses Firebase's built-in SMTP. Generates a reset link via Admin SDK,
-// then sends a clean branded email through Brevo from michael@trainingforlife.ie
-exports.sendPasswordReset = onCall(
-  { secrets: [brevoApiKey] },
-  async (request) => {
-    const { email } = request.data;
-    if (!email) throw new HttpsError("invalid-argument", "Email is required.");
+// onRequest (not onCall) to match the invoker pattern that works on this project.
+// Generates a reset link via Admin SDK, sends branded email via Brevo REST API.
+exports.sendPasswordReset = onRequest(
+  { secrets: [brevoApiKey], invoker: "public" },
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "https://trainingforlife.ie");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const { email } = req.body;
+    if (!email) { res.status(400).json({ error: "Email is required." }); return; }
 
     const { getAuth } = require("firebase-admin/auth");
 
@@ -31,12 +37,13 @@ exports.sendPasswordReset = onCall(
     try {
       resetLink = await getAuth().generatePasswordResetLink(email);
     } catch (err) {
-      // Don't reveal whether the email exists
+      // Don't reveal whether the email exists — always return success
       logger.warn("sendPasswordReset: generatePasswordResetLink failed", err.code);
-      return { success: true };
+      res.json({ success: true });
+      return;
     }
 
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
         "api-key": brevoApiKey.value(),
@@ -58,19 +65,20 @@ exports.sendPasswordReset = onCall(
             <p style="margin:24px 0 0;font-size:13px;color:#888;">
               If you didn't request this, ignore this email. Your password won't change.
             </p>
-            <p style="margin:16px 0 0;font-size:13px;color:#888;">— Michael, Training for Life</p>
+            <p style="margin:16px 0 0;font-size:13px;color:#888;">Michael, Training for Life</p>
           </div>
         `,
       }),
     });
 
-    if (!res.ok) {
-      const body = await res.text();
-      logger.error("sendPasswordReset: Brevo error", res.status, body);
-      throw new HttpsError("internal", "Failed to send email.");
+    if (!brevoRes.ok) {
+      const body = await brevoRes.text();
+      logger.error("sendPasswordReset: Brevo error", brevoRes.status, body);
+      res.status(500).json({ error: "Failed to send email." });
+      return;
     }
 
-    return { success: true };
+    res.json({ success: true });
   }
 );
 
