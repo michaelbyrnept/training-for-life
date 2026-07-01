@@ -43,38 +43,45 @@ exports.sendPasswordReset = onRequest(
       return;
     }
 
-    const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "api-key": brevoApiKey.value(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sender: { name: "Michael | Training for Life", email: "michael@trainingforlife.ie" },
-        to: [{ email }],
-        subject: "Reset your Training for Life password",
-        htmlContent: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-            <h2 style="margin:0 0 8px;font-size:22px;color:#2d6a4f;">Reset your password</h2>
-            <p style="margin:0 0 24px;font-size:15px;color:#444;">
-              Click the button below to set a new password. This link expires in 1 hour.
-            </p>
-            <a href="${resetLink}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;">
-              Reset password
-            </a>
-            <p style="margin:24px 0 0;font-size:13px;color:#888;">
-              If you didn't request this, ignore this email. Your password won't change.
-            </p>
-            <p style="margin:16px 0 0;font-size:13px;color:#888;">Michael, Training for Life</p>
-          </div>
-        `,
-      }),
-    });
+    let brevoRes;
+    try {
+      brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": brevoApiKey.value(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Michael | Training for Life", email: "michael@trainingforlife.ie" },
+          to: [{ email }],
+          subject: "Reset your Training for Life password",
+          htmlContent: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+              <h2 style="margin:0 0 8px;font-size:22px;color:#2d6a4f;">Reset your password</h2>
+              <p style="margin:0 0 24px;font-size:15px;color:#444;">
+                Click the button below to set a new password. This link expires in 1 hour.
+              </p>
+              <a href="${resetLink}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;">
+                Reset password
+              </a>
+              <p style="margin:24px 0 0;font-size:13px;color:#888;">
+                If you didn't request this, ignore this email. Your password won't change.
+              </p>
+              <p style="margin:16px 0 0;font-size:13px;color:#888;">Michael, Training for Life</p>
+            </div>
+          `,
+        }),
+      });
+    } catch (fetchErr) {
+      logger.error("sendPasswordReset: fetch threw", fetchErr.message);
+      res.status(500).json({ error: `Network error: ${fetchErr.message}` });
+      return;
+    }
 
     if (!brevoRes.ok) {
       const body = await brevoRes.text();
       logger.error("sendPasswordReset: Brevo error", brevoRes.status, body);
-      res.status(500).json({ error: "Failed to send email." });
+      res.status(500).json({ error: `Brevo ${brevoRes.status}: ${body}` });
       return;
     }
 

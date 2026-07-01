@@ -373,7 +373,11 @@ export default function AdminClientProfile() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    if (!res.ok) throw new Error("Failed");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error("sendPasswordReset failed:", data);
+      throw new Error(data.error || "Failed");
+    }
   };
 
   const sendWelcomeEmail = async () => {
@@ -420,6 +424,7 @@ export default function AdminClientProfile() {
       setCopyLinkStatus("copied");
       setTimeout(() => setCopyLinkStatus(""), 3000);
     } catch (e) {
+      console.error("copyResetLink failed:", e.message);
       setCopyLinkStatus("error");
       setTimeout(() => setCopyLinkStatus(""), 3000);
     }
