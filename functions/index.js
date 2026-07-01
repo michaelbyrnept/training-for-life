@@ -22,7 +22,7 @@ const brevoApiKey = defineSecret("BREVO_API_KEY");
 exports.sendPasswordReset = onRequest(
   { secrets: [brevoApiKey], invoker: "public" },
   async (req, res) => {
-    res.set("Access-Control-Allow-Origin", "https://trainingforlife.ie");
+    res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type");
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
@@ -846,21 +846,37 @@ exports.expireAppTrials = onSchedule("0 7 * * *", async () => {
 // ─── END PREMIUM TRIAL SYSTEM ───────────────────────────────────────────────
 
 // ─── ADMIN: GENERATE PASSWORD RESET LINK ──────────────────────────────────
-exports.adminGenerateResetLink = onCall(
-  async (request) => {
-    if (!request.auth || request.auth.uid !== ADMIN_UID) {
-      throw new HttpsError("permission-denied", "Admin only.");
-    }
+exports.adminGenerateResetLink = onRequest(
+  { invoker: "public" },
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
 
-    const { email } = request.data;
-    if (!email) throw new HttpsError("invalid-argument", "email is required.");
+    // Verify Firebase ID token to ensure caller is admin
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const { getAuth: getAdminAuth } = require("firebase-admin/auth");
+    let decoded;
+    try {
+      decoded = await getAdminAuth().verifyIdToken(idToken);
+    } catch (e) {
+      res.status(401).json({ error: "Invalid token" }); return;
+    }
+    if (decoded.uid !== ADMIN_UID) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const { email } = req.body;
+    if (!email) { res.status(400).json({ error: "email is required" }); return; }
+
     try {
       const link = await getAdminAuth().generatePasswordResetLink(email);
-      return { link };
+      res.json({ link });
     } catch (err) {
-      throw new HttpsError("internal", err.message);
+      res.status(500).json({ error: err.message });
     }
   }
 );
@@ -1157,29 +1173,39 @@ exports.createPortalSession = onCall(
 
 // ─── END STRIPE ─────────────────────────────────────────────────────────────
 
-exports.adminDeleteClient = onCall(
+exports.adminDeleteClient = onRequest(
   { invoker: "public" },
-  async (request) => {
-    if (!request.auth || request.auth.uid !== ADMIN_UID) {
-      throw new HttpsError("permission-denied", "Admin only.");
-    }
-    const { uid } = request.data;
-    if (!uid || typeof uid !== "string") {
-      throw new HttpsError("invalid-argument", "uid required.");
-    }
-    if (uid === ADMIN_UID) {
-      throw new HttpsError("invalid-argument", "Cannot delete admin account.");
-    }
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthorized" }); return; }
+
     const { getAuth: getAdminAuth } = require("firebase-admin/auth");
-    // Delete Firebase Auth user
+    let decoded;
+    try {
+      decoded = await getAdminAuth().verifyIdToken(idToken);
+    } catch (e) {
+      res.status(401).json({ error: "Invalid token" }); return;
+    }
+    if (decoded.uid !== ADMIN_UID) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const { uid } = req.body;
+    if (!uid || typeof uid !== "string") { res.status(400).json({ error: "uid required" }); return; }
+    if (uid === ADMIN_UID) { res.status(400).json({ error: "Cannot delete admin account" }); return; }
+
     try {
       await getAdminAuth().deleteUser(uid);
     } catch (e) {
-      if (e.code !== "auth/user-not-found") throw e;
+      if (e.code !== "auth/user-not-found") { res.status(500).json({ error: e.message }); return; }
     }
-    // Delete Firestore user doc
     await db.collection("users").doc(uid).delete();
-    return { success: true };
+    res.json({ success: true });
   }
 );
 

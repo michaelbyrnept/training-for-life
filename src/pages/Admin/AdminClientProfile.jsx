@@ -408,9 +408,15 @@ export default function AdminClientProfile() {
     if (!client.email) return;
     setCopyLinkStatus("loading");
     try {
-      const fn = httpsCallable(getFunctions(undefined, "us-central1"), "adminGenerateResetLink");
-      const result = await fn({ email: client.email });
-      await navigator.clipboard.writeText(result.data.link);
+      const idToken = await getAuth().currentUser.getIdToken();
+      const res = await fetch("https://admingenerateresetlink-2dksgd24ea-uc.a.run.app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+        body: JSON.stringify({ email: client.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await navigator.clipboard.writeText(data.link);
       setCopyLinkStatus("copied");
       setTimeout(() => setCopyLinkStatus(""), 3000);
     } catch (e) {
@@ -423,8 +429,13 @@ export default function AdminClientProfile() {
     setDeleteLoading(true);
     setDeleteError("");
     try {
-      const fn = httpsCallable(getFunctions(undefined, "us-central1"), "adminDeleteClient");
-      await fn({ uid });
+      const idToken = await getAuth().currentUser.getIdToken();
+      const res = await fetch("https://admindeleteclient-2dksgd24ea-uc.a.run.app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+        body: JSON.stringify({ uid }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
       navigate("/admin/clients");
     } catch (e) {
       setDeleteError(e.message || "Delete failed. Try again.");
