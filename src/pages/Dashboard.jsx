@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import PortalNav from "../components/PortalNav";
 import { useFeatures } from "../hooks/useFeatures";
@@ -131,11 +131,16 @@ export default function Dashboard() {
       }
 
       const { monday, sunday } = getWeekRange();
-      // limit(100) prevents full-table scans as logs grow over time
-      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", user.uid), orderBy("completedAt", "desc"), limit(100)));
+      // Single-field where avoids needing a composite Firestore index (a
+      // where + orderBy on different fields requires one, and threw an
+      // uncaught FirebaseError for every user until this was split out).
+      // Sort and cap at 100 client-side instead.
+      const logsSnap = await getDocs(query(collection(db, "workoutLogs"), where("userId", "==", user.uid)));
       const allMyLogs = logsSnap.docs
         .map(d => ({ id: d.id, ...d.data(), completedAt: normalizeDate(d.data().completedAt) }))
-        .filter(l => l.completedAt);
+        .filter(l => l.completedAt)
+        .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+        .slice(0, 100);
 
       const thisWeekLogs = allMyLogs.filter(l => {
         const d = new Date(l.completedAt);

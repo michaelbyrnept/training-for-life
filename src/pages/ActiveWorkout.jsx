@@ -306,22 +306,22 @@ function ExerciseTrainingCard({
 
         {/* Set rows */}
         <div style={{ borderTop: "0.5px solid #f0f0f0" }}>
-          <div style={{ display: "flex", padding: "8px 16px", gap: 8 }}>
+          <div style={{ display: "flex", padding: "8px 16px", gap: 8, alignItems: "center" }}>
             <span style={{ width: 32, fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center" }}>Set</span>
             <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center" }}>Reps</span>
             <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center" }}>kg</span>
-            <span style={{ width: 44, fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center" }}>Done</span>
+            <span style={{ width: 48, fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center", flexShrink: 0 }}>Done</span>
           </div>
 
           {entry.log.map((s, setIdx) => (
             <div
               key={setIdx}
               style={{
-                display: "flex", alignItems: "center", padding: "8px 16px", gap: 8,
+                display: "flex", alignItems: "center", padding: "10px 16px", gap: 8,
                 backgroundColor: s.completed ? "#eaf5ef" : "transparent", borderTop: "0.5px solid #f7f5f2",
               }}
             >
-              <span style={{ width: 32, fontSize: 13, fontWeight: 700, color: "#aaa", textAlign: "center" }}>{setIdx + 1}</span>
+              <span style={{ width: 32, fontSize: 13, fontWeight: 700, color: "#aaa", textAlign: "center", flexShrink: 0 }}>{setIdx + 1}</span>
               <input
                 type="number"
                 inputMode="numeric"
@@ -329,7 +329,7 @@ function ExerciseTrainingCard({
                 value={s.reps}
                 onChange={(e) => onUpdateSet(setIdx, "reps", e.target.value)}
                 style={{
-                  flex: 1, padding: "8px", borderRadius: "8px", border: "1.5px solid #e5e5e5", fontSize: 15, fontWeight: 700,
+                  flex: 1, minWidth: 0, padding: "12px 8px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: 16, fontWeight: 700,
                   textAlign: "center", backgroundColor: s.completed ? "rgba(255,255,255,0.7)" : "#f7f5f2", outline: "none", color: "#111",
                 }}
               />
@@ -340,24 +340,26 @@ function ExerciseTrainingCard({
                 value={s.weight}
                 onChange={(e) => onUpdateSet(setIdx, "weight", e.target.value)}
                 style={{
-                  flex: 1, padding: "8px", borderRadius: "8px", border: "1.5px solid #e5e5e5", fontSize: 15, fontWeight: 700,
+                  flex: 1, minWidth: 0, padding: "12px 8px", borderRadius: "10px", border: "1.5px solid #e5e5e5", fontSize: 16, fontWeight: 700,
                   textAlign: "center", backgroundColor: s.completed ? "rgba(255,255,255,0.7)" : "#f7f5f2", outline: "none", color: "#111",
                 }}
               />
               <button
                 onClick={() => onToggleSet(setIdx)}
+                aria-label={s.completed ? "Mark set incomplete" : "Mark set complete"}
                 style={{
-                  width: 44, height: 36, borderRadius: "10px", border: "none",
+                  width: 48, height: 48, borderRadius: "12px", border: "none",
                   backgroundColor: s.completed ? "#2d6a4f" : "#f0f0f0", cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
                 }}
               >
                 {s.completed ? (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
                     <path d="M2.5 7l3.5 3.5 5.5-7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ) : (
-                  <div style={{ width: 14, height: 14, borderRadius: "50%", border: "1.5px solid #ccc" }} />
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: "1.5px solid #ccc" }} />
                 )}
               </button>
             </div>
@@ -828,6 +830,20 @@ export default function ActiveWorkout() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: "180px" }}>
       <PortalNav />
+
+      {/* Hide native number-input spinners — on some mobile browsers they
+          render tiny up/down arrows over the Reps/kg fields that eat into
+          tap area right next to the Done toggle, making it easy to miss. */}
+      <style>{`
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
+      `}</style>
 
       <div style={{ background: "linear-gradient(160deg, #1a3a2a 0%, #2d6a4f 100%)", padding: "16px 20px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
