@@ -270,12 +270,30 @@ export default function AdminCoachSession() {
     if (saving) return;
     setSaving(true);
     try {
+      // Build a unified exercises[] array (real exerciseId per set) alongside
+      // the existing slot-keyed `logs`, so this session shows up in the
+      // member's per-exercise history page like every other training flow.
+      const exercisesForHistory = exercises
+        .filter(ex => ex.type !== "cardio")
+        .map(ex => {
+          const sets = (logs[ex.slotKey] || []).map(s => ({
+            reps: s.reps != null ? (parseInt(s.reps, 10) || null) : null,
+            weight: s.weight != null && s.weight !== "BW" ? (parseFloat(s.weight) || null) : null,
+            completed: !!s.done,
+          }));
+          return { exerciseId: ex.exerciseId, exerciseName: ex.name, sets };
+        })
+        .filter(ex => ex.sets.length > 0);
+
       // Write workoutLog for the client
       await addDoc(collection(db, "workoutLogs"), {
         userId: clientUid,
         workoutId,
         programmeId,
         logs,
+        exercises: exercisesForHistory,
+        sourceType: "pt_session",
+        workoutName: workout?.displayName || workout?.name || "PT Session",
         completedAt: new Date().toISOString(),
         loggedByCoach: true,
       });

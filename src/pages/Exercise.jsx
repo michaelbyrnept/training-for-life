@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { db, auth } from "../firebase";
 import { extractYouTubeId, getYouTubeThumbnail } from "../lib/youtube";
 
 // ─── Coaching cues parser ───────────────────────────────────────────────────
@@ -13,6 +14,111 @@ function parseCues(notes) {
     .map(s => s.trim().replace(/\.$/, ""))
     .filter(Boolean);
 }
+
+// ─── History helpers ────────────────────────────────────────────────────────
+// completedAt shows up as a JS Date, a Firestore Timestamp, or (from older
+// logging flows) an ISO string depending on which screen wrote the log.
+function toDate(val) {
+  if (!val) return null;
+  if (val.toDate) return val.toDate();
+  if (val instanceof Date) return val;
+  if (val.seconds) return new Date(val.seconds * 1000);
+  const parsed = new Date(val);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatRelativeDate(date) {
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / 86400000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
+  }
+  return date.toLocaleDateString("en-IE", {
+    day: "numeric",
+    month: "short",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+}
+
+function formatSet(s) {
+  if (s.weight != null && s.weight > 0) {
+    return `${s.weight}kg × ${s.reps ?? "-"}`;
+  }
+  return `${s.reps ?? "-"} reps`;
+}
+
+// Every training flow in the app (Start Workout, programmes, PT sessions,
+// the capability programme, classes) logs sets a little differently at the
+// storage level. This normalizes one raw set object from any of those
+// shapes into { reps, weight, completed } with real numbers.
+function normalizeSet(s) {
+  const rawWeight = s.weight;
+  const weight = rawWeight == null || rawWeight === "BW"
+    ? null
+    : (typeof rawWeight === "string" ? parseFloat(rawWeight) : rawWeight);
+  const rawReps = s.reps;
+  const reps = rawReps == null ? null : (typeof rawReps === "string" ? parseInt(rawReps, 10) : rawReps);
+  const completed = "completed" in s ? s.completed : ("done" in s ? s.done : true);
+  return {
+    reps: Number.isNaN(reps) ? null : reps,
+    weight: Number.isNaN(weight) ? null : weight,
+    completed,
+  };
+}
+
+// Pulls { exerciseId, sets, isPB }[] out of a workoutLogs/classLogs doc,
+// regardless of which flow wrote it. Newer docs carry a unified `exercises`
+// array (real exerciseId per entry); older docs from the coaching, programme,
+// capability, and class flows use a `logs` object instead, keyed either by
+// the real exerciseId directly (programme, class) or by a synthetic slot/index
+// key (older PT sessions, older capability sessions) that can never be
+// resolved to a specific exercise after the fact — those simply won't match
+// any real exerciseId here, which is the correct behavior.
+function extractExerciseEntries(data) {
+  if (Array.isArray(data.exercises)) {
+    return data.exercises
+      .filter(e => e.exerciseId)
+      .map(e => ({ exerciseId: e.exerciseId, sets: e.sets || [], isPB: !!e.personalBestThisSession }));
+  }
+  if (data.logs && typeof data.logs === "object") {
+    const out = [];
+    Object.entries(data.logs).forEach(([key, val]) => {
+      const exerciseId = key.replace(/_top$|_backoff$/, "");
+      const sets = Array.isArray(val) ? val : (val && typeof val === "object" ? [val] : []);
+      if (sets.length > 0) out.push({ exerciseId, sets, isPB: false });
+    });
+    return out;
+  }
+  return [];
+}
+
+// Which training flow a log came from, for display as a badge on each
+// history entry. Prefers the explicit `sourceType` written by newer logs;
+// falls back to inferring from older signals for logs written before that
+// field existed.
+function classifySource(data, isClassLog) {
+  if (isClassLog) return "class";
+  if (data.sourceType) return data.sourceType;
+  if (data.loggedByCoach) return "pt_session";
+  if (data.sessionType === "weights" || data.sessionType === "run") return "capability";
+  if (data.logType === "custom" || Array.isArray(data.exercises)) {
+    return data.programmeId ? "programme" : "custom";
+  }
+  if (data.programmeId) return "programme";
+  return "custom";
+}
+
+const SOURCE_META = {
+  custom: { label: "Solo Workout", color: "#2d6a4f", bg: "#eaf5ef" },
+  programme: { label: "Programme", color: "#0369a1", bg: "#e0f2fe" },
+  pt_session: { label: "PT Session", color: "#7c3aed", bg: "#f5f3ff" },
+  capability: { label: "Capability", color: "#b45309", bg: "#fffbeb" },
+  class: { label: "Class", color: "#dc2626", bg: "#fef2f2" },
+};
 
 // ─── Small stroke-based line icons (no emoji) ──────────────────────────────
 function DumbbellIcon({ size = 16, stroke = "#2d6a4f" }) {
@@ -27,6 +133,52 @@ function PulseIcon({ size = 16, stroke = "#0891b2" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2 10h3l2-5 3 10 2-7 1.5 2H18" />
+    </svg>
+  );
+}
+
+// ─── Weight history chart ───────────────────────────────────────────────────
+// Simple hand-rolled SVG line chart, no charting library, matching the rest
+// of the app's icon/graphic language. Plots the heaviest completed set per
+// session so it reads as a clean progression line even on high-volume days.
+function WeightHistoryChart({ sessions }) {
+  const w = 320, h = 130;
+  const padding = { top: 16, right: 10, bottom: 20, left: 4 };
+  const weights = sessions.map((s) => s.topWeight);
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = maxW - minW || 1;
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+
+  const coords = sessions.map((s, i) => ({
+    x: padding.left + (sessions.length === 1 ? chartW / 2 : (i / (sessions.length - 1)) * chartW),
+    y: padding.top + chartH - ((s.topWeight - minW) / range) * chartH,
+    ...s,
+  }));
+
+  const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
+  const dateLabel = (d) => d.toLocaleDateString("en-IE", { day: "numeric", month: "short" });
+
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`}>
+      <line x1={padding.left} y1={padding.top + chartH} x2={w - padding.right} y2={padding.top + chartH} stroke="#e5e5e5" strokeWidth="1" />
+      <path d={linePath} fill="none" stroke="#2d6a4f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {coords.map((c, i) => (
+        <circle
+          key={i}
+          cx={c.x}
+          cy={c.y}
+          r={i === coords.length - 1 ? 3.5 : 2.5}
+          fill={i === coords.length - 1 ? "#2d6a4f" : "#fff"}
+          stroke="#2d6a4f"
+          strokeWidth="1.5"
+        />
+      ))}
+      <text x={padding.left} y={12} fontSize="9" fill="#aaa">{maxW}kg</text>
+      <text x={padding.left} y={h - padding.bottom + 12} fontSize="9" fill="#aaa">{minW}kg</text>
+      <text x={padding.left} y={h - 5} fontSize="9" fill="#bbb">{dateLabel(coords[0].date)}</text>
+      <text x={w - padding.right} y={h - 5} fontSize="9" fill="#bbb" textAnchor="end">{dateLabel(coords[coords.length - 1].date)}</text>
     </svg>
   );
 }
@@ -69,17 +221,88 @@ export default function Exercise() {
   const [notFound, setNotFound] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
 
+  const [user, setUser] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
   useEffect(() => {
-    if (!exerciseId) { setNotFound(true); setLoading(false); return; }
-    getDoc(doc(db, "exercises", exerciseId)).then(snap => {
+    (async () => {
+      if (!exerciseId) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      const snap = await getDoc(doc(db, "exercises", exerciseId));
       if (snap.exists()) {
         setExercise({ id: snap.id, ...snap.data() });
       } else {
         setNotFound(true);
       }
       setLoading(false);
-    });
+    })();
   }, [exerciseId]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u || null);
+      if (!u) setHistoryLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // Exercise history — unified across every training flow: Start Workout /
+  // My Workouts (custom), programme sessions, PT sessions logged by a coach,
+  // the capability programme, and classes. See extractExerciseEntries and
+  // classifySource above for how each flow's log shape gets normalized.
+  useEffect(() => {
+    if (!user || !exerciseId) return;
+    (async () => {
+      setHistoryLoading(true);
+      try {
+        const [wlSnap, clSnap] = await Promise.all([
+          getDocs(query(collection(db, "workoutLogs"), where("userId", "==", user.uid))),
+          getDocs(query(collection(db, "classLogs"), where("userId", "==", user.uid))),
+        ]);
+
+        const sessions = [];
+
+        const processDoc = (data, isClassLog) => {
+          const date = toDate(data.completedAt) || toDate(data.startedAt) || toDate(data.createdAt);
+          if (!date) return;
+
+          const entries = extractExerciseEntries(data).filter(e => e.exerciseId === exerciseId);
+          if (entries.length === 0) return;
+
+          const sets = entries
+            .flatMap(e => e.sets.map(normalizeSet))
+            .filter(s => s.completed !== false && (s.reps != null || s.weight != null));
+          if (sets.length === 0) return;
+
+          const weights = sets.map(s => s.weight).filter(w => w != null && w > 0);
+          const sourceType = classifySource(data, isClassLog);
+
+          sessions.push({
+            date,
+            sets,
+            topWeight: weights.length > 0 ? Math.max(...weights) : null,
+            workoutName: data.workoutName || data.sessionLabel || data.sessionName || data.classTitle || SOURCE_META[sourceType]?.label || "Session",
+            isPB: entries.some(e => e.isPB),
+            sourceType,
+          });
+        };
+
+        wlSnap.docs.forEach(d => processDoc(d.data(), false));
+        clSnap.docs.forEach(d => processDoc(d.data(), true));
+
+        sessions.sort((a, b) => b.date - a.date);
+        setHistory(sessions);
+      } catch (e) {
+        console.error("Failed to load exercise history:", e);
+        setHistory([]);
+      }
+      setHistoryLoading(false);
+    })();
+  }, [user, exerciseId]);
 
   if (loading) {
     return (
@@ -109,6 +332,7 @@ export default function Exercise() {
   const cues = parseCues(exercise.coachingNotes);
   const videoId = extractYouTubeId(exercise.videoUrl);
   const thumbnail = getYouTubeThumbnail(exercise.videoUrl);
+  const chartSessions = [...history].filter((s) => s.topWeight != null).sort((a, b) => a.date - b.date);
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: 48 }}>
@@ -194,6 +418,71 @@ export default function Exercise() {
             <p style={styles.sectionLabel}>About this exercise</p>
             <p style={{ fontSize: 15, color: "#333", margin: 0, lineHeight: 1.65 }}>
               {exercise.description}
+            </p>
+          </div>
+        )}
+
+        {/* ── Your history ─────────────────────────────────────────────────── */}
+        {!historyLoading && history.length > 0 && (
+          <div style={styles.card}>
+            <p style={styles.sectionLabel}>Your history</p>
+            <p style={{ fontSize: 12, color: "#aaa", margin: "-8px 0 14px" }}>
+              Every solo workout, programme session, PT session, capability session, and class, in one place.
+            </p>
+
+            {chartSessions.length >= 2 && (
+              <div style={{ marginBottom: 14 }}>
+                <WeightHistoryChart sessions={chartSessions} />
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 340, overflowY: "auto" }}>
+              {history.map((s, i) => {
+                const meta = SOURCE_META[s.sourceType] || SOURCE_META.custom;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12,
+                      paddingBottom: 12, borderBottom: i === history.length - 1 ? "none" : "0.5px solid #f0f0f0",
+                    }}
+                  >
+                    <div style={{ flexShrink: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#111", margin: "0 0 3px", display: "flex", alignItems: "center", gap: 6 }}>
+                        {formatRelativeDate(s.date)}
+                        {s.isPB && (
+                          <span style={{ fontSize: 9.5, fontWeight: 800, color: "#b45309", backgroundColor: "#fffbeb", borderRadius: 20, padding: "2px 7px" }}>PB</span>
+                        )}
+                      </p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: meta.color, backgroundColor: meta.bg, borderRadius: 20, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                          {meta.label}
+                        </span>
+                        <p style={{ fontSize: 11.5, color: "#aaa", margin: 0 }}>{s.workoutName}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "flex-end" }}>
+                      {s.sets.map((set, si) => (
+                        <span
+                          key={si}
+                          style={{ fontSize: 11, fontWeight: 700, color: "#2d6a4f", backgroundColor: "#eaf5ef", borderRadius: 8, padding: "3px 8px", whiteSpace: "nowrap" }}
+                        >
+                          {formatSet(set)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!historyLoading && user && history.length === 0 && (
+          <div style={{ ...styles.card, backgroundColor: "#f7f5f2", border: "1px dashed #ddd" }}>
+            <p style={styles.sectionLabel}>Your history</p>
+            <p style={{ fontSize: 13, color: "#aaa", margin: 0 }}>
+              No sessions logged yet. Do this exercise in any workout, programme, PT session, or class, and it'll show up here, timestamped, every time.
             </p>
           </div>
         )}

@@ -117,12 +117,34 @@ export default function ClassLog() {
     if (!user) return;
     setSaving(true);
     try {
+      // Build a unified exercises[] array (real exerciseId per set) alongside
+      // the existing `logs`, so this class shows up in the member's
+      // per-exercise history page like every other training flow. Uses
+      // `cls.blocks` directly (rather than the local `blocks` const declared
+      // further down this component) so it's safe regardless of call order.
+      const exercisesForHistory = Object.entries(logs)
+        .filter(([, l]) => l.weight || l.reps)
+        .map(([exerciseId, l]) => {
+          const exName = (cls.blocks || []).flatMap(b => b.exercises || []).find(e => e.exerciseId === exerciseId)?.name || exerciseId;
+          return {
+            exerciseId,
+            exerciseName: exName,
+            sets: [{
+              reps: l.reps != null ? (parseInt(l.reps, 10) || null) : null,
+              weight: l.weight != null && l.weight !== "BW" ? (parseFloat(l.weight) || null) : null,
+              completed: true,
+            }],
+          };
+        });
+
       await addDoc(collection(db, "classLogs"), {
         userId: user.uid,
         classId,
         classTitle: cls.title,
         classType: cls.type,
         logs,
+        exercises: exercisesForHistory,
+        sourceType: "class",
         completedAt: new Date().toISOString(),
       });
       setDone(true);

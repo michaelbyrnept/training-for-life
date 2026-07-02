@@ -417,6 +417,21 @@ export default function CapabilitySession() {
     if (!user || saving) return;
     setSaving(true);
     try {
+      // Build a unified exercises[] array (real exerciseId per set) alongside
+      // the existing index-keyed `logs`, so this session shows up in the
+      // member's per-exercise history page like every other training flow.
+      const exercisesForHistory = exercises
+        .map((ex, i) => {
+          if (!ex.dbExerciseId) return null;
+          const sets = (logs[i] || []).map(s => ({
+            reps: s.reps != null ? (parseInt(s.reps, 10) || null) : null,
+            weight: s.weight != null && s.weight !== "BW" ? (parseFloat(s.weight) || null) : null,
+            completed: !!s.done,
+          }));
+          return sets.length > 0 ? { exerciseId: ex.dbExerciseId, exerciseName: ex.name, sets } : null;
+        })
+        .filter(Boolean);
+
       await addDoc(collection(db, "workoutLogs"), {
         userId: user.uid,
         programmeId: "capability-programme",
@@ -426,6 +441,9 @@ export default function CapabilitySession() {
         sessionName: session?.name,
         sessionType: "weights",
         logs,
+        exercises: exercisesForHistory,
+        sourceType: "capability",
+        workoutName: session?.name || "Capability Session",
         completedAt: Timestamp.now(),
         createdAt: Timestamp.now(),
       });

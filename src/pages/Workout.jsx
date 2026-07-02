@@ -827,7 +827,25 @@ export default function Workout() {
       const now = new Date();
       const dayName = now.toLocaleDateString("en-IE", { weekday: "long", month: "long", day: "numeric" });
       const sessionLabel = `${workout?.name || "Workout"} — ${dayName}`;
-      await addDoc(collection(db, "workoutLogs"), { userId: user.uid, workoutId, programmeId, weekId, logs, workoutName: workout?.name || "Workout", sessionLabel, completedAt: now.toISOString() });
+
+      // Build a unified exercises[] array (real exerciseId per set) alongside
+      // the existing `logs`, so this session shows up in the member's
+      // per-exercise history page like every other training flow.
+      const exercisesForHistory = exercises
+        .filter(ex => ex.type !== "cardio")
+        .flatMap(ex => {
+          const rawSets = ex.topSetMode
+            ? [...(logs[`${ex.exerciseId}_top`] || []), ...(logs[`${ex.exerciseId}_backoff`] || [])]
+            : (logs[ex.exerciseId] || []);
+          const sets = rawSets.map(s => ({
+            reps: s.reps != null ? (parseInt(s.reps, 10) || null) : null,
+            weight: s.weight != null && s.weight !== "BW" ? (parseFloat(s.weight) || null) : null,
+            completed: !!s.done,
+          }));
+          return sets.length > 0 ? [{ exerciseId: ex.exerciseId, exerciseName: ex.name, sets }] : [];
+        });
+
+      await addDoc(collection(db, "workoutLogs"), { userId: user.uid, workoutId, programmeId, weekId, logs, exercises: exercisesForHistory, sourceType: "programme", workoutName: workout?.name || "Workout", sessionLabel, completedAt: now.toISOString() });
       localStorage.removeItem(storageKey);
       localStorage.removeItem(`${storageKey}_index`);
       const summary = await buildSummary(logs);
