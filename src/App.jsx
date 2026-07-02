@@ -67,7 +67,8 @@ import AccountActivation from "./pages/AccountActivation";
 import GymLanding from "./pages/GymLanding";
 import MyWorkouts from "./pages/MyWorkouts";
 import WorkoutBuilder from "./pages/WorkoutBuilder";
-import MyWorkoutSession from "./pages/MyWorkoutSession";
+import StartWorkout from "./pages/StartWorkout";
+import ActiveWorkout from "./pages/ActiveWorkout";
 import MyProgrammes from "./pages/MyProgrammes";
 import ProgrammeBuilder from "./pages/ProgrammeBuilder";
 import MyProgrammeView from "./pages/MyProgrammeView";
@@ -152,9 +153,10 @@ export default function App() {
       <Route path="/start" element={<GymLanding />} />
       <Route path="/admin/import-clients" element={<AdminRoute><AdminImportClients /></AdminRoute>} />
       <Route path="/my-workouts" element={<MyWorkouts />} />
-      <Route path="/my-workouts/new" element={<WorkoutBuilder />} />
+      <Route path="/start-workout" element={<StartWorkout />} />
+      <Route path="/my-workouts/new" element={<ActiveWorkout />} />
       <Route path="/my-workouts/:workoutId/edit" element={<WorkoutBuilder />} />
-      <Route path="/my-workouts/:workoutId" element={<MyWorkoutSession />} />
+      <Route path="/my-workouts/:workoutId" element={<ActiveWorkout />} />
       <Route path="/my-programmes" element={<MyProgrammes />} />
       <Route path="/my-programmes/new" element={<ProgrammeBuilder />} />
       <Route path="/my-programmes/:programmeId/edit" element={<ProgrammeBuilder />} />

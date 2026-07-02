@@ -2,24 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
-
-// ─── YouTube helpers ────────────────────────────────────────────────────────
-function extractYouTubeId(url) {
-  if (!url) return null;
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/,
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
-  }
-  return null;
-}
-
-function getYouTubeThumbnail(url) {
-  const id = extractYouTubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
-}
+import { extractYouTubeId, getYouTubeThumbnail } from "../lib/youtube";
 
 // ─── Coaching cues parser ───────────────────────────────────────────────────
 // Splits coachingNotes into individual cues. Handles newlines and sentence endings.
@@ -29,6 +12,23 @@ function parseCues(notes) {
     .split(/\n|(?<=\.)\s+/)
     .map(s => s.trim().replace(/\.$/, ""))
     .filter(Boolean);
+}
+
+// ─── Small stroke-based line icons (no emoji) ──────────────────────────────
+function DumbbellIcon({ size = 16, stroke = "#2d6a4f" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8v4M5 6.5v7M15 6.5v7M17 8v4M5 10h10" />
+    </svg>
+  );
+}
+
+function PulseIcon({ size = 16, stroke = "#0891b2" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 10h3l2-5 3 10 2-7 1.5 2H18" />
+    </svg>
+  );
 }
 
 // ─── Muscle group colours ───────────────────────────────────────────────────
@@ -93,7 +93,9 @@ export default function Exercise() {
   if (notFound) {
     return (
       <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-        <p style={{ fontSize: 48, margin: "0 0 12px" }}>🏋️</p>
+        <div style={{ marginBottom: 12 }}>
+          <DumbbellIcon size={48} stroke="#ccc" />
+        </div>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111", margin: "0 0 8px" }}>Exercise not found</h1>
         <p style={{ fontSize: 14, color: "#888", margin: "0 0 24px" }}>This exercise may have been removed.</p>
         <button onClick={() => navigate(-1)} style={styles.backBtn}>Go back</button>
@@ -129,8 +131,9 @@ export default function Exercise() {
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {/* Type badge */}
-          <span style={{ fontSize: 11, fontWeight: 700, color: isCardio ? "#0891b2" : "#2d6a4f", backgroundColor: isCardio ? "#ecfeff" : "#eaf5ef", borderRadius: 20, padding: "3px 10px" }}>
-            {isCardio ? "🏃 Cardio" : "🏋️ Strength"}
+          <span style={{ fontSize: 11, fontWeight: 700, color: isCardio ? "#0891b2" : "#2d6a4f", backgroundColor: isCardio ? "#ecfeff" : "#eaf5ef", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            {isCardio ? <PulseIcon size={11} stroke="#0891b2" /> : <DumbbellIcon size={11} stroke="#2d6a4f" />}
+            {isCardio ? "Cardio" : "Strength"}
           </span>
           {/* Muscle group badges */}
           {muscles.map(m => {

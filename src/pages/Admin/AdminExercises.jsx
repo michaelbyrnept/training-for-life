@@ -2,6 +2,23 @@ import { useState, useEffect } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy } from "firebase/firestore";
 import { db } from "../../firebase";
 import { Link } from "react-router-dom";
+import { MOVEMENT_PATTERNS, inferMovementPattern, patternLabel } from "../../lib/workoutRecommendations";
+
+function DumbbellIcon({ size = 18, stroke = "#2d6a4f" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8v4M5 6.5v7M15 6.5v7M17 8v4M5 10h10" />
+    </svg>
+  );
+}
+
+function PulseIcon({ size = 18, stroke = "#0891b2" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 10h3l2-5 3 10 2-7 1.5 2H18" />
+    </svg>
+  );
+}
 
 const MUSCLE_GROUPS = [
   // Specific leg muscles (tag these instead of "Legs" going forward)
@@ -22,6 +39,7 @@ const empty = {
   description: "",
   type: "strength",
   muscleGroups: ["Legs"],
+  movementPattern: null,
   defaultSets: 3,
   defaultReps: 10,
   repsMin: 8,
@@ -125,6 +143,7 @@ export default function AdminExercises() {
       muscleGroups: exercise.muscleGroups?.length
         ? exercise.muscleGroups
         : exercise.muscleGroup ? [exercise.muscleGroup] : ["Legs"],
+      movementPattern: exercise.movementPattern || null,
       defaultSets: exercise.defaultSets || 3,
       defaultReps: exercise.defaultReps || 10,
       repsMin: exercise.repsMin || 8,
@@ -228,11 +247,13 @@ export default function AdminExercises() {
           <label style={labelStyle}>Exercise Type</label>
           <div style={{ display: "flex", gap: "10px", marginBottom: "4px" }}>
             {[
-              { val: "strength", icon: "🏋️", label: "Strength", sub: "Sets & reps" },
-              { val: "cardio", icon: "🏃", label: "Cardio", sub: "Duration & effort" },
+              { val: "strength", Icon: DumbbellIcon, label: "Strength", sub: "Sets & reps" },
+              { val: "cardio", Icon: PulseIcon, label: "Cardio", sub: "Duration & effort" },
             ].map(opt => (
               <div key={opt.val} onClick={() => setForm({ ...form, type: opt.val })} style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `2px solid ${form.type === opt.val ? "#2d6a4f" : "#e5e5e5"}`, backgroundColor: form.type === opt.val ? "#eaf5ef" : "#fff", cursor: "pointer", textAlign: "center" }}>
-                <p style={{ fontSize: "18px", margin: "0 0 3px" }}>{opt.icon}</p>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 3 }}>
+                  <opt.Icon size={18} stroke={form.type === opt.val ? "#2d6a4f" : "#999"} />
+                </div>
                 <p style={{ fontWeight: 700, fontSize: "13px", color: form.type === opt.val ? "#2d6a4f" : "#111", margin: 0 }}>{opt.label}</p>
                 <p style={{ fontSize: "11px", color: "#888", margin: "2px 0 0" }}>{opt.sub}</p>
               </div>
@@ -280,6 +301,37 @@ export default function AdminExercises() {
           {form.muscleGroups.length === 0 && (
             <p style={{ fontSize: 11, color: "#dc2626", margin: "4px 0 0" }}>Select at least one muscle group.</p>
           )}
+
+          <label style={labelStyle}>Movement Pattern (powers Start Workout recommendations)</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+            {MOVEMENT_PATTERNS.map((p) => {
+              const selected = form.movementPattern === p.value;
+              return (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, movementPattern: selected ? null : p.value }))}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "16px",
+                    border: "none",
+                    backgroundColor: selected ? "#1a3a2a" : "#f0f0f0",
+                    color: selected ? "#fff" : "#555",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: 11, color: "#aaa", margin: "2px 0 0" }}>
+            {form.movementPattern
+              ? "Tagged — this exercise will be picked deliberately for the matching slot."
+              : `Not tagged yet. Best guess for now: "${patternLabel(inferMovementPattern(form)) || "none"}". Tag it for accurate sequencing.`}
+          </p>
 
           {isCardio ? (
             <>
@@ -400,7 +452,9 @@ export default function AdminExercises() {
                     <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px", flexWrap: "wrap" }}>
                       {exercise.type === "cardio" ? (
                         <>
-                          <span style={{ fontSize: "10px", backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>🏃 Cardio</span>
+                          <span style={{ fontSize: "10px", backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, padding: "2px 8px", borderRadius: "20px", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <PulseIcon size={10} stroke="#0369a1" /> Cardio
+                          </span>
                           <span style={{ fontSize: "10px", backgroundColor: "#f3f4f6", color: "#666", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>{exercise.defaultDuration || 30} min</span>
                         </>
                       ) : (
@@ -416,6 +470,15 @@ export default function AdminExercises() {
                       )}
                       {exercise.videoUrl && <span style={{ fontSize: "10px", backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>Video</span>}
                       {exercise.coachingNotes && <span style={{ fontSize: "10px", backgroundColor: "#f3f4f6", color: "#666", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>Notes</span>}
+                      {exercise.movementPattern ? (
+                        <span style={{ fontSize: "10px", backgroundColor: "#eaf5ef", color: "#2d6a4f", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>
+                          {patternLabel(exercise.movementPattern)}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: "10px", backgroundColor: "#fffbeb", color: "#b45309", fontWeight: 700, padding: "2px 8px", borderRadius: "20px" }}>
+                          Untagged pattern
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
