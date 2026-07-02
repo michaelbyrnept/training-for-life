@@ -137,6 +137,16 @@ function PulseIcon({ size = 16, stroke = "#0891b2" }) {
   );
 }
 
+function HistoryIcon({ size = 16, stroke = "#2d6a4f" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 5.5V10l3 2" />
+      <path d="M4.5 6.5A7 7 0 1110 17a7 7 0 01-6.2-3.8" />
+      <path d="M4.5 9V6h3" />
+    </svg>
+  );
+}
+
 // ─── Weight history chart ───────────────────────────────────────────────────
 // Simple hand-rolled SVG line chart, no charting library, matching the rest
 // of the app's icon/graphic language. Plots the heaviest completed set per
@@ -333,6 +343,7 @@ export default function Exercise() {
   const videoId = extractYouTubeId(exercise.videoUrl);
   const thumbnail = getYouTubeThumbnail(exercise.videoUrl);
   const chartSessions = [...history].filter((s) => s.topWeight != null).sort((a, b) => a.date - b.date);
+  const hasHistory = !historyLoading && history.length > 0;
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f7f5f2", paddingBottom: 48 }}>
@@ -369,6 +380,16 @@ export default function Exercise() {
             );
           })}
         </div>
+
+        {/* Last-done / session-count summary — visible immediately, no scrolling needed */}
+        {hasHistory && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 20, padding: "6px 12px", marginTop: 14 }}>
+            <HistoryIcon size={13} stroke="#9fe1cb" />
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: "#9fe1cb" }}>
+              Last done {formatRelativeDate(history[0].date)} · {history.length} session{history.length === 1 ? "" : "s"} logged
+            </span>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: "0 20px", marginTop: -20 }}>
@@ -412,21 +433,19 @@ export default function Exercise() {
           </div>
         )}
 
-        {/* ── Description / Why ───────────────────────────────────────────── */}
-        {exercise.description && (
-          <div style={styles.card}>
-            <p style={styles.sectionLabel}>About this exercise</p>
-            <p style={{ fontSize: 15, color: "#333", margin: 0, lineHeight: 1.65 }}>
-              {exercise.description}
-            </p>
-          </div>
-        )}
-
         {/* ── Your history ─────────────────────────────────────────────────── */}
-        {!historyLoading && history.length > 0 && (
-          <div style={styles.card}>
-            <p style={styles.sectionLabel}>Your history</p>
-            <p style={{ fontSize: 12, color: "#aaa", margin: "-8px 0 14px" }}>
+        {/* Placed right after the video, ahead of About/Training parameters, so
+            past performance is the first thing a returning user sees. */}
+        {hasHistory && (
+          <div style={{ ...styles.card, borderLeft: "4px solid #2d6a4f" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+              <HistoryIcon size={17} stroke="#2d6a4f" />
+              <p style={{ fontSize: 15, fontWeight: 800, color: "#111", margin: 0 }}>Your history</p>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#2d6a4f", backgroundColor: "#eaf5ef", borderRadius: 20, padding: "2px 9px", marginLeft: "auto" }}>
+                {history.length}
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: "#aaa", margin: "2px 0 14px" }}>
               Every solo workout, programme session, PT session, capability session, and class, in one place.
             </p>
 
@@ -483,6 +502,16 @@ export default function Exercise() {
             <p style={styles.sectionLabel}>Your history</p>
             <p style={{ fontSize: 13, color: "#aaa", margin: 0 }}>
               No sessions logged yet. Do this exercise in any workout, programme, PT session, or class, and it'll show up here, timestamped, every time.
+            </p>
+          </div>
+        )}
+
+        {/* ── Description / Why ───────────────────────────────────────────── */}
+        {exercise.description && (
+          <div style={styles.card}>
+            <p style={styles.sectionLabel}>About this exercise</p>
+            <p style={{ fontSize: 15, color: "#333", margin: 0, lineHeight: 1.65 }}>
+              {exercise.description}
             </p>
           </div>
         )}

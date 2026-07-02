@@ -78,6 +78,10 @@ function TrophyIcon({ size = 64 }) {
  *   /my-workouts/new            fresh session, optional ?split=upper etc
  *   /my-workouts/:workoutId     resume a saved workout (optionally inside a
  *                                programme via ?programmeId&week&day)
+ *
+ * Progress is mirrored to localStorage as the user logs (see storageKey /
+ * restoredDraft below), so an accidental refresh, a swipe-back gesture, or
+ * the tab closing doesn't wipe out sets they've already ticked off.
  */
 
 // ─── Rest Timer ───────────────────────────────────────────────────────────────
@@ -506,8 +510,32 @@ export default function ActiveWorkout() {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [title, setTitle] = useState("");
-  const [exercises, setExercises] = useState([]); // { exerciseId, exerciseName, sets, reps, weight, restSeconds, notes, slotLabel, log }
+
+  // Local crash/refresh recovery — a resumed workout persists under its own
+  // id; a fresh session (no workoutId yet, nothing saved to Firestore) uses
+  // a single "draft" slot. Read synchronously on first render (lazy useState
+  // initializer, not an effect) so nothing can race ahead and overwrite it
+  // before it's picked up.
+  const storageKey = isResuming ? `tfl_workout_${workoutId}` : "tfl_workout_draft";
+  const [restoredDraft] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      if (isResuming) {
+        return Array.isArray(parsed) && parsed.length > 0 ? { exercises: parsed } : null;
+      }
+      if (parsed && parsed.splitId === splitId && Array.isArray(parsed.exercises) && parsed.exercises.length > 0) {
+        return { title: parsed.title, exercises: parsed.exercises };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [title, setTitle] = useState(() => restoredDraft?.title || "");
+  const [exercises, setExercises] = useState(() => restoredDraft?.exercises || []); // { exerciseId, exerciseName, sets, reps, weight, restSeconds, notes, slotLabel, log }
   const [libraryExercises, setLibraryExercises] = useState([]);
   const [libraryById, setLibraryById] = useState({});
 
@@ -545,8 +573,18 @@ export default function ActiveWorkout() {
         const snap = await getDoc(doc(db, "users", u.uid, "workouts", workoutId));
         if (!snap.exists()) { navigate("/my-workouts"); return; }
         const data = snap.data();
-        setTitle(data.name || "Workout");
-        setExercises((data.exercises || []).map((e) => ({ ...e, log: seedLog(e) })));
+        setTitle((prev) => prev || data.name || "Workout");
+        if (!restoredDraft) {
+          setExercises((data.exercises || []).map((e) => ({ ...e, log: seedLog(e) })));
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (restoredDraft) {
+        // Progress was already restored synchronously on mount above --
+        // pick up right where they left off instead of rebuilding fresh.
+        setSaveName(restoredDraft.title || (splitMeta ? splitMeta.label : "My Workout"));
         setLoading(false);
         return;
       }
@@ -583,6 +621,23 @@ export default function ActiveWorkout() {
     return () => unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Autosave — mirror in-progress sets to localStorage as they're logged.
+  // Skipped while still loading so the transient empty initial state never
+  // overwrites a real draft mid-restore.
+  useEffect(() => {
+    if (loading) return;
+    try {
+      if (isResuming) {
+        localStorage.setItem(storageKey, JSON.stringify(exercises));
+      } else {
+        localStorage.setItem(storageKey, JSON.stringify({ splitId, title, exercises }));
+      }
+    } catch {
+      // Storage full or unavailable (private browsing) -- fine, just means
+      // no crash-recovery this session.
+    }
+  }, [exercises, title, loading, isResuming, splitId, storageKey]);
 
   // ── Exercise management ──
   const addExercise = (ex, slotLabel) => {
@@ -757,6 +812,8 @@ export default function ActiveWorkout() {
           completedSessions: arrayUnion({ week: programmeWeek, day: programmeDay, logId: logRef.id, completedAt: endTime.toISOString() }),
         });
       }
+
+      try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
 
       setFinished(true);
     } catch (e) {
